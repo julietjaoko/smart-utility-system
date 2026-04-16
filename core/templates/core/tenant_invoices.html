@@ -1,0 +1,126 @@
+{% extends 'core/base.html' %}
+
+{% block title %}My Invoices{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="receipt" width="28" height="28"></i>
+            My Invoices
+        </h1>
+        <a href="{% url 'tenant_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Dashboard
+        </a>
+    </div>
+    
+    <!-- Account Balance -->
+    <div style="background: {% if current_balance > 0 %}rgba(239, 68, 68, 0.1){% else %}rgba(16, 185, 129, 0.1){% endif %}; padding: var(--spacing-xl); border-radius: var(--radius); margin-bottom: var(--spacing-xl); border-left: 4px solid {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %};">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-size: 0.875rem; font-weight: 600; color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %}; margin-bottom: 0.25rem;">Current Account Balance</div>
+                <div style="font-size: 2rem; font-weight: 700; color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %};">
+                    {% if current_balance > 0 %}
+                        KES {{ current_balance|floatformat:2 }}
+                    {% elif current_balance < 0 %}
+                        KES {{ abs_balance|floatformat:2 }}
+                    {% else %}
+                        KES 0.00
+                    {% endif %}
+                </div>
+                <div style="font-size: 0.875rem; color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %}; margin-top: 0.25rem;">
+                    {% if current_balance > 0 %}Outstanding{% elif current_balance < 0 %}Credit{% else %}No Balance{% endif %}
+                </div>
+            </div>
+            <i data-lucide="{% if current_balance > 0 %}alert-circle{% else %}check-circle{% endif %}" width="48" height="48" style="color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %}; opacity: 0.5;"></i>
+        </div>
+    </div>
+    
+    <!-- Filter -->
+    <div style="margin-bottom: var(--spacing-lg);">
+        <form method="GET">
+            <select name="status" onchange="this.form.submit()" style="max-width: 300px;">
+                <option value="">All Invoices</option>
+                <option value="UNPAID" {% if status_filter == 'UNPAID' %}selected{% endif %}>Unpaid</option>
+                <option value="PAID" {% if status_filter == 'PAID' %}selected{% endif %}>Paid</option>
+                <option value="OVERDUE" {% if status_filter == 'OVERDUE' %}selected{% endif %}>Overdue</option>
+            </select>
+        </form>
+    </div>
+    
+    <!-- Invoices List -->
+    {% if page_obj %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Period</th>
+                    <th>Amount</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in page_obj %}
+                <tr>
+                    <td style="font-weight: 600; font-family: monospace;">{{ invoice.invoice_number }}</td>
+                    <td>{{ invoice.billing_period }}</td>
+                    <td style="font-weight: 700; color: var(--text-primary);">KES {{ invoice.total_due|floatformat:2 }}</td>
+                    <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="status-badge status-{{ invoice.status|lower }}">
+                            {{ invoice.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'invoice_detail' invoice.id %}" style="color: var(--primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
+                            View
+                            <i data-lucide="arrow-right" width="14" height="14"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+            <i data-lucide="chevron-left" width="16" height="16"></i>
+            Previous
+        </a>
+        {% endif %}
+        
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+            Next
+            <i data-lucide="chevron-right" width="16" height="16"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div style="text-align: center; padding: var(--spacing-2xl); color: var(--text-secondary);">
+        <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+        <p style="font-size: 1.125rem; font-weight: 500; color: var(--text-primary);">No invoices found</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

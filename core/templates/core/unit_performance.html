@@ -1,0 +1,135 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Unit Performance: {{ unit.unit_number }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 class="card-title">
+            <i data-lucide="bar-chart" width="28" height="28"></i>
+            Unit Performance: {{ unit.unit_number }}
+        </h1>
+        <a href="{% url 'manage_units' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Back to Units
+        </a>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom: var(--spacing-xl);">
+        <div class="stat-card">
+            <div class="stat-label">Current Tenant</div>
+            <div class="stat-value" style="font-size: 1.25rem;">
+                {{ unit.tenant_set.first.user.get_full_name|default:"Vacant" }}
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-label">Total Outstanding Debt</div>
+            <div class="stat-value" style="color: {% if total_outstanding > 0 %}var(--danger-color){% else %}var(--success-color){% endif %};">
+                KES {{ total_outstanding|default:"0.00" }}
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Total Consumption (YTD)</div>
+            <div class="stat-value">
+                {{ total_consumption|default:"0" }} <span style="font-size: 0.875rem; color: var(--text-secondary);">units</span>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); margin-bottom: var(--spacing-xl);">
+        
+        <div style="background: var(--bg-secondary, #f9fafb); padding: var(--spacing-lg); border-radius: 8px; border: 1px solid var(--border-color);">
+            <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="gauge" width="20" height="20"></i>
+                Recent Meter Readings
+            </h3>
+            
+            {% if recent_readings %}
+                <table class="table" style="background: white;">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Units Used</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in recent_readings|slice:":5" %}
+                        <tr>
+                            <td>{{ reading.reading_date|date:"M d, Y" }}</td>
+                            <td>{{ reading.get_meter_type_display }}</td>
+                            <td><strong>{{ reading.consumption }}</strong></td>
+                            <td>
+                                {% if reading.is_anomaly %}
+                                    <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #b45309; font-size: 0.7rem;">Anomaly</span>
+                                {% else %}
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #047857; font-size: 0.7rem;">Normal</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-secondary);">No recent readings found for this unit.</p>
+            {% endif %}
+            
+            <div style="margin-top: var(--spacing-md); text-align: right;">
+                <a href="{% url 'meter_reading_list' %}?unit={{ unit.id }}" class="btn btn-secondary" style="font-size: 0.875rem;">View All Readings →</a>
+            </div>
+        </div>
+
+        <div style="background: var(--bg-secondary, #f9fafb); padding: var(--spacing-lg); border-radius: 8px; border: 1px solid var(--border-color);">
+            <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="receipt" width="20" height="20"></i>
+                Recent Invoices
+            </h3>
+            
+            {% if recent_invoices %}
+                <table class="table" style="background: white;">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Total Due</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in recent_invoices|slice:":5" %}
+                        <tr>
+                            <td>{{ invoice.billing_period }}</td>
+                            <td><strong>KES {{ invoice.total_due }}</strong></td>
+                            <td>
+                                {% if invoice.status == 'PAID' %}
+                                    <span class="badge" style="background: var(--success-color); color: white; font-size: 0.7rem;">Paid</span>
+                                {% elif invoice.status == 'UNPAID' %}
+                                    <span class="badge" style="background: var(--danger-color); color: white; font-size: 0.7rem;">Unpaid</span>
+                                {% else %}
+                                    <span class="badge" style="background: var(--warning-color); color: #854d0e; font-size: 0.7rem;">{{ invoice.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-secondary);">No recent invoices found for this unit.</p>
+            {% endif %}
+            
+            <div style="margin-top: var(--spacing-md); text-align: right;">
+                <a href="{% url 'invoice_list' %}?unit={{ unit.id }}" class="btn btn-secondary" style="font-size: 0.875rem;">View All Invoices →</a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

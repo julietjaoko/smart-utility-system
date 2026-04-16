@@ -1,0 +1,170 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Unit Profile - {{ unit.unit_number }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="home" width="28" height="28"></i>
+                Unit {{ unit.unit_number }}
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">{{ unit.estate_name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'manage_units' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Back to Directory
+            </a>
+            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" style="margin-left: 0.5rem;">
+                <i data-lucide="edit" width="16" height="16"></i>
+                Edit Unit
+            </a>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-xl); flex-wrap: wrap;">
+        <a href="{% url 'consumption_analytics' %}?unit={{ unit.id }}" class="btn btn-primary">
+            <i data-lucide="trending-up" width="16" height="16"></i>
+            Advanced Analytics
+        </a>
+        <a href="{% url 'invoice_list' %}?unit={{ unit.id }}" class="btn btn-secondary">
+            <i data-lucide="receipt" width="16" height="16"></i>
+            View All Invoices
+        </a>
+        <a href="{% url 'enter_meter_reading' %}" class="btn btn-secondary">
+            <i data-lucide="plus-circle" width="16" height="16"></i>
+            Enter Reading
+        </a>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="user" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Current Tenant</div>
+            <div class="stat-value" style="font-size: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+                {% if tenant %}
+                    <span>{{ tenant.user.get_full_name|default:tenant.user.username }}</span>
+                    <form method="POST" action="{% url 'deactivate_tenant' tenant.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to deactivate this tenant? This will revoke their login access and vacate the unit.');">
+                        {% csrf_token %}
+                        <button type="submit" class="badge badge-danger" style="border: none; cursor: pointer;">
+                            Deactivate
+                        </button>
+                    </form>
+                {% else %}
+                    <span style="color: var(--text-tertiary);">Vacant</span>
+                {% endif %}
+            </div>
+            </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="alert-circle" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Outstanding Balance</div>
+            <div class="stat-value" style="{% if total_outstanding > 0 %}color: var(--error);{% else %}color: var(--success);{% endif %}">
+                KES {{ total_outstanding }}
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="settings" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Active Meters</div>
+            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                {% if unit.has_water_meter %}
+                    <span class="badge badge-info">Water</span>
+                {% endif %}
+                {% if unit.has_electricity_meter %}
+                    <span class="badge badge-warning">Electricity</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-xl); margin-top: var(--spacing-xl);">
+        
+        <div>
+            <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="file-text" width="18" height="18"></i> Recent Invoices
+            </h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in recent_invoices %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'invoice_detail' invoice.id %}" style="color: var(--primary); text-decoration: none; font-weight: 500;">
+                                    {{ invoice.billing_period }}
+                                </a>
+                            </td>
+                            <td>KES {{ invoice.total_due }}</td>
+                            <td>
+                                <span class="status-badge status-{{ invoice.status|lower }}">
+                                    {{ invoice.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-secondary);">No recent invoices found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div>
+            <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="gauge" width="18" height="18"></i> Recent Readings
+            </h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Units</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in recent_readings %}
+                        <tr>
+                            <td>{{ reading.reading_date|date:"M d, Y" }}</td>
+                            <td>
+                                <span class="badge {% if reading.meter.meter_type == 'WATER' %}badge-info{% else %}badge-warning{% endif %}">
+                                    {{ reading.meter.get_meter_type_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {{ reading.reading_value }}
+                                {% if reading.is_anomaly %}
+                                    <i data-lucide="alert-triangle" width="14" height="14" style="color: var(--warning); vertical-align: middle;" title="Anomaly Detected"></i>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-secondary);">No recent readings found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

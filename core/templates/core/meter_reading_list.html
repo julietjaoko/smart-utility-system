@@ -1,0 +1,214 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Meter Readings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 class="card-title">
+            <i data-lucide="bar-chart-3" width="28" height="28"></i>
+            Meter Readings
+        </h1>
+        <a href="{% url 'enter_meter_reading' %}" class="btn btn-primary">
+            <i data-lucide="plus" width="16" height="16"></i>
+            Enter New Reading
+        </a>
+    </div>
+
+    <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: var(--spacing-lg);">
+        <button onclick="switchTab('all')" id="btn-tab-all" style="padding: 0.75rem 1.5rem; background: transparent; border: none; border-bottom: 2px solid var(--primary-color); color: var(--primary-color); font-weight: 600; cursor: pointer; font-size: 1rem;">
+            All Readings
+        </button>
+        <button onclick="switchTab('triage')" id="btn-tab-triage" style="padding: 0.75rem 1.5rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); font-weight: 600; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            Requires Action
+            {% if pending_count > 0 %}
+                <span style="background: var(--danger-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">{{ pending_count }}</span>
+            {% endif %}
+        </button>
+    </div>
+
+    <div id="tab-triage" style="display: none;">
+        {% if pending_count > 0 %}
+            <div class="alert alert-warning" style="margin-bottom: var(--spacing-lg);">
+                <i data-lucide="alert-triangle" width="20" height="20"></i>
+                <div>
+                    <strong>Action Required</strong>
+                    <p style="margin-top: 0.25rem; font-size: 0.875rem;">These readings were flagged as anomalous (unusually high, zero, or negative). They must be explicitly verified or rejected before invoices can be generated.</p>
+                </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Unit</th>
+                            <th>Type</th>
+                            <th>Reading</th>
+                            <th>Consumption</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in pending_anomalies %}
+                        <tr style="background-color: rgba(239, 68, 68, 0.05);">
+                            <td>{{ reading.reading_date|date:"Y-m-d H:i" }}</td>
+                            <td><strong>{{ reading.meter.unit.unit_number }}</strong></td>
+                            <td>{{ reading.meter.get_meter_type_display }}</td>
+                            <td>{{ reading.reading_value }}</td>
+                            <td>
+                                <strong style="color: var(--danger-color);">{{ reading.consumption }}</strong>
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <a href="{% url 'resolve_anomaly' reading.id 'verify' %}" class="btn btn-success" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
+                                        <i data-lucide="check" width="14" height="14"></i> Verify
+                                    </a>
+                                    <a href="{% url 'resolve_anomaly' reading.id 'reject' %}" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="return confirm('Reject this reading? You will need to enter a new one.')">
+                                        <i data-lucide="x" width="14" height="14"></i> Reject
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                <i data-lucide="check-circle-2" width="48" height="48" style="color: var(--success-color); margin-bottom: 1rem; opacity: 0.8;"></i>
+                <h3>All Clear!</h3>
+                <p>There are no pending anomalies requiring your attention.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="tab-all">
+        <form method="GET" style="display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); flex-wrap: wrap; background: var(--bg-secondary); padding: var(--spacing-md); border-radius: 8px;">
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" name="search" class="form-control" placeholder="Search unit or notes..." value="{{ current_filters.search|default:'' }}">
+            </div>
+            <div style="min-width: 150px;">
+                <select name="unit" class="form-control">
+                    <option value="">All Units</option>
+                    {% for unit in units %}
+                        <option value="{{ unit.id }}" {% if current_filters.unit == unit.id|stringformat:"s" %}selected{% endif %}>
+                            {{ unit.unit_number }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+            <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">Clear</a>
+        </form>
+
+        <div style="overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Unit</th>
+                        <th>Type</th>
+                        <th>Reading</th>
+                        <th>Consumption</th>
+                        <th>Status</th> <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reading in page_obj %}
+                    <tr>
+                        <td>{{ reading.reading_date|date:"Y-m-d" }}</td>
+                        <td><strong>{{ reading.meter.unit.unit_number }}</strong></td>
+                        <td>{{ reading.meter.get_meter_type_display }}</td>
+                        <td>{{ reading.reading_value }}</td>
+                        <td>{{ reading.consumption }}</td>
+                        
+                        <td>
+                            {% if reading.is_anomaly %}
+                                <div style="color: #f59e0b; display: flex; align-items: center; gap: 4px; font-weight: 600; margin-bottom: 4px;">
+                                    <i data-lucide="alert-circle" width="16" height="16"></i> 
+                                    Anomaly
+                                </div>
+                            {% else %}
+                                <div style="color: var(--success-color, #10b981); display: flex; align-items: center; gap: 4px; font-weight: 600; margin-bottom: 4px;">
+                                    <i data-lucide="check-circle-2" width="16" height="16"></i> 
+                                    Normal
+                                </div>
+                            {% endif %}
+                            
+                            {% if reading.is_anomaly %}
+                                <div>
+                                    {% if reading.verification_status == 'PENDING' %}
+                                        <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #b45309; font-size: 0.7rem; padding: 2px 6px;">Pending Review</span>
+                                    {% elif reading.verification_status == 'REJECTED' %}
+                                        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #b91c1c; font-size: 0.7rem; padding: 2px 6px;">Rejected</span>
+                                    {% else %}
+                                        <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #047857; font-size: 0.7rem; padding: 2px 6px;">Verified Valid</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        
+                        <td>
+                            <a href="{% url 'meter_reading_detail' reading.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                View
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: var(--spacing-lg);">
+                            No readings found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: var(--spacing-lg);">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary">&laquo; Prev</a>
+            {% endif %}
+            
+            <span style="display: flex; align-items: center; padding: 0 1rem; background: var(--bg-secondary); border-radius: 4px;">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary">Next &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function switchTab(tabName) {
+    // Hide both tabs
+    document.getElementById('tab-all').style.display = 'none';
+    document.getElementById('tab-triage').style.display = 'none';
+    
+    // Reset button styles
+    document.getElementById('btn-tab-all').style.borderBottomColor = 'transparent';
+    document.getElementById('btn-tab-all').style.color = 'var(--text-secondary)';
+    document.getElementById('btn-tab-triage').style.borderBottomColor = 'transparent';
+    document.getElementById('btn-tab-triage').style.color = 'var(--text-secondary)';
+    
+    // Show selected tab and highlight button
+    document.getElementById('tab-' + tabName).style.display = 'block';
+    document.getElementById('btn-tab-' + tabName).style.borderBottomColor = 'var(--primary-color)';
+    document.getElementById('btn-tab-' + tabName).style.color = 'var(--primary-color)';
+}
+
+// Auto-switch to triage tab if there are pending anomalies
+document.addEventListener('DOMContentLoaded', function() {
+    {% if pending_count > 0 %}
+        switchTab('triage');
+    {% else %}
+        switchTab('all');
+    {% endif %}
+});
+</script>
+{% endblock %}

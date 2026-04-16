@@ -1,0 +1,68 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Billing Wizard - Step 2{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="settings-2" width="24" height="24"></i>
+            Billing Wizard: Confirm Rates
+        </h1>
+    </div>
+    
+    <div style="padding: var(--spacing-lg);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: var(--spacing-xl); padding-bottom: var(--spacing-md); border-bottom: 1px solid var(--border-color);">
+            <div style="color: var(--success-color);">✓ Select Period</div>
+            <div style="font-weight: 600; color: var(--primary-color);">2. Confirm Rates</div>
+            <div style="color: var(--text-secondary);">3. Preview & Generate</div>
+        </div>
+
+        <h3 style="margin-bottom: var(--spacing-md);">Active Consumption Rates</h3>
+        <div class="stats-grid" style="margin-bottom: var(--spacing-xl);">
+            <div class="stat-card">
+                <div class="stat-label">Water Rate</div>
+                <div class="stat-value" style="font-size: 1.5rem;">
+                    KES {{ water_rate.rate_per_unit|default:"0.00" }} <span style="font-size: 1rem; color: var(--text-secondary);">/unit</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Electricity Rate</div>
+                <div class="stat-value" style="font-size: 1.5rem;">
+                    KES {{ elec_rate.rate_per_unit|default:"0.00" }} <span style="font-size: 1rem; color: var(--text-secondary);">/unit</span>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: var(--spacing-md);">Active Fixed Charges</h3>
+        <div style="background: var(--bg-secondary); padding: var(--spacing-md); border-radius: 8px; margin-bottom: var(--spacing-xl);">
+            {% if fixed_charges %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for charge in fixed_charges %}
+                    <li style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                        <span>{{ charge.charge_name }}</span>
+                        <strong>KES {{ charge.amount }}</strong>
+                    </li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-secondary); margin: 0;">No active fixed charges found.</p>
+            {% endif %}
+        </div>
+        
+        <form method="POST">
+            {% csrf_token %}
+            <div style="display: flex; justify-content: space-between; margin-top: var(--spacing-xl);">
+                <a href="{% url 'billing_wizard_start' %}" class="btn btn-secondary">
+                    <i data-lucide="arrow-left" width="16" height="16" style="margin-right: 0.5rem;"></i>
+                    Back
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Confirm & Preview Invoices
+                    <i data-lucide="arrow-right" width="16" height="16" style="margin-left: 0.5rem;"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

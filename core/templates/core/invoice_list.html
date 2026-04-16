@@ -1,0 +1,191 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Invoices{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="receipt" width="28" height="28"></i>
+            Invoices
+        </h1>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{% url 'billing_wizard_start' %}" class="btn btn-primary">
+                <i data-lucide="plus" width="16" height="16"></i>
+                Generate Invoices
+            </a>
+            <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Summary Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="file-text" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Invoices</div>
+            <div class="stat-value">{{ total_invoices }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="clock" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Unpaid</div>
+            <div class="stat-value" style="color: var(--warning);">{{ unpaid_invoices }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="alert-circle" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Overdue</div>
+            <div class="stat-value" style="color: var(--error);">{{ overdue_invoices }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="dollar-sign" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Outstanding</div>
+            <div class="stat-value" style="font-size: 1.5rem;">KES {{ total_outstanding|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); margin-bottom: var(--spacing-xl);">
+        <form method="GET">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                <div>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        placeholder="Search invoice/unit..."
+                        value="{{ current_filters.search }}"
+                        style="width: 100%;">
+                </div>
+                
+                <div>
+                    <select name="unit" style="width: 100%;">
+                        <option value="">All Units</option>
+                        {% for unit in units %}
+                        <option value="{{ unit.id }}" {% if current_filters.unit == unit.id|stringformat:"s" %}selected{% endif %}>
+                            {{ unit.unit_number }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <select name="status" style="width: 100%;">
+                        <option value="">All Status</option>
+                        <option value="UNPAID" {% if current_filters.status == 'UNPAID' %}selected{% endif %}>Unpaid</option>
+                        <option value="PAID" {% if current_filters.status == 'PAID' %}selected{% endif %}>Paid</option>
+                        <option value="PARTIALLY_PAID" {% if current_filters.status == 'PARTIALLY_PAID' %}selected{% endif %}>Partially Paid</option>
+                        <option value="OVERDUE" {% if current_filters.status == 'OVERDUE' %}selected{% endif %}>Overdue</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; gap: var(--spacing-xs);">
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="filter" width="16" height="16"></i>
+                        Filter
+                    </button>
+                    <a href="{% url 'invoice_list' %}" class="btn btn-secondary">
+                        <i data-lucide="x" width="16" height="16"></i>
+                        Clear
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Invoices Table -->
+    {% if page_obj %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Unit</th>
+                    <th>Tenant</th>
+                    <th>Period</th>
+                    <th>Amount</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in page_obj %}
+                <tr>
+                    <td style="font-weight: 600; font-family: monospace;">{{ invoice.invoice_number }}</td>
+                    <td>{{ invoice.unit.unit_number }}</td>
+                    <td>{{ invoice.tenant.user.get_full_name|default:invoice.tenant.user.username }}</td>
+                    <td>{{ invoice.billing_period }}</td>
+                    <td style="font-weight: 700; color: var(--text-primary);">KES {{ invoice.total_due|floatformat:2 }}</td>
+                    <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="status-badge status-{{ invoice.status|lower }}">
+                            {{ invoice.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'invoice_detail' invoice.id %}" style="color: var(--primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
+                            View
+                            <i data-lucide="arrow-right" width="14" height="14"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if current_filters.unit %}&unit={{ current_filters.unit }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">
+            <i data-lucide="chevron-left" width="16" height="16"></i>
+            Previous
+        </a>
+        {% endif %}
+        
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if current_filters.unit %}&unit={{ current_filters.unit }}{% endif %}{% if current_filters.status %}&status={{ current_filters.status }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">
+            Next
+            <i data-lucide="chevron-right" width="16" height="16"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div style="text-align: center; padding: var(--spacing-2xl); color: var(--text-secondary);">
+        <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+        <p style="font-size: 1.125rem; font-weight: 500; color: var(--text-primary); margin-bottom: var(--spacing-xs);">No invoices found</p>
+        <p style="font-size: 0.875rem; margin-bottom: var(--spacing-lg);">Generate your first batch of invoices</p>
+        <a href="{% url 'generate_invoices' %}" class="btn btn-primary">
+            <i data-lucide="plus" width="16" height="16"></i>
+            Generate Invoices
+        </a>
+        <a href="{% url 'export_invoices_excel' %}?{% if current_filters.status %}status={{ current_filters.status }}&{% endif %}{% if current_filters.unit %}unit={{ current_filters.unit }}{% endif %}" class="btn btn-secondary">
+            <i data-lucide="file-spreadsheet" width="16" height="16"></i>
+            Export to Excel
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

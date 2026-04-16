@@ -1,0 +1,48 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Add Unit{% endblock %}
+
+{% block content %}
+<h1>Add New Unit</h1>
+
+<form method="POST" style="max-width: 600px; margin-top: 30px;">
+    {% csrf_token %}
+    
+    <div style="margin-bottom: 20px;">
+        <label for="unit_number" style="display: block; margin-bottom: 5px; font-weight: bold;">Unit Number:</label>
+        <input type="text" 
+               id="unit_number" 
+               name="unit_number" 
+               required 
+               placeholder="e.g., A101"
+               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="estate_name" style="display: block; margin-bottom: 5px; font-weight: bold;">Estate Name:</label>
+        <input type="text" 
+               id="estate_name" 
+               name="estate_name" 
+               required 
+               placeholder="e.g., Greenview Apartments"
+               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Utilities:</label>
+        <div style="margin-bottom: 10px;">
+            <input type="checkbox" id="has_water_meter" name="has_water_meter" checked>
+            <label for="has_water_meter">Has Water Meter</label>
+        </div>
+        <div>
+            <input type="checkbox" id="has_electricity_meter" name="has_electricity_meter">
+            <label for="has_electricity_meter">Has Electricity Meter</label>
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 10px;">
+        <button type="submit" class="btn">Add Unit</button>
+        <a href="{% url 'manage_units' %}" class="btn" style="background-color: #666;">Cancel</a>
+    </div>
+</form>
+{% endblock %}

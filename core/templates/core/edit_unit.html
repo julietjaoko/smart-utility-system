@@ -1,0 +1,42 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Edit Unit - {{ unit.unit_number }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="edit" width="28" height="28"></i>
+            Edit Unit {{ unit.unit_number }}
+        </h1>
+    </div>
+    
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="unit_number">Unit Number</label>
+            <input type="text" id="unit_number" name="unit_number" value="{{ unit.unit_number }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="estate_name">Estate Name</label>
+            <input type="text" id="estate_name" name="estate_name" value="{{ unit.estate_name }}" required>
+        </div>
+        
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+            <input type="checkbox" id="has_water_meter" name="has_water_meter" {% if unit.has_water_meter %}checked{% endif %} style="width: auto;">
+            <label for="has_water_meter" style="margin: 0;">Has Water Meter</label>
+        </div>
+        
+        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 2rem;">
+            <input type="checkbox" id="has_electricity_meter" name="has_electricity_meter" {% if unit.has_electricity_meter %}checked{% endif %} style="width: auto;">
+            <label for="has_electricity_meter" style="margin: 0;">Has Electricity Meter</label>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+            <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

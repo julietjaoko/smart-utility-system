@@ -1,0 +1,173 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Payment History{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="credit-card" width="28" height="28"></i>
+            Payment History
+        </h1>
+        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Dashboard
+        </a>
+        <a href="{% url 'export_payments_excel' %}?{% if current_filters.method %}method={{ current_filters.method }}&{% endif %}{% if current_filters.start_date %}start_date={{ current_filters.start_date }}&{% endif %}{% if current_filters.end_date %}end_date={{ current_filters.end_date }}{% endif %}" class="btn btn-secondary">
+            <i data-lucide="file-spreadsheet" width="16" height="16"></i>
+            Export to Excel
+        </a>
+    </div>
+    
+    <!-- Summary Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="hash" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Payments</div>
+            <div class="stat-value">{{ total_payments }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="dollar-sign" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Collected</div>
+            <div class="stat-value" style="font-size: 1.5rem;">KES {{ total_amount|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); margin-bottom: var(--spacing-xl);">
+        <form method="GET">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md);">
+                <div>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        placeholder="Invoice # or M-Pesa ref..."
+                        value="{{ current_filters.search }}"
+                        style="width: 100%;">
+                </div>
+                
+                <div>
+                    <select name="method" style="width: 100%;">
+                        <option value="">All Methods</option>
+                        <option value="MPESA" {% if current_filters.method == 'MPESA' %}selected{% endif %}>M-Pesa</option>
+                        <option value="CASH" {% if current_filters.method == 'CASH' %}selected{% endif %}>Cash</option>
+                        <option value="BANK" {% if current_filters.method == 'BANK' %}selected{% endif %}>Bank Transfer</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <input 
+                        type="date" 
+                        name="start_date" 
+                        placeholder="Start Date"
+                        value="{{ current_filters.start_date }}"
+                        style="width: 100%;">
+                </div>
+                
+                <div>
+                    <input 
+                        type="date" 
+                        name="end_date" 
+                        placeholder="End Date"
+                        value="{{ current_filters.end_date }}"
+                        style="width: 100%;">
+                </div>
+                
+                <div style="display: flex; gap: var(--spacing-xs);">
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="filter" width="16" height="16"></i>
+                        Filter
+                    </button>
+                    <a href="{% url 'payment_list' %}" class="btn btn-secondary">
+                        <i data-lucide="x" width="16" height="16"></i>
+                        Clear
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Payments Table -->
+    {% if page_obj %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Invoice #</th>
+                    <th>Unit</th>
+                    <th>Tenant</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Reference</th>
+                    <th>Recorded By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in page_obj %}
+                <tr>
+                    <td style="font-weight: 500;">{{ payment.payment_date|date:"M d, Y" }}</td>
+                    <td>
+                        <a href="{% url 'invoice_detail' payment.invoice.id %}" style="color: var(--primary); text-decoration: none; font-weight: 600; font-family: monospace;">
+                            {{ payment.invoice.invoice_number }}
+                        </a>
+                    </td>
+                    <td>{{ payment.invoice.unit.unit_number }}</td>
+                    <td>{{ payment.invoice.tenant.user.get_full_name|default:payment.invoice.tenant.user.username }}</td>
+                    <td style="font-weight: 700; color: var(--success);">KES {{ payment.amount_paid|floatformat:2 }}</td>
+                    <td><span class="badge badge-info">{{ payment.get_payment_method_display }}</span></td>
+                    <td>
+                        {% if payment.mpesa_reference %}
+                        <span style="font-family: monospace; color: var(--text-primary); font-weight: 500;">{{ payment.mpesa_reference }}</span>
+                        {% else %}
+                        <span style="color: var(--text-tertiary);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size: 0.875rem; color: var(--text-secondary);">{{ payment.recorded_by.username|default:"System" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if current_filters.method %}&method={{ current_filters.method }}{% endif %}{% if current_filters.start_date %}&start_date={{ current_filters.start_date }}{% endif %}{% if current_filters.end_date %}&end_date={{ current_filters.end_date }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">
+            <i data-lucide="chevron-left" width="16" height="16"></i>
+            Previous
+        </a>
+        {% endif %}
+        
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if current_filters.method %}&method={{ current_filters.method }}{% endif %}{% if current_filters.start_date %}&start_date={{ current_filters.start_date }}{% endif %}{% if current_filters.end_date %}&end_date={{ current_filters.end_date }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">
+            Next
+            <i data-lucide="chevron-right" width="16" height="16"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div style="text-align: center; padding: var(--spacing-2xl); color: var(--text-secondary);">
+        <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+        <p style="font-size: 1.125rem; font-weight: 500; color: var(--text-primary);">No payments recorded yet</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

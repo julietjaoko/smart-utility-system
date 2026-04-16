@@ -1,0 +1,46 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Manage Units{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <h1>Manage Units</h1>
+    <div>
+        <a href="{% url 'add_unit' %}" class="btn btn-primary" style="margin-right: 10px;">Add Unit</a>
+        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">Back</a>
+    </div>
+</div>
+
+<div class="table-container">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #003366; color: white;">
+                <th style="padding: 10px; text-align: left; color: white;">Unit Number</th>
+                <th style="padding: 10px; text-align: left; color: white;">Estate</th>
+                <th style="padding: 10px; text-align: center; color: white;">Water Meter</th>
+                <th style="padding: 10px; text-align: center; color: white;">Electricity Meter</th>
+                <th style="padding: 10px; text-align: center; color: white;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for unit in units %}
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px;">{{ unit.unit_number }}</td>
+                <td style="padding: 10px;">{{ unit.estate_name }}</td>
+                <td style="padding: 10px; text-align: center;">{% if unit.has_water_meter %}✓{% else %}✗{% endif %}</td>
+                <td style="padding: 10px; text-align: center;">{% if unit.has_electricity_meter %}✓{% else %}✗{% endif %}</td>
+                <td style="padding: 10px; text-align: center;">
+                    <a href="{% url 'unit_detail' unit.id %}" class="btn btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">View Profile</a>
+                    <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem; margin-left: 5px;">Edit</a>
+                    <a href="#" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.75rem; margin-left: 5px;">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="padding: 20px; text-align: center; color: #666;">No units found. Add your first unit!</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

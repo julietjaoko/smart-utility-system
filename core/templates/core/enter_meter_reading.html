@@ -1,0 +1,177 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Enter Meter Reading{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="bar-chart-3" width="28" height="28"></i>
+            Enter Meter Reading
+        </h1>
+        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Back
+        </a>
+    </div>
+    
+    <form method="POST" enctype="multipart/form-data" style="max-width: 700px;">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="unit">Select Unit *</label>
+            <select name="unit" id="unit" required onchange="loadMeters()">
+                <option value="">-- Select a unit --</option>
+                {% for unit in units %}
+                <option value="{{ unit.id }}">{{ unit.unit_number }} - {{ unit.estate_name }}</option>
+                {% endfor %}
+            </select>
+            <small>Choose the unit you're recording readings for</small>
+        </div>
+        
+        <div id="meterSection" style="display: none;">
+            <div class="form-group">
+                <label for="meter">Select Meter *</label>
+                <select name="meter" id="meter" required onchange="showPreviousReading()">
+                    <option value="">-- Select a meter --</option>
+                </select>
+                <small>Available meters for selected unit</small>
+            </div>
+            
+            <div id="previousReadingInfo" style="display: none; background: var(--background); padding: var(--spacing-md); border-radius: var(--radius); margin-bottom: var(--spacing-lg); border-left: 4px solid var(--primary);">
+                <div style="display: flex; align-items: start; gap: var(--spacing-sm);">
+                    <i data-lucide="info" width="20" height="20" style="color: var(--primary); flex-shrink: 0;"></i>
+                    <div>
+                        <strong style="color: var(--text-primary); display: block; margin-bottom: 0.25rem;">Previous Reading</strong>
+                        <div id="previousReadingDetails" style="font-size: 0.875rem; color: var(--text-secondary);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="reading_date">Reading Date *</label>
+            <input type="date" name="reading_date" id="reading_date" required value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+            <small>Date when the meter was read</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="reading_value">Meter Reading Value *</label>
+            <input type="number" name="reading_value" id="reading_value" step="0.01" min="0" required placeholder="e.g., 1250.50">
+            <small>Current meter reading in units</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="photo">Meter Photo (Optional)</label>
+            <input type="file" name="photo" id="photo" accept="image/*">
+            <small>Upload a photo of the meter for verification</small>
+        </div>
+        
+        <div class="alert alert-info">
+            <i data-lucide="lightbulb" width="20" height="20"></i>
+            <div>
+                <strong>Best Practices</strong>
+                <ul style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.9; padding-left: 1.25rem;">
+                    <li>Record readings at the same time each month</li>
+                    <li>Double-check the reading value before submitting</li>
+                    <li>Upload clear photos for audit trail</li>
+                    <li>System will automatically detect anomalies</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+            <button type="submit" class="btn btn-success">
+                <i data-lucide="check" width="16" height="16"></i>
+                Save Reading
+            </button>
+            <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Load meters when unit is selected
+function loadMeters() {
+    const unitId = document.getElementById('unit').value;
+    const meterSelect = document.getElementById('meter');
+    const meterSection = document.getElementById('meterSection');
+    const previousReadingInfo = document.getElementById('previousReadingInfo');
+    
+    if (!unitId) {
+        meterSection.style.display = 'none';
+        previousReadingInfo.style.display = 'none';
+        return;
+    }
+    
+    // Show loading state
+    meterSelect.innerHTML = '<option value="">Loading meters...</option>';
+    meterSection.style.display = 'block';
+    
+    // Fetch meters for this unit
+    fetch(`/api/unit/${unitId}/meters/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            meterSelect.innerHTML = '<option value="">-- Select a meter --</option>';
+            
+            if (data.meters && data.meters.length > 0) {
+                data.meters.forEach(meter => {
+                    const option = document.createElement('option');
+                    option.value = meter.id;
+                    option.textContent = `${meter.meter_type} - ${meter.meter_number}`;
+                    option.dataset.previousReading = meter.previous_reading;
+                    option.dataset.previousDate = meter.previous_date;
+                    option.dataset.previousConsumption = meter.previous_consumption;
+                    meterSelect.appendChild(option);
+                });
+            } else {
+                meterSelect.innerHTML = '<option value="">No active meters found for this unit</option>';
+            }
+            
+            // Reinitialize icons
+            lucide.createIcons();
+        })
+        .catch(error => {
+            console.error('Error loading meters:', error);
+            meterSelect.innerHTML = '<option value="">Error loading meters. Please try again.</option>';
+        });
+}
+
+// Show previous reading info when meter is selected
+function showPreviousReading() {
+    const meterSelect = document.getElementById('meter');
+    const selectedOption = meterSelect.options[meterSelect.selectedIndex];
+    const previousReadingInfo = document.getElementById('previousReadingInfo');
+    const previousReadingDetails = document.getElementById('previousReadingDetails');
+    
+    if (selectedOption.value && selectedOption.dataset.previousReading !== 'None') {
+        previousReadingDetails.innerHTML = `
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; font-size: 0.875rem;">
+                <span style="font-weight: 600; color: var(--text-primary);">Last Reading:</span>
+                <span style="color: var(--text-secondary);">${selectedOption.dataset.previousReading} units</span>
+                <span style="font-weight: 600; color: var(--text-primary);">Date:</span>
+                <span style="color: var(--text-secondary);">${selectedOption.dataset.previousDate}</span>
+                <span style="font-weight: 600; color: var(--text-primary);">Last Consumption:</span>
+                <span style="color: var(--success); font-weight: 600;">${selectedOption.dataset.previousConsumption} units</span>
+            </div>
+        `;
+        previousReadingInfo.style.display = 'block';
+    } else {
+        previousReadingInfo.style.display = 'none';
+    }
+    
+    // Reinitialize icons
+    lucide.createIcons();
+}
+
+// Initialize icons on page load
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

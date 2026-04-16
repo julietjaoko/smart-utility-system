@@ -1,0 +1,151 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Manager Dashboard{% endblock %}
+
+{% block content %}
+<div class="card">
+
+    <!-- Header -->
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--spacing-xl);">
+        <div>
+            <h1 style="font-size: 1.375rem; font-weight: 600; color: var(--text-primary); margin: 0 0 0.25rem;">
+                Good morning, {{ request.user.get_full_name|default:request.user.username }}
+            </h1>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0;">
+                Here's what's happening across your estate today
+            </p>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-secondary); background: var(--bg-secondary, #f5f5f5); border: 1px solid var(--border-color, #e5e7eb); border-radius: 6px; padding: 6px 12px; white-space: nowrap;" id="dashboard-date"></div>
+    </div>
+
+    <!-- Stats -->
+    <p style="font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted, #9ca3af); margin: 0 0 0.625rem;">Overview</p>
+    <div class="stats-grid" style="margin-bottom: var(--spacing-xl);">
+
+        <div class="stat-card" style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="stat-label" style="font-size: 0.75rem; color: var(--text-secondary);">Total units</div>
+            <div class="stat-value">{{ total_units|default:0 }}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted, #9ca3af);">Across all blocks</div>
+        </div>
+
+        <div class="stat-card" style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="stat-label" style="font-size: 0.75rem; color: var(--text-secondary);">Readings this month</div>
+            <div class="stat-value">{{ total_readings|default:0 }}</div>
+            {% if pending_readings %}
+            <div style="font-size: 0.75rem; color: #3B6D11;">
+                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #639922; margin-right: 4px; vertical-align: middle;"></span>{{ pending_readings }} pending
+            </div>
+            {% else %}
+            <div style="font-size: 0.75rem; color: var(--text-muted, #9ca3af);">This billing period</div>
+            {% endif %}
+        </div>
+
+        <div class="stat-card" style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="stat-label" style="font-size: 0.75rem; color: var(--text-secondary);">Active tenants</div>
+            <div class="stat-value">{{ active_tenants|default:0 }}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted, #9ca3af);">of {{ total_units|default:0 }} units occupied</div>
+        </div>
+
+    </div>
+
+    <!-- Actions -->
+    <p style="font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted, #9ca3af); margin: 0 0 0.625rem;">Actions</p>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+
+        <!-- Primary action — full width -->
+        <a href="{% url 'enter_meter_reading' %}" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--primary-light, #EFF6FF); border: 1px solid var(--primary-border, #BFDBFE); border-radius: 10px; text-decoration: none; transition: opacity 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--primary, #2563EB);">
+                <i data-lucide="activity" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 600; color: var(--primary, #2563EB); margin-bottom: 2px;">Enter meter reading</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--primary, #2563EB); opacity: 0.75;">Log a new unit consumption reading</span>
+            </span>
+            <span style="margin-left: auto; color: var(--primary, #2563EB); opacity: 0.5; font-size: 0.875rem;">→</span>
+        </a>
+
+        <!-- View Readings -->
+        <a href="{% url 'meter_reading_list' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: #E1F5EE; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #0F6E56;">
+                <i data-lucide="list" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">View readings</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Browse submitted readings</span>
+            </span>
+            <span style="margin-left: auto; color: var(--text-muted, #9ca3af); font-size: 0.875rem;">→</span>
+        </a>
+
+        <!-- Generate Invoices -->
+        <a href="{% url 'billing_wizard_start' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: #EEEDFE; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #534AB7;">
+                <i data-lucide="file-plus" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Generate invoices</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Create bills for this period</span>
+            </span>
+            <span style="margin-left: auto; color: var(--text-muted, #9ca3af); font-size: 0.875rem;">→</span>
+        </a>
+
+        <!-- View Invoices -->
+        <a href="{% url 'invoice_list' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: #FAEEDA; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #854F0B;">
+                <i data-lucide="receipt" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">View invoices</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Track issued & unpaid bills</span>
+            </span>
+            <span style="margin-left: auto; color: var(--text-muted, #9ca3af); font-size: 0.875rem;">→</span>
+        </a>
+
+        <!-- Manage Rates -->
+        <a href="{% url 'manage_rates' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: var(--bg-secondary, #f3f4f6); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary);">
+                <i data-lucide="settings" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Manage rates</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Adjust utility pricing tiers</span>
+            </span>
+            <span style="margin-left: auto; color: var(--text-muted, #9ca3af); font-size: 0.875rem;">→</span>
+        </a>
+
+        <!-- Analytics -->
+        <a href="{% url 'consumption_analytics' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: #EAF3DE; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #3B6D11;">
+                <i data-lucide="trending-up" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Analytics</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Consumption trends & insights</span>
+            </span>
+            <span style="margin-left: auto; color: var(--text-muted, #9ca3af); font-size: 0.875rem;">→</span>
+        </a>
+
+        <!-- Advanced Analytics — full width -->
+        <a href="{% url 'advanced_analytics' %}" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: #FAECE7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #993C1D;">
+                <i data-lucide="bar-chart-4" width="16" height="16"></i>
+            </span>
+            <span style="min-width: 0;">
+                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Advanced analytics</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Deep-dive reports, forecasts & comparisons</span>
+            </span>
+            <span style="margin-left: auto; color: var(--text-muted, #9ca3af); font-size: 0.875rem;">→</span>
+        </a>
+
+    </div>
+</div>
+
+<script>
+    (function () {
+        var d = new Date();
+        var el = document.getElementById('dashboard-date');
+        if (el) {
+            el.textContent = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        }
+    })();
+</script>
+{% endblock %}

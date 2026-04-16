@@ -1,0 +1,233 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Consumption Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 400px;
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: var(--spacing-xl);
+        border: 1px solid var(--border);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="trending-up" width="28" height="28"></i>
+            Consumption Analytics
+        </h1>
+        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Back
+        </a>
+    </div>
+    
+    <!-- Filters -->
+    <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); margin-bottom: var(--spacing-xl);">
+        <form method="GET">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-md);">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="unit">Select Unit</label>
+                    <select name="unit" id="unit">
+                        <option value="">All Units</option>
+                        {% for unit in all_units %}
+                        <option value="{{ unit.id }}" {% if selected_unit == unit.id|stringformat:"s" %}selected{% endif %}>
+                            {{ unit.unit_number }} - {{ unit.estate_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="meter_type">Meter Type</label>
+                    <select name="meter_type" id="meter_type">
+                        <option value="WATER" {% if meter_type == 'WATER' %}selected{% endif %}>Water</option>
+                        <option value="ELECTRICITY" {% if meter_type == 'ELECTRICITY' %}selected{% endif %}>Electricity</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; align-items: flex-end;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i data-lucide="refresh-cw" width="16" height="16"></i>
+                        Update
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Key Insights -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="database" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Consumption</div>
+            <div class="stat-value">{{ total_consumption }}</div>
+            <small style="color: var(--text-secondary);">units (6 months)</small>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="trending-up" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Monthly Average</div>
+            <div class="stat-value">{{ avg_monthly }}</div>
+            <small style="color: var(--text-secondary);">units/month</small>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="arrow-up" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Highest Month</div>
+            <div class="stat-value">{{ max_consumption }}</div>
+            <small style="color: var(--text-secondary);">{{ max_month }}</small>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="arrow-down" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Lowest Month</div>
+            <div class="stat-value">{{ min_consumption }}</div>
+            <small style="color: var(--text-secondary);">{{ min_month }}</small>
+        </div>
+    </div>
+    
+    {% if anomaly_count > 0 %}
+    <div class="alert alert-warning">
+        <i data-lucide="alert-triangle" width="20" height="20"></i>
+        <div>
+            <strong>{{ anomaly_count }} Anomal{{ anomaly_count|pluralize:"y,ies" }} Detected</strong>
+            <p style="margin-top: 0.25rem; font-size: 0.875rem; opacity: 0.8;">
+                Some readings have unusual consumption patterns. 
+                <a href="{% url 'meter_reading_list' %}?anomalies=true" style="color: inherit; text-decoration: underline;">View anomalies</a>
+            </p>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Chart -->
+    <div>
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">6-Month Consumption Trend</h2>
+        <div class="chart-container">
+            <canvas id="consumptionChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+// Modern Industrial Chart Styling
+const ctx = document.getElementById('consumptionChart').getContext('2d');
+
+// Create gradient
+const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+gradient.addColorStop(0, 'rgba(5, 150, 105, 0.3)');
+gradient.addColorStop(1, 'rgba(5, 150, 105, 0)');
+
+const chartData = {{ chart_data|safe }};
+const chartLabels = {{ chart_labels|safe }};
+
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: chartLabels,
+        datasets: [{
+            label: 'Consumption',
+            data: chartData,
+            backgroundColor: gradient,
+            borderColor: '#059669',
+            borderWidth: 2,
+            pointBackgroundColor: '#059669',
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: '#0F172A',
+                titleColor: '#FFFFFF',
+                bodyColor: '#FFFFFF',
+                padding: 12,
+                displayColors: false,
+                titleFont: {
+                    size: 13,
+                    weight: '600'
+                },
+                bodyFont: {
+                    size: 12
+                },
+                callbacks: {
+                    label: function(context) {
+                        return context.parsed.y + ' units';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                border: {
+                    display: false
+                },
+                grid: {
+                    color: '#E2E8F0',
+                    drawTicks: false
+                },
+                ticks: {
+                    font: {
+                        size: 11,
+                        family: 'Inter'
+                    },
+                    color: '#64748B',
+                    padding: 8,
+                    callback: function(value) {
+                        return value + ' units';
+                    }
+                }
+            },
+            x: {
+                border: {
+                    display: false
+                },
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        size: 11,
+                        family: 'Inter'
+                    },
+                    color: '#64748B',
+                    padding: 8
+                }
+            }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        }
+    }
+});
+
+// Initialize Lucide icons after dynamic content loads
+lucide.createIcons();
+</script>
+{% endblock %}

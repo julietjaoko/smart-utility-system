@@ -1,0 +1,92 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Generate Invoices{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="file-plus" width="28" height="28"></i>
+            Generate Invoices
+        </h1>
+        <a href="{% url 'invoice_list' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            View Invoices
+        </a>
+    </div>
+    
+    <!-- Information Box -->
+    <div class="alert alert-info" style="margin-bottom: var(--spacing-xl);">
+        <i data-lucide="info" width="20" height="20"></i>
+        <div>
+            <strong>Before You Generate Invoices</strong>
+            <ul style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.9; padding-left: 1.25rem;">
+                <li>Ensure all meter readings for the month have been entered</li>
+                <li>Verify utility rates are configured correctly</li>
+                <li>Check that fixed charges are up to date</li>
+                <li>Invoices will include previous balance (credit or debt)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Units Summary -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="building-2" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Units</div>
+            <div class="stat-value">{{ units.count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="file-text" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Invoices to Generate</div>
+            <div class="stat-value">{{ units|length }}</div>
+        </div>
+    </div>
+    
+    <!-- Generation Form -->
+    <form method="POST" style="max-width: 600px; margin-top: var(--spacing-xl);">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="billing_month">Billing Month *</label>
+            <input 
+                type="month" 
+                name="billing_month" 
+                id="billing_month" 
+                required
+                value="{{ current_month }}"
+                max="{{ current_month }}">
+            <small>Select the month for which to generate invoices</small>
+        </div>
+        
+        <div class="alert alert-warning">
+            <i data-lucide="alert-triangle" width="20" height="20"></i>
+            <div>
+                <strong>Important</strong>
+                <p style="margin-top: 0.25rem; font-size: 0.875rem; opacity: 0.9;">
+                    This will generate invoices for ALL units. Make sure all meter readings for the selected month have been entered. 
+                    Invoices already generated for this period will be skipped.
+                </p>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+            <button type="submit" class="btn btn-success" onclick="return confirm('Generate invoices for all units?')">
+                <i data-lucide="check" width="16" height="16"></i>
+                Generate Invoices
+            </button>
+            <a href="{% url 'invoice_list' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

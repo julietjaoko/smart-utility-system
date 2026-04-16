@@ -1,0 +1,41 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Billing Wizard - Step 1{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="calendar" width="24" height="24"></i>
+            Billing Wizard: Select Month
+        </h1>
+    </div>
+    
+    <div style="padding: var(--spacing-lg);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: var(--spacing-xl); padding-bottom: var(--spacing-md); border-bottom: 1px solid var(--border-color);">
+            <div style="font-weight: 600; color: var(--primary-color);">1. Select Period</div>
+            <div style="color: var(--text-secondary);">2. Confirm Rates</div>
+            <div style="color: var(--text-secondary);">3. Preview & Generate</div>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="billing_month" class="form-label">Billing Period</label>
+                <input type="month" id="billing_month" name="billing_month" class="form-control" value="{{ current_month }}" required>
+                <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                    Select the month and year you are generating invoices for. The system will strictly prevent generation if unresolved anomalies exist for this period.
+                </p>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+                <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    Continue to Rates
+                    <i data-lucide="arrow-right" width="16" height="16" style="margin-left: 0.5rem;"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

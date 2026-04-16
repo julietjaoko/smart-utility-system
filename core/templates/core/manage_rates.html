@@ -1,0 +1,139 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Manage Rates{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="settings" width="28" height="28"></i>
+            Rate Configuration
+        </h1>
+        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Dashboard
+        </a>
+    </div>
+    
+    <!-- Current Rates Section -->
+    <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">Current Utility Rates</h2>
+    
+    <div class="stats-grid">
+        <!-- Water Rate Card -->
+        <div class="stat-card">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <div class="stat-icon">
+                        <i data-lucide="droplet" width="20" height="20"></i>
+                    </div>
+                    <div class="stat-label">Water</div>
+                    {% if water_rate %}
+                    <div class="stat-value">KES {{ water_rate.rate_per_unit }}</div>
+                    <small style="color: var(--text-secondary);">per m³</small>
+                    <div style="margin-top: var(--spacing-sm); font-size: 0.75rem; color: var(--text-secondary);">
+                        Effective: {{ water_rate.effective_from|date:"M d, Y" }}
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-secondary); margin-top: var(--spacing-md);">Not configured</p>
+                    {% endif %}
+                </div>
+                <a href="{% url 'add_rate' %}?type=water" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                    {% if water_rate %}Update{% else %}Set Rate{% endif %}
+                </a>
+            </div>
+        </div>
+        
+        <!-- Electricity Rate Card -->
+        <div class="stat-card">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <div class="stat-icon">
+                        <i data-lucide="zap" width="20" height="20"></i>
+                    </div>
+                    <div class="stat-label">Electricity</div>
+                    {% if electricity_rate %}
+                    <div class="stat-value">KES {{ electricity_rate.rate_per_unit }}</div>
+                    <small style="color: var(--text-secondary);">per kWh</small>
+                    <div style="margin-top: var(--spacing-sm); font-size: 0.75rem; color: var(--text-secondary);">
+                        Effective: {{ electricity_rate.effective_from|date:"M d, Y" }}
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-secondary); margin-top: var(--spacing-md);">Not configured</p>
+                    {% endif %}
+                </div>
+                <a href="{% url 'add_rate' %}?type=electricity" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                    {% if electricity_rate %}Update{% else %}Set Rate{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Fixed Charges Section -->
+    <div style="margin-top: var(--spacing-2xl);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+            <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">Fixed Monthly Charges</h2>
+            <a href="{% url 'add_fixed_charge' %}" class="btn btn-primary">
+                <i data-lucide="plus" width="16" height="16"></i>
+                Add Charge
+            </a>
+        </div>
+        
+        {% if fixed_charges %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Charge Name</th>
+                        <th>Amount</th>
+                        <th>Effective From</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for charge in fixed_charges %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ charge.charge_name }}</td>
+                        <td style="color: var(--primary); font-weight: 700;">KES {{ charge.amount }}</td>
+                        <td>{{ charge.effective_from|date:"M d, Y" }}</td>
+                        <td>
+                            <a href="{% url 'delete_fixed_charge' charge.id %}" 
+                               style="color: var(--error); text-decoration: none; font-weight: 600;"
+                               onclick="return confirm('Are you sure you want to deactivate this charge?')">
+                                Deactivate
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: var(--spacing-2xl); background: var(--background); border-radius: var(--radius);">
+            <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">No fixed charges configured</p>
+            <a href="{% url 'add_fixed_charge' %}" class="btn btn-primary">Add First Charge</a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Help Section -->
+    <div class="alert alert-info" style="margin-top: var(--spacing-xl);">
+        <i data-lucide="info" width="20" height="20"></i>
+        <div>
+            <strong>How Billing Works</strong>
+            <ul style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.9; padding-left: 1.25rem;">
+                <li>Utility Rates: Set the cost per unit for water and electricity</li>
+                <li>Fixed Charges: Monthly fees like garbage collection, security, maintenance</li>
+                <li>Invoice Calculation: (Water units × Rate) + (Electricity units × Rate) + Fixed Charges</li>
+                <li>Previous Balance: Outstanding or credit amounts are carried forward</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}
