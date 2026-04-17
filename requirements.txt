@@ -4,9 +4,9 @@ charset-normalizer==3.4.7
 Django==6.0.3
 et_xmlfile==2.0.0
 idna==3.11
-PyMySQL
 openpyxl==3.1.5
 pillow==12.1.1
+PyMySQL
 reportlab==4.4.10
 requests==2.33.1
 sqlparse==0.5.5
