@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -73,14 +73,22 @@ WSGI_APPLICATION = 'utility_system.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# ==========================================
+# DATABASE CONFIGURATION (Aiven Cloud & Local)
+# ==========================================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'utility_management',
-        'USER': 'root',
-        'PASSWORD': 'Juliet@2005', 
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': os.environ.get('DB_NAME', 'utility_management'),
+        'USER': os.environ.get('DB_USER', 'root'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'Juliet@2005'), 
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '3306'),
+        'OPTIONS': {
+            'ssl': {
+                'ca': os.path.join(BASE_DIR, 'ca.pem')
+            }
+        }
     }
 }
 
@@ -129,11 +137,14 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # M-Pesa Daraja Sandbox Configuration
-MPESA_CONSUMER_KEY = 'NJDK1YqtCR9mh0RHIZAI2Axr7QtozBxnyWMEmSBGZPswZihH'  
-MPESA_CONSUMER_SECRET = 'gCfGqL3pdGETEzZDGrcYWAsvfdLhdLdEnlxMwPGMbwZhBX39zsZWdHfhyx9BTJUM' 
-MPESA_SHORTCODE = '174379'  # Sandbox shortcode
-MPESA_PASSKEY = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'  # Sandbox passkey
-MPESA_CALLBACK_URL = 'https://miguelina-interdestructive-soothingly.ngrok-free.dev' 
+# ==========================================
+# M-PESA CONFIGURATION (Vercel & Local)
+# ==========================================
+MPESA_CONSUMER_KEY = os.environ.get('MPESA_CONSUMER_KEY', 'NJDK1YqtCR9mh0RHIZAI2Axr7QtozBxnyWMEmSBGZPswZihH')
+MPESA_CONSUMER_SECRET = os.environ.get('MPESA_CONSUMER_SECRET', 'gCfGqL3pdGETEzZDGrcYWAsvfdLhdLdEnlxMwPGMbwZhBX39zsZWdHfhyx9BTJUM')
+MPESA_SHORTCODE = os.environ.get('MPESA_SHORTCODE', '174379') # Sandbox default
+MPESA_PASSKEY = os.environ.get('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')
+MPESA_CALLBACK_URL = os.environ.get('MPESA_CALLBACK_URL', 'https://miguelina-interdestructive-soothingly.ngrok-free.dev')
 
 LOGIN_URL = '/'
 
