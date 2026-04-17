@@ -1,22 +1,22 @@
-# 🔒 Python
+# Python
 
 **pycache**/
 *.py[cod]
 *$py.class
 
-# 🧪 Virtual environments
+# Virtual environments
 
 venv/
 env/
 ENV/
 .venv/
 
-# 🔐 Environment variables
+# Environment variables
 
 .env
 .env.*
 
-# 🗃️ Django stuff
+# Django stuff
 
 *.log
 *.pot
@@ -24,39 +24,35 @@ ENV/
 db.sqlite3
 db.sqlite3-journal
 
-# 📦 Static & media (optional depending on your setup)
+# Static & media
 
 media/
 staticfiles/
 
-# 🔁 Migrations (optional – usually keep them)
+# Migrations 
 
 # core/migrations/
 
 # */migrations/
 
-# 🧠 VS Code / Editor
+# VS Code / Editor
 
 .vscode/
 .idea/
 
-# 🖥️ OS files
+# OS files
 
 .DS_Store
 Thumbs.db
 
-# 📊 Coverage / testing
+# Coverage / testing
 
 .coverage
 htmlcov/
 .tox/
 .pytest_cache/
 
-# 🧾 Requirements lock
-
-requirements.txt
-
-# 📁 Temporary files
+# Temporary files
 
 *.swp
 *.swo
