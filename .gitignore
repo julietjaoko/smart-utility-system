@@ -52,9 +52,9 @@ htmlcov/
 .tox/
 .pytest_cache/
 
-# 🧾 Requirements lock (optional)
+# 🧾 Requirements lock
 
-# requirements.txt
+requirements.txt
 
 # 📁 Temporary files
 
