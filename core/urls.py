@@ -44,6 +44,9 @@ urlpatterns = [
     path('manager/analytics/advanced/', views.advanced_analytics, name='advanced_analytics'),
     path('manager/units/<int:unit_id>/performance/', views.unit_performance, name='unit_performance'),
 
-    path('readings/anomaly/<int:reading_id>/<str:action>/', views.resolve_anomaly, name='resolve_anomaly')
+    path('readings/anomaly/<int:reading_id>/<str:action>/', views.resolve_anomaly, name='resolve_anomaly'),
+    # Bulk Operations
+    path('manager/invoices/bulk-delete/', views.bulk_delete_invoices, name='bulk_delete_invoices'),
+    path('manager/invoices/bulk-send/', views.bulk_send_invoices, name='bulk_send_invoices'),
 
 ]

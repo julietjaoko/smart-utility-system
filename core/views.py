@@ -2093,3 +2093,102 @@ def deactivate_tenant(request, tenant_id):
         
         messages.success(request, f'Tenant {user.get_full_name()} deactivated. Unit {unit.unit_number} is now vacant.')
         return redirect('unit_detail', unit_id=unit.id)
+    
+@login_required
+def bulk_delete_invoices(request):
+    """
+    Bulk delete selected invoices.
+    Only allows deletion of unpaid invoices.
+    """
+    # Security check
+    if request.user.role != 'PROPERTY_MANAGER':
+        messages.error(request, 'Access denied')
+        return redirect('tenant_dashboard')
+    
+    if request.method == 'POST':
+        try:
+            manager = PropertyManager.objects.get(user=request.user)
+            invoice_ids = request.POST.getlist('invoice_ids')
+            
+            if not invoice_ids:
+                messages.warning(request, 'No invoices selected')
+                return redirect('invoice_list')
+            
+            # Get selected invoices
+            invoices = Invoice.objects.filter(
+                id__in=invoice_ids,
+                unit__manager=manager,
+                status='UNPAID'  # Only allow deletion of unpaid invoices
+            )
+            
+            count = invoices.count()
+            
+            if count == 0:
+                messages.warning(request, 'No valid invoices to delete. Only unpaid invoices can be deleted.')
+                return redirect('invoice_list')
+            
+            # Delete invoices
+            invoices.delete()
+            
+            messages.success(request, f'✓ Successfully deleted {count} invoice(s)')
+            return redirect('invoice_list')
+        
+        except PropertyManager.DoesNotExist:
+            messages.error(request, 'Property Manager profile not found')
+            return redirect('manager_dashboard')
+    
+    return redirect('invoice_list')
+
+
+@login_required
+def bulk_send_invoices(request):
+    """
+    Send email notifications for selected invoices.
+    """
+    # Security check
+    if request.user.role != 'PROPERTY_MANAGER':
+        messages.error(request, 'Access denied')
+        return redirect('tenant_dashboard')
+    
+    if request.method == 'POST':
+        try:
+            manager = PropertyManager.objects.get(user=request.user)
+            invoice_ids = request.POST.getlist('invoice_ids')
+            
+            if not invoice_ids:
+                messages.warning(request, 'No invoices selected')
+                return redirect('invoice_list')
+            
+            # Get selected invoices
+            invoices = Invoice.objects.filter(
+                id__in=invoice_ids,
+                unit__manager=manager
+            ).select_related('tenant__user', 'unit')
+            
+            email_notifier = InvoiceNotification()
+            sent_count = 0
+            failed_count = 0
+            
+            for invoice in invoices:
+                try:
+                    success = email_notifier.send_invoice_notification(invoice)
+                    if success:
+                        sent_count += 1
+                    else:
+                        failed_count += 1
+                except Exception as e:
+                    failed_count += 1
+            
+            if sent_count > 0:
+                messages.success(request, f'✓ Sent {sent_count} email notification(s)')
+            
+            if failed_count > 0:
+                messages.warning(request, f'Failed to send {failed_count} email(s)')
+            
+            return redirect('invoice_list')
+        
+        except PropertyManager.DoesNotExist:
+            messages.error(request, 'Property Manager profile not found')
+            return redirect('manager_dashboard')
+    
+    return redirect('invoice_list')

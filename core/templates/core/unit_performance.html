@@ -1,133 +1,353 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Unit Performance: {{ unit.unit_number }}{% endblock %}
+{% block title %}Unit Performance - {{ unit.unit_number }}{% endblock %}
 
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-header">
         <h1 class="card-title">
-            <i data-lucide="bar-chart" width="28" height="28"></i>
+            <i data-lucide="building-2" width="28" height="28"></i>
             Unit Performance: {{ unit.unit_number }}
         </h1>
-        <a href="{% url 'manage_units' %}" class="btn btn-secondary">
+        <a href="{% url 'advanced_analytics' %}" class="btn btn-secondary">
             <i data-lucide="arrow-left" width="16" height="16"></i>
-            Back to Units
+            Back to Analytics
         </a>
     </div>
-
-    <div class="stats-grid" style="margin-bottom: var(--spacing-xl);">
-        <div class="stat-card">
-            <div class="stat-label">Current Tenant</div>
-            <div class="stat-value" style="font-size: 1.25rem;">
-                {{ unit.tenant_set.first.user.get_full_name|default:"Vacant" }}
+    
+    <!-- Unit & Tenant Info -->
+    <div style="background: var(--background); padding: var(--spacing-xl); border-radius: var(--radius); margin-bottom: var(--spacing-xl);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-lg);">
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Unit Number</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">{{ unit.unit_number }}</div>
             </div>
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Estate</div>
+                <div style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary);">{{ unit.estate_name }}</div>
+            </div>
+            {% if tenant %}
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Current Tenant</div>
+                <div style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary);">{{ tenant.user.get_full_name|default:tenant.user.username }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Move-in Date</div>
+                <div style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary);">{{ tenant.move_in_date|date:"M d, Y"|default:"—" }}</div>
+            </div>
+            {% else %}
+            <div>
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Status</div>
+                <div style="font-size: 1.125rem; font-weight: 600; color: var(--warning);">Vacant</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Filter -->
+    <div style="margin-bottom: var(--spacing-xl);">
+        <form method="GET">
+            <label style="font-weight: 600; margin-bottom: var(--spacing-xs); display: block;">Time Period</label>
+            <select name="months" onchange="this.form.submit()" style="max-width: 300px;">
+                <option value="3" {% if months == 3 %}selected{% endif %}>Last 3 Months</option>
+                <option value="6" {% if months == 6 %}selected{% endif %}>Last 6 Months</option>
+                <option value="12" {% if months == 12 %}selected{% endif %}>Last 12 Months</option>
+                <option value="24" {% if months == 24 %}selected{% endif %}>Last 24 Months</option>
+            </select>
+        </form>
+    </div>
+    
+    <!-- Key Metrics -->
+    <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
+        Financial Performance
+    </h2>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="file-text" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Billed</div>
+            <div class="stat-value">KES {{ total_billed|floatformat:2 }}</div>
         </div>
         
         <div class="stat-card">
-            <div class="stat-label">Total Outstanding Debt</div>
-            <div class="stat-value" style="color: {% if total_outstanding > 0 %}var(--danger-color){% else %}var(--success-color){% endif %};">
-                KES {{ total_outstanding|default:"0.00" }}
+            <div class="stat-icon">
+                <i data-lucide="check-circle" width="20" height="20"></i>
             </div>
+            <div class="stat-label">Total Paid</div>
+            <div class="stat-value" style="color: var(--success);">KES {{ total_paid|floatformat:2 }}</div>
         </div>
-
+        
         <div class="stat-card">
-            <div class="stat-label">Total Consumption (YTD)</div>
-            <div class="stat-value">
-                {{ total_consumption|default:"0" }} <span style="font-size: 0.875rem; color: var(--text-secondary);">units</span>
+            <div class="stat-icon">
+                <i data-lucide="droplet" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Avg Water Consumption</div>
+            <div class="stat-value">{{ avg_water|floatformat:1 }}</div>
+            <small style="color: var(--text-secondary);">m³ per month</small>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="zap" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Avg Electricity Consumption</div>
+            <div class="stat-value">{{ avg_electricity|floatformat:1 }}</div>
+            <small style="color: var(--text-secondary);">kWh per month</small>
+        </div>
+    </div>
+    
+    <!-- Consumption Charts -->
+    <div style="margin-top: var(--spacing-2xl);">
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
+            Consumption History
+        </h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-lg);">
+            <!-- Water Chart -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
+                <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: var(--spacing-xs);">
+                    <i data-lucide="droplet" width="18" height="18" style="color: var(--info);"></i>
+                    Water Consumption
+                </h3>
+                <div style="height: 300px;">
+                    <canvas id="waterChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Electricity Chart -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
+                <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: var(--spacing-xs);">
+                    <i data-lucide="zap" width="18" height="18" style="color: var(--warning);"></i>
+                    Electricity Consumption
+                </h3>
+                <div style="height: 300px;">
+                    <canvas id="electricityChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-lg); margin-bottom: var(--spacing-xl);">
+    
+    <!-- Recent Invoices -->
+    <div style="margin-top: var(--spacing-2xl);">
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
+            Recent Invoices
+        </h2>
         
-        <div style="background: var(--bg-secondary, #f9fafb); padding: var(--spacing-lg); border-radius: 8px; border: 1px solid var(--border-color);">
-            <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="gauge" width="20" height="20"></i>
-                Recent Meter Readings
-            </h3>
-            
-            {% if recent_readings %}
-                <table class="table" style="background: white;">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Units Used</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for reading in recent_readings|slice:":5" %}
-                        <tr>
-                            <td>{{ reading.reading_date|date:"M d, Y" }}</td>
-                            <td>{{ reading.get_meter_type_display }}</td>
-                            <td><strong>{{ reading.consumption }}</strong></td>
-                            <td>
-                                {% if reading.is_anomaly %}
-                                    <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #b45309; font-size: 0.7rem;">Anomaly</span>
-                                {% else %}
-                                    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #047857; font-size: 0.7rem;">Normal</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p style="color: var(--text-secondary);">No recent readings found for this unit.</p>
-            {% endif %}
-            
-            <div style="margin-top: var(--spacing-md); text-align: right;">
-                <a href="{% url 'meter_reading_list' %}?unit={{ unit.id }}" class="btn btn-secondary" style="font-size: 0.875rem;">View All Readings →</a>
-            </div>
+        {% if invoices %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Period</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr>
+                        <td style="font-weight: 600; font-family: monospace;">{{ invoice.invoice_number }}</td>
+                        <td>{{ invoice.billing_period }}</td>
+                        <td style="font-weight: 700; color: var(--text-primary);">KES {{ invoice.total_due|floatformat:2 }}</td>
+                        <td>
+                            <span class="status-badge status-{{ invoice.status|lower }}">
+                                {{ invoice.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'invoice_detail' invoice.id %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
+                                View
+                                <i data-lucide="arrow-right" width="14" height="14"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-
-        <div style="background: var(--bg-secondary, #f9fafb); padding: var(--spacing-lg); border-radius: 8px; border: 1px solid var(--border-color);">
-            <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="receipt" width="20" height="20"></i>
-                Recent Invoices
-            </h3>
-            
-            {% if recent_invoices %}
-                <table class="table" style="background: white;">
-                    <thead>
-                        <tr>
-                            <th>Month</th>
-                            <th>Total Due</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for invoice in recent_invoices|slice:":5" %}
-                        <tr>
-                            <td>{{ invoice.billing_period }}</td>
-                            <td><strong>KES {{ invoice.total_due }}</strong></td>
-                            <td>
-                                {% if invoice.status == 'PAID' %}
-                                    <span class="badge" style="background: var(--success-color); color: white; font-size: 0.7rem;">Paid</span>
-                                {% elif invoice.status == 'UNPAID' %}
-                                    <span class="badge" style="background: var(--danger-color); color: white; font-size: 0.7rem;">Unpaid</span>
-                                {% else %}
-                                    <span class="badge" style="background: var(--warning-color); color: #854d0e; font-size: 0.7rem;">{{ invoice.get_status_display }}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p style="color: var(--text-secondary);">No recent invoices found for this unit.</p>
-            {% endif %}
-            
-            <div style="margin-top: var(--spacing-md); text-align: right;">
-                <a href="{% url 'invoice_list' %}?unit={{ unit.id }}" class="btn btn-secondary" style="font-size: 0.875rem;">View All Invoices →</a>
-            </div>
+        {% else %}
+        <div style="text-align: center; padding: var(--spacing-2xl); background: var(--background); border-radius: var(--radius);">
+            <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+            <p style="color: var(--text-secondary);">No invoices found for this period</p>
         </div>
-
+        {% endif %}
+    </div>
+    
+    <!-- Recent Payments -->
+    <div style="margin-top: var(--spacing-2xl);">
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
+            Recent Payments
+        </h2>
+        
+        {% if payments %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Invoice #</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Reference</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                        <td style="font-family: monospace;">{{ payment.invoice.invoice_number }}</td>
+                        <td style="font-weight: 700; color: var(--success);">KES {{ payment.amount_paid|floatformat:2 }}</td>
+                        <td><span class="badge badge-info">{{ payment.get_payment_method_display }}</span></td>
+                        <td style="font-family: monospace; font-size: 0.875rem;">{{ payment.mpesa_reference|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: var(--spacing-2xl); background: var(--background); border-radius: var(--radius);">
+            <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+            <p style="color: var(--text-secondary);">No payments found for this period</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <script>
+// Water Consumption Chart
+const waterCtx = document.getElementById('waterChart').getContext('2d');
+const waterGradient = waterCtx.createLinearGradient(0, 0, 0, 300);
+waterGradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+waterGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+new Chart(waterCtx, {
+    type: 'line',
+    data: {
+        labels: {{ water_labels|safe }},
+        datasets: [{
+            label: 'Consumption (m³)',
+            data: {{ water_values|safe }},
+            backgroundColor: waterGradient,
+            borderColor: '#3B82F6',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#3B82F6',
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0F172A',
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        return context.parsed.y + ' m³';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                border: { display: false },
+                grid: { color: '#E2E8F0' },
+                ticks: {
+                    font: { size: 11, family: 'Inter' },
+                    color: '#64748B',
+                    callback: function(value) {
+                        return value + ' m³';
+                    }
+                }
+            },
+            x: {
+                border: { display: false },
+                grid: { display: false },
+                ticks: {
+                    font: { size: 11, family: 'Inter' },
+                    color: '#64748B'
+                }
+            }
+        }
+    }
+});
+
+// Electricity Consumption Chart
+const elecCtx = document.getElementById('electricityChart').getContext('2d');
+const elecGradient = elecCtx.createLinearGradient(0, 0, 0, 300);
+elecGradient.addColorStop(0, 'rgba(245, 158, 11, 0.3)');
+elecGradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+
+new Chart(elecCtx, {
+    type: 'line',
+    data: {
+        labels: {{ electricity_labels|safe }},
+        datasets: [{
+            label: 'Consumption (kWh)',
+            data: {{ electricity_values|safe }},
+            backgroundColor: elecGradient,
+            borderColor: '#F59E0B',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#F59E0B',
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0F172A',
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        return context.parsed.y + ' kWh';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                border: { display: false },
+                grid: { color: '#E2E8F0' },
+                ticks: {
+                    font: { size: 11, family: 'Inter' },
+                    color: '#64748B',
+                    callback: function(value) {
+                        return value + ' kWh';
+                    }
+                }
+            },
+            x: {
+                border: { display: false },
+                grid: { display: false },
+                ticks: {
+                    font: { size: 11, family: 'Inter' },
+                    color: '#64748B'
+                }
+            }
+        }
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
 });
