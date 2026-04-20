@@ -1,0 +1,159 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Electricity Tokens{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="zap" width="28" height="28"></i>
+            My Electricity Tokens
+        </h1>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{% url 'add_electricity_token' %}" class="btn btn-primary">
+                <i data-lucide="plus" width="16" height="16"></i>
+                Log New Token
+            </a>
+            <a href="{% url 'tenant_dashboard' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Summary Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="hash" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Tokens</div>
+            <div class="stat-value">{{ total_tokens }}</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="zap" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Units</div>
+            <div class="stat-value">{{ total_units|floatformat:0 }}</div>
+            <small style="color: var(--text-secondary);">kWh purchased</small>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-lucide="dollar-sign" width="20" height="20"></i>
+            </div>
+            <div class="stat-label">Total Spent</div>
+            <div class="stat-value">KES {{ total_spent|floatformat:2 }}</div>
+        </div>
+    </div>
+    
+    <!-- Tokens List -->
+    {% if page_obj %}
+    <div class="table-container" style="margin-top: var(--spacing-xl);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Token Number</th>
+                    <th>Units (kWh)</th>
+                    <th>Amount (KES)</th>
+                    <th>Vendor</th>
+                    <th>Expiry</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for token in page_obj %}
+                <tr>
+                    <td style="font-weight: 500;">{{ token.purchase_date|date:"M d, Y H:i" }}</td>
+                    <td style="font-family: monospace; font-weight: 600; color: var(--primary);">{{ token.token_number }}</td>
+                    <td style="font-weight: 600; color: var(--text-primary);">{{ token.units|floatformat:2 }}</td>
+                    <td style="font-weight: 700; color: var(--success);">{{ token.amount|floatformat:2 }}</td>
+                    <td>{{ token.vendor|default:"—" }}</td>
+                    <td>
+                        {% if token.expiry_date %}
+                        {{ token.expiry_date|date:"M d, Y" }}
+                        {% else %}
+                        <span style="color: var(--text-tertiary);">No expiry</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'delete_electricity_token' token.id %}" 
+                           style="color: var(--error); text-decoration: none; font-weight: 600;"
+                           onclick="return confirm('Delete this token?')">
+                            <i data-lucide="trash-2" width="14" height="14"></i>
+                            Delete
+                        </a>
+                    </td>
+                </tr>
+                {% if token.notes %}
+                <tr style="background: var(--background);">
+                    <td colspan="7" style="font-size: 0.875rem; color: var(--text-secondary); padding-left: var(--spacing-xl);">
+                        <i data-lucide="message-circle" width="14" height="14"></i>
+                        {{ token.notes }}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">
+            <i data-lucide="chevron-left" width="16" height="16"></i>
+            Previous
+        </a>
+        {% endif %}
+        
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">
+            Next
+            <i data-lucide="chevron-right" width="16" height="16"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div style="text-align: center; padding: var(--spacing-2xl); color: var(--text-secondary); margin-top: var(--spacing-xl);">
+        <i data-lucide="zap" width="64" height="64" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
+        <p style="font-size: 1.125rem; font-weight: 500; color: var(--text-primary); margin-bottom: var(--spacing-xs);">No tokens logged yet</p>
+        <p style="font-size: 0.875rem; margin-bottom: var(--spacing-lg);">Start tracking your prepaid electricity tokens</p>
+        <a href="{% url 'add_electricity_token' %}" class="btn btn-primary">
+            <i data-lucide="plus" width="16" height="16"></i>
+            Log Your First Token
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- Help Section -->
+    <div class="alert alert-info" style="margin-top: var(--spacing-xl);">
+        <i data-lucide="info" width="20" height="20"></i>
+        <div>
+            <strong>About Token Logging</strong>
+            <ul style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.9; padding-left: 1.25rem;">
+                <li>Keep track of all your electricity token purchases in one place</li>
+                <li>Monitor your electricity spending over time</li>
+                <li>Store token numbers for future reference</li>
+                <li>Receive SMS confirmation when you log a new token (if enabled)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}

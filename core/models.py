@@ -42,14 +42,37 @@ class Unit(models.Model):
 
 # Tenant
 class Tenant(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    unit = models.ForeignKey(Unit, on_delete=models.SET_NULL, null=True)
+    """
+    Tenant profile linked to User.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='tenant'
+    )
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tenants'
+    )
     move_in_date = models.DateField(null=True, blank=True)
-    is_active = models.BooleanField(default=True, help_text="Uncheck to deactivate tenant instead of deleting")
-    
+    phone_number = models.CharField(
+        max_length=15,
+        blank=True,
+        null=True,
+        help_text="Phone number for SMS notifications (e.g., 0712345678)"
+    )
+    is_active = models.BooleanField(
+        default=True, 
+        help_text="Uncheck to deactivate tenant instead of deleting"
+    )
+
     def __str__(self):
         status = "Active" if self.is_active else "Inactive"
-        return f"{self.user.get_full_name()} - Unit {self.unit.unit_number if self.unit else 'N/A'} ({status})"
+        unit_display = self.unit.unit_number if self.unit else 'No Unit'
+        return f"{self.user.get_full_name()} - Unit {unit_display} ({status})"
 
 # Meter
 class Meter(models.Model):
@@ -535,3 +558,92 @@ class AccountBalance(models.Model):
     def abs_balance(self):
         """Returns the positive value of the balance for the template"""
         return abs(self.current_balance)
+
+
+class ElectricityToken(models.Model):
+    """
+    Log electricity tokens for tenants using prepaid electricity.
+    Tenants can enable/disable this feature.
+    """
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name='electricity_tokens',
+        help_text="Tenant who purchased the token"
+    )
+    token_number = models.CharField(
+        max_length=50,
+        help_text="20-digit electricity token number"
+    )
+    units = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Number of kWh units purchased"
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Amount paid for the token (KES)"
+    )
+    purchase_date = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the token was logged"
+    )
+    expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Token expiry date (if applicable)"
+    )
+    vendor = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Vendor/source of token (e.g., Kenya Power, M-Pesa)"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about the token"
+    )
+    
+    class Meta:
+        ordering = ['-purchase_date']
+    
+    def __str__(self):
+        return f"{self.tenant.user.get_full_name()} - {self.token_number} ({self.units} kWh)"
+
+
+class TenantPreferences(models.Model):
+    """
+    Tenant preferences and feature toggles.
+    """
+    tenant = models.OneToOneField(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name='preferences',
+        help_text="Tenant these preferences belong to"
+    )
+    
+    # Feature toggles
+    enable_token_logging = models.BooleanField(
+        default=False,
+        help_text="Enable electricity token logging feature"
+    )
+    enable_sms_notifications = models.BooleanField(
+        default=True,
+        help_text="Receive SMS notifications for invoices and payments"
+    )
+    enable_email_notifications = models.BooleanField(
+        default=True,
+        help_text="Receive email notifications"
+    )
+    
+    # Display preferences
+    show_consumption_alerts = models.BooleanField(
+        default=True,
+        help_text="Show alerts for high consumption"
+    )
+    
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Preferences for {self.tenant.user.get_full_name()}"

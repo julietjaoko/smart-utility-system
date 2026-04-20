@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
+from .sms_utils import InvoiceSMS, PaymentSMS
+from .email_utils import InvoiceNotification
 import logging
 logger = logging.getLogger(__name__)
 
@@ -802,6 +804,7 @@ def billing_wizard_preview(request):
     if request.method == 'POST':
         # Final Commit: Execute database saves
         invoices_created = 0
+        errors = []
         
         # Sequence Number Generator
         last_invoice = Invoice.objects.filter(
@@ -810,37 +813,70 @@ def billing_wizard_preview(request):
         new_seq = int(last_invoice.invoice_number.split('-')[-1]) + 1 if last_invoice else 1
         
         for data in preview_data:
-            invoice_number = f"INV-{billing_date.strftime('%Y-%m')}-{new_seq:03d}"
-            
-            invoice = Invoice.objects.create(
-                unit=data['unit'],
-                tenant=data['tenant'],
-                invoice_number=invoice_number,
-                invoice_date=billing_date.date(),
-                due_date=due_date.date(),
-                billing_period=billing_date.strftime('%B %Y'),
-                water_units=data['water_units'],
-                water_rate=water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'),
-                electricity_units=data['electricity_units'],
-                electricity_rate=elec_rate_config.rate_per_unit if elec_rate_config else Decimal('0.00'),
-                total_fixed_charges=total_fixed_charges,
-                fixed_charges_breakdown=fixed_charges_breakdown,
-                previous_balance=data['prev_balance'],
-                generated_by=request.user
-            )
-            invoice.calculate_totals()
-            invoice.save()
-            
-            # Update Account Balance
-            acc, _ = AccountBalance.objects.get_or_create(tenant=data['tenant'])
-            acc.current_balance = invoice.total_due
-            acc.save()
-            
-            new_seq += 1
-            invoices_created += 1
-            
+            try:
+                invoice_number = f"INV-{billing_date.strftime('%Y-%m')}-{new_seq:03d}"
+                
+                invoice = Invoice.objects.create(
+                    unit=data['unit'],
+                    tenant=data['tenant'],
+                    invoice_number=invoice_number,
+                    invoice_date=billing_date.date(),
+                    due_date=due_date.date(),
+                    billing_period=billing_date.strftime('%B %Y'),
+                    water_units=data['water_units'],
+                    water_rate=water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'),
+                    electricity_units=data['electricity_units'],
+                    electricity_rate=elec_rate_config.rate_per_unit if elec_rate_config else Decimal('0.00'),
+                    total_fixed_charges=total_fixed_charges,
+                    fixed_charges_breakdown=fixed_charges_breakdown,
+                    previous_balance=data['prev_balance'],
+                    generated_by=request.user
+                )
+                invoice.calculate_totals()
+                invoice.save()
+                
+                # Update Account Balance
+                acc, _ = AccountBalance.objects.get_or_create(tenant=data['tenant'])
+                acc.current_balance = invoice.total_due
+                acc.save()
+                
+                new_seq += 1
+                invoices_created += 1
+
+                # NOTIFICATION LOGIC 
+               
+                # Send email notification
+                if tenant.user.email:
+                    try:
+                        preferences = TenantPreferences.objects.filter(tenant=tenant).first()
+                        if not preferences or preferences.enable_email_notifications:
+                            email_notifier = InvoiceNotification()
+                            email_notifier.send_invoice_notification(invoice)
+                    except Exception as email_error:
+                        print(f"Email error: {str(email_error)}")
+
+                # Send SMS notification
+                if tenant.phone_number:
+                    try:
+                        preferences = TenantPreferences.objects.filter(tenant=tenant).first()
+                        if preferences and preferences.enable_sms_notifications:
+                            sms_notifier = InvoiceSMS()
+                            sms_result = sms_notifier.send_invoice_notification(invoice)
+                            if not sms_result['success']:
+                                print(f"SMS error: {sms_result.get('error', 'Unknown')}")
+                    except Exception as sms_error:
+                        print(f"SMS error: {str(sms_error)}")
+
+            except Exception as e:
+                errors.append(f"Error generating for {data['unit'].unit_number}: {str(e)}")
+                
         del request.session['billing_month'] # Clear session
-        messages.success(request, f'✓ Successfully generated {invoices_created} invoices.')
+        
+        if errors:
+            messages.warning(request, f'Generated {invoices_created} invoices, but encountered errors: {"; ".join(errors)}')
+        else:
+            messages.success(request, f'✓ Successfully generated {invoices_created} invoices and sent notifications.')
+            
         return redirect('invoice_list')
         
     context = {
@@ -849,7 +885,6 @@ def billing_wizard_preview(request):
         'total_invoices': len(preview_data)
     }
     return render(request, 'core/wizard_step3_preview.html', context)
-
 
 @login_required
 def invoice_list(request):
@@ -1029,7 +1064,20 @@ def record_payment(request, invoice_id):
                     email_notifier = PaymentNotification()
                     email_notifier.send_payment_confirmation(payment)
                 except Exception as email_error:
-                    print(f"Failed to send payment confirmation: {str(email_error)}")
+                    print(f"Failed to send payment confirmation email: {str(email_error)}")
+
+                # --------------------------------------------------
+                # NEW SMS NOTIFICATION LOGIC MERGED HERE
+                # --------------------------------------------------
+                try:
+                    sms_notifier = PaymentSMS()
+                    sms_result = sms_notifier.send_payment_confirmation(payment)
+                    
+                    # Safely check if the result is a dict and grab the success status
+                    if isinstance(sms_result, dict) and not sms_result.get('success'):
+                        print(f"Failed to send SMS confirmation: {sms_result.get('error', 'Unknown error')}")
+                except Exception as sms_error:
+                    print(f"SMS error: {str(sms_error)}")
 
                 messages.success(
                     request,
@@ -2192,3 +2240,191 @@ def bulk_send_invoices(request):
             return redirect('manager_dashboard')
     
     return redirect('invoice_list')
+
+from .models import ElectricityToken, TenantPreferences
+from .sms_utils import TokenSMS
+
+@login_required
+def tenant_preferences(request):
+    """
+    Manage tenant preferences and feature toggles.
+    """
+    # Security check
+    if request.user.role != 'TENANT':
+        messages.error(request, 'Access denied')
+        return redirect('manager_dashboard')
+    
+    try:
+        tenant = Tenant.objects.get(user=request.user)
+        
+        # Get or create preferences
+        preferences, created = TenantPreferences.objects.get_or_create(
+            tenant=tenant,
+            defaults={
+                'enable_token_logging': False,
+                'enable_sms_notifications': True,
+                'enable_email_notifications': True,
+                'show_consumption_alerts': True
+            }
+        )
+        
+        if request.method == 'POST':
+            # Update preferences
+            preferences.enable_token_logging = request.POST.get('enable_token_logging') == 'on'
+            preferences.enable_sms_notifications = request.POST.get('enable_sms_notifications') == 'on'
+            preferences.enable_email_notifications = request.POST.get('enable_email_notifications') == 'on'
+            preferences.show_consumption_alerts = request.POST.get('show_consumption_alerts') == 'on'
+            
+            # Update phone number
+            phone_number = request.POST.get('phone_number', '').strip()
+            if phone_number:
+                tenant.phone_number = phone_number
+                tenant.save()
+            
+            preferences.save()
+            
+            messages.success(request, '✓ Preferences updated successfully')
+            return redirect('tenant_preferences')
+        
+        context = {
+            'tenant': tenant,
+            'preferences': preferences,
+        }
+        
+        return render(request, 'core/tenant_preferences.html', context)
+    
+    except Tenant.DoesNotExist:
+        messages.error(request, 'Tenant profile not found')
+        return redirect('login')
+
+
+@login_required
+def electricity_tokens(request):
+    """
+    View and manage electricity tokens.
+    """
+    # Security check
+    if request.user.role != 'TENANT':
+        messages.error(request, 'Access denied')
+        return redirect('manager_dashboard')
+    
+    try:
+        tenant = Tenant.objects.get(user=request.user)
+        
+        # Check if feature is enabled
+        preferences = TenantPreferences.objects.filter(tenant=tenant).first()
+        if not preferences or not preferences.enable_token_logging:
+            messages.warning(request, 'Electricity token logging is disabled. Enable it in your preferences.')
+            return redirect('tenant_preferences')
+        
+        # Get all tokens
+        tokens = ElectricityToken.objects.filter(tenant=tenant).order_by('-purchase_date')
+        
+        # Calculate statistics
+        total_tokens = tokens.count()
+        total_units = tokens.aggregate(total=Sum('units'))['total'] or Decimal('0.00')
+        total_spent = tokens.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Pagination
+        from django.core.paginator import Paginator
+        paginator = Paginator(tokens, 10)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context = {
+            'page_obj': page_obj,
+            'total_tokens': total_tokens,
+            'total_units': total_units,
+            'total_spent': total_spent,
+        }
+        
+        return render(request, 'core/electricity_tokens.html', context)
+    
+    except Tenant.DoesNotExist:
+        messages.error(request, 'Tenant profile not found')
+        return redirect('login')
+
+
+@login_required
+def add_electricity_token(request):
+    """
+    Log a new electricity token.
+    """
+    # Security check
+    if request.user.role != 'TENANT':
+        messages.error(request, 'Access denied')
+        return redirect('manager_dashboard')
+    
+    try:
+        tenant = Tenant.objects.get(user=request.user)
+        
+        # Check if feature is enabled
+        preferences = TenantPreferences.objects.filter(tenant=tenant).first()
+        if not preferences or not preferences.enable_token_logging:
+            messages.warning(request, 'Please enable token logging in your preferences first')
+            return redirect('tenant_preferences')
+        
+        if request.method == 'POST':
+            token_number = request.POST.get('token_number').strip()
+            units = request.POST.get('units')
+            amount = request.POST.get('amount')
+            expiry_date = request.POST.get('expiry_date')
+            vendor = request.POST.get('vendor', '').strip()
+            notes = request.POST.get('notes', '').strip()
+            
+            # Create token
+            token = ElectricityToken.objects.create(
+                tenant=tenant,
+                token_number=token_number,
+                units=units,
+                amount=amount,
+                expiry_date=expiry_date if expiry_date else None,
+                vendor=vendor,
+                notes=notes
+            )
+            
+            # Send SMS notification if enabled
+            if preferences.enable_sms_notifications and tenant.phone_number:
+                try:
+                    sms_notifier = TokenSMS()
+                    sms_notifier.send_token_notification(token)
+                except Exception as e:
+                    print(f"SMS error: {str(e)}")
+            
+            messages.success(request, f'✓ Token {token_number} logged successfully!')
+            return redirect('electricity_tokens')
+        
+        context = {
+            'today': timezone.now().date(),
+        }
+        
+        return render(request, 'core/add_electricity_token.html', context)
+    
+    except Tenant.DoesNotExist:
+        messages.error(request, 'Tenant profile not found')
+        return redirect('login')
+
+
+@login_required
+def delete_electricity_token(request, token_id):
+    """
+    Delete an electricity token.
+    """
+    # Security check
+    if request.user.role != 'TENANT':
+        messages.error(request, 'Access denied')
+        return redirect('manager_dashboard')
+    
+    try:
+        tenant = Tenant.objects.get(user=request.user)
+        token = get_object_or_404(ElectricityToken, id=token_id, tenant=tenant)
+        
+        token_number = token.token_number
+        token.delete()
+        
+        messages.success(request, f'✓ Token {token_number} deleted')
+        return redirect('electricity_tokens')
+    
+    except Tenant.DoesNotExist:
+        messages.error(request, 'Tenant profile not found')
+        return redirect('login')

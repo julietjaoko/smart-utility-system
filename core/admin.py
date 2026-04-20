@@ -96,3 +96,20 @@ class PaymentAdmin(admin.ModelAdmin):
 class AccountBalanceAdmin(admin.ModelAdmin):
     list_display = ['tenant', 'current_balance', 'last_updated']
     readonly_fields = ['last_updated']
+
+from .models import ElectricityToken, TenantPreferences
+
+@admin.register(ElectricityToken)
+class ElectricityTokenAdmin(admin.ModelAdmin):
+    list_display = ['tenant', 'token_number', 'units', 'amount', 'purchase_date', 'vendor']
+    list_filter = ['purchase_date', 'vendor']
+    search_fields = ['token_number', 'tenant__user__username', 'tenant__user__email']
+    readonly_fields = ['purchase_date']
+    date_hierarchy = 'purchase_date'
+
+@admin.register(TenantPreferences)
+class TenantPreferencesAdmin(admin.ModelAdmin):
+    list_display = ['tenant', 'enable_token_logging', 'enable_sms_notifications', 'enable_email_notifications', 'updated_at']
+    list_filter = ['enable_token_logging', 'enable_sms_notifications', 'enable_email_notifications']
+    search_fields = ['tenant__user__username', 'tenant__user__email']
+    readonly_fields = ['updated_at']

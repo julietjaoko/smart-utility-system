@@ -48,5 +48,10 @@ urlpatterns = [
     # Bulk Operations
     path('manager/invoices/bulk-delete/', views.bulk_delete_invoices, name='bulk_delete_invoices'),
     path('manager/invoices/bulk-send/', views.bulk_send_invoices, name='bulk_send_invoices'),
+    # Tenant Preferences & Token Logging
+    path('tenant/preferences/', views.tenant_preferences, name='tenant_preferences'),
+    path('tenant/electricity-tokens/', views.electricity_tokens, name='electricity_tokens'),
+    path('tenant/electricity-tokens/add/', views.add_electricity_token, name='add_electricity_token'),
+    path('tenant/electricity-tokens/<int:token_id>/delete/', views.delete_electricity_token, name='delete_electricity_token'),
 
 ]

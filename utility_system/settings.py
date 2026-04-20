@@ -76,6 +76,10 @@ WSGI_APPLICATION = 'utility_system.wsgi.application'
 # ==========================================
 # DATABASE CONFIGURATION (Aiven Cloud & Local)
 # ==========================================
+
+# First, capture the host so we can check it
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -84,14 +88,21 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'Juliet@2005'), 
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '3306'),
-        'OPTIONS': {
-            'ssl': {
-                'ca': os.path.join(BASE_DIR, 'ca.pem')
-            }
-        }
     }
 }
-
+# Apply different SSL rules depending on where the app is running
+if DB_HOST == 'localhost' or DB_HOST == '127.0.0.1':
+    # Local development: Ignore strict SSL verification
+    DATABASES['default']['OPTIONS'] = {
+        'ssl': {'cert_reqs': 0}
+    }
+else:
+    # Aiven Cloud (or production): Enforce strict SSL using the CA certificate
+    DATABASES['default']['OPTIONS'] = {
+        'ssl': {
+            'ca': os.path.join(BASE_DIR, 'ca.pem')
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -167,3 +178,14 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # For now, console backend (emails print to console)
 DEFAULT_FROM_EMAIL = 'SUMS <noreply@sums.com>'
+
+# Africa's Talking SMS Configuration
+# Get credentials from https://account.africastalking.com/
+
+AFRICASTALKING_USERNAME = 'sandbox'  # Use 'sandbox' for testing, your username for production
+AFRICASTALKING_API_KEY = 'atsk_39c8554a992c0fe5d7795db16e16f26806772d199ae5fe90c9e4df34e8e0d3bb8d8ac04a'  # Get from Africa's Talking dashboard
+AFRICASTALKING_SENDER_ID = 'SUMS'  # Short code or sender name (max 11 characters)
+
+# For production:
+# AFRICASTALKING_USERNAME = 'your_username'
+# AFRICASTALKING_API_KEY = 'your_production_api_key'

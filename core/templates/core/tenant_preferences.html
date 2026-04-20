@@ -1,0 +1,161 @@
+{% extends 'core/base.html' %}
+
+{% block title %}My Preferences{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="settings" width="28" height="28"></i>
+            My Preferences
+        </h1>
+        <a href="{% url 'tenant_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Dashboard
+        </a>
+    </div>
+    
+    <form method="POST">
+        {% csrf_token %}
+        
+        <!-- Contact Information -->
+        <div style="margin-bottom: var(--spacing-2xl);">
+            <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
+                Contact Information
+            </h2>
+            
+            <div class="form-group" style="max-width: 500px;">
+                <label for="phone_number">Phone Number</label>
+                <input 
+                    type="text" 
+                    name="phone_number" 
+                    id="phone_number" 
+                    value="{{ tenant.phone_number|default:'' }}"
+                    placeholder="e.g., 0712345678">
+                <small>Used for SMS notifications (format: 0712345678 or +254712345678)</small>
+            </div>
+        </div>
+        
+        <!-- Feature Toggles -->
+        <div style="margin-bottom: var(--spacing-2xl);">
+            <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
+                Features
+            </h2>
+            
+            <!-- Token Logging -->
+            <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); margin-bottom: var(--spacing-md); border-left: 4px solid var(--primary);">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-xs);">
+                            <i data-lucide="zap" width="20" height="20" style="color: var(--primary);"></i>
+                            <strong style="font-size: 1rem; color: var(--text-primary);">Electricity Token Logging</strong>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+                            Track your prepaid electricity tokens in one place. Log token numbers, units purchased, and amounts spent.
+                        </p>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; margin-left: var(--spacing-lg);">
+                        <input 
+                            type="checkbox" 
+                            name="enable_token_logging" 
+                            {% if preferences.enable_token_logging %}checked{% endif %}
+                            style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600; color: var(--text-primary);">
+                            {% if preferences.enable_token_logging %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- SMS Notifications -->
+            <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); margin-bottom: var(--spacing-md); border-left: 4px solid var(--info);">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-xs);">
+                            <i data-lucide="smartphone" width="20" height="20" style="color: var(--info);"></i>
+                            <strong style="font-size: 1rem; color: var(--text-primary);">SMS Notifications</strong>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+                            Receive SMS alerts for new invoices, payment confirmations, and electricity tokens.
+                        </p>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; margin-left: var(--spacing-lg);">
+                        <input 
+                            type="checkbox" 
+                            name="enable_sms_notifications" 
+                            {% if preferences.enable_sms_notifications %}checked{% endif %}
+                            style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600; color: var(--text-primary);">
+                            {% if preferences.enable_sms_notifications %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Email Notifications -->
+            <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); margin-bottom: var(--spacing-md); border-left: 4px solid var(--success);">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-xs);">
+                            <i data-lucide="mail" width="20" height="20" style="color: var(--success);"></i>
+                            <strong style="font-size: 1rem; color: var(--text-primary);">Email Notifications</strong>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+                            Receive detailed email notifications with invoice breakdowns and payment receipts.
+                        </p>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; margin-left: var(--spacing-lg);">
+                        <input 
+                            type="checkbox" 
+                            name="enable_email_notifications" 
+                            {% if preferences.enable_email_notifications %}checked{% endif %}
+                            style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600; color: var(--text-primary);">
+                            {% if preferences.enable_email_notifications %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Consumption Alerts -->
+            <div style="background: var(--background); padding: var(--spacing-lg); border-radius: var(--radius); border-left: 4px solid var(--warning);">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-xs);">
+                            <i data-lucide="alert-triangle" width="20" height="20" style="color: var(--warning);"></i>
+                            <strong style="font-size: 1rem; color: var(--text-primary);">High Consumption Alerts</strong>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+                            Get notified when your consumption is significantly higher than usual.
+                        </p>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; margin-left: var(--spacing-lg);">
+                        <input 
+                            type="checkbox" 
+                            name="show_consumption_alerts" 
+                            {% if preferences.show_consumption_alerts %}checked{% endif %}
+                            style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600; color: var(--text-primary);">
+                            {% if preferences.show_consumption_alerts %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Save Button -->
+        <div style="padding-top: var(--spacing-lg); border-top: 1px solid var(--border);">
+            <button type="submit" class="btn btn-success">
+                <i data-lucide="check" width="16" height="16"></i>
+                Save Preferences
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}
