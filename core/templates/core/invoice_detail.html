@@ -1,5 +1,15 @@
 {% extends 'core/base.html' %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'invoice_list' %}">Invoices</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">{{ invoice.invoice_number }}</span>
+</nav>
+{% endblock %}
+
 {% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
 
 {% block content %}

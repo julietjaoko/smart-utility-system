@@ -16,7 +16,9 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
 from .sms_utils import InvoiceSMS, PaymentSMS
-from .email_utils import InvoiceNotification
+from .email_utils import InvoiceNotification, PaymentNotification
+from .forms import UnitForm, MeterReadingForm, PaymentForm
+from .decorators import manager_required, tenant_required
 import logging
 logger = logging.getLogger(__name__)
 
@@ -122,39 +124,41 @@ def tenant_dashboard(request):
 
 
 
-@login_required
+@manager_required
 def manage_units(request):
-    if request.user.role != 'PROPERTY_MANAGER':
-        messages.error(request, 'Access denied')
-        return redirect('tenant_dashboard')
-    
     manager = PropertyManager.objects.get(user=request.user)
     units = Unit.objects.filter(manager=manager)
-    
+    return render(request, 'core/manage_units.html', {'units': units})
     return render(request, 'core/manage_units.html', {'units': units})
 
 
-@login_required
+@manager_required
 def add_unit(request):
-    if request.user.role != 'PROPERTY_MANAGER':
-        messages.error(request, 'Access denied')
-        return redirect('tenant_dashboard')
+    manager = PropertyManager.objects.get(user=request.user)
     
     if request.method == 'POST':
-        manager = PropertyManager.objects.get(user=request.user)
+        # Pass the submitted data to the form
+        form = UnitForm(request.POST)
         
-        unit = Unit.objects.create(
-            unit_number=request.POST.get('unit_number'),
-            estate_name=request.POST.get('estate_name'),
-            manager=manager,
-            has_water_meter=request.POST.get('has_water_meter') == 'on',
-            has_electricity_meter=request.POST.get('has_electricity_meter') == 'on'
-        )
-        
-        messages.success(request, f'Unit {unit.unit_number} added successfully')
-        return redirect('manage_units')
+        # Django automatically validates all fields!
+        if form.is_valid():
+            # commit=False creates the object but pauses before saving to the DB
+            unit = form.save(commit=False)
+            
+            # Attach the manager automatically (so the user can't spoof it)
+            unit.manager = manager
+            unit.save()
+            
+            messages.success(request, f'✓ Unit {unit.unit_number} added successfully')
+            return redirect('manage_units')
+        else:
+            # If validation fails, Django automatically generates error messages
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # If it's a GET request, just show an empty form
+        form = UnitForm()
     
-    return render(request, 'core/add_unit.html')
+    return render(request, 'core/add_unit.html', {'form': form})
 
 
 @login_required
@@ -171,76 +175,49 @@ def manage_tenants(request):
 from .models import MeterReading
 from django.shortcuts import get_object_or_404
 
-@login_required
+from .forms import UnitForm, MeterReadingForm
+
+@manager_required
 def enter_meter_reading(request):
     """
     Form for property managers to enter new meter readings.
-    Handles both GET (show form) and POST (save reading) requests.
     """
-    # Security: Only property managers can enter readings
-    if request.user.role != 'PROPERTY_MANAGER':
-        messages.error(request, 'Access denied')
-        return redirect('tenant_dashboard')
-    
-    # Get property manager's units
     manager = PropertyManager.objects.get(user=request.user)
-    units = Unit.objects.filter(manager=manager)
     
     if request.method == 'POST':
-        # Get form data
-        unit_id = request.POST.get('unit')
-        meter_type = request.POST.get('meter')
-        reading_value = request.POST.get('reading_value')
-        photo = request.FILES.get('photo')  # Optional photo
-        notes = request.POST.get('notes', '')
+        # Pass data, files, and the manager to the form
+        form = MeterReadingForm(request.POST, request.FILES, manager=manager)
         
-        try:
-            raw_reading = request.POST.get('reading_value')
-            reading_value = Decimal(raw_reading) if raw_reading else Decimal('0.00')
+        if form.is_valid():
+            # Create reading but pause before saving to DB
+            reading = form.save(commit=False)
+            reading.recorded_by = request.user
             
-            photo = request.FILES.get('photo')
-            notes = request.POST.get('notes', '')
-            # Get the specific meter
-            unit = Unit.objects.get(id=unit_id, manager=manager)
-            meter = Meter.objects.get(id=meter_type, unit=unit)
+            # The model's save() method automatically calculates consumption & anomalies!
+            reading.save()
             
-            # Create new meter reading
-            # Note: consumption and anomaly detection happen automatically in model's save() method
-            reading = MeterReading.objects.create(
-                meter=meter,
-                reading_value=reading_value,
-                photo=photo,
-                recorded_by=request.user,
-                notes=notes
-            )
-            
-            # Show success message with anomaly warning if detected
+            # Show success/warning toast based on anomaly detection
             if reading.is_anomaly:
                 messages.warning(
                     request,
                     f'⚠️ Reading saved but flagged as anomaly! '
-                    f'Consumption: {reading.consumption} {meter.get_meter_type_display()} units. '
-                    f'Please verify this reading.'
+                    f'Consumption: {reading.consumption} {reading.meter.get_meter_type_display()} units.'
                 )
             else:
                 messages.success(
                     request,
                     f'✓ Reading saved successfully! '
-                    f'Consumption: {reading.consumption} {meter.get_meter_type_display()} units.'
+                    f'Consumption: {reading.consumption} {reading.meter.get_meter_type_display()} units.'
                 )
-            
             return redirect('meter_reading_list')
-        
-        except (Unit.DoesNotExist, Meter.DoesNotExist):
-            messages.error(request, 'Invalid unit or meter selection')
-        except Exception as e:
-            messages.error(request, f'Error saving reading: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # GET request - load empty form with today's date
+        form = MeterReadingForm(manager=manager)
+        form.initial['reading_date'] = timezone.now().date()
     
-    context = {
-        'units': units,
-    }
-    return render(request, 'core/enter_meter_reading.html', context)
-
+    return render(request, 'core/enter_meter_reading.html', {'form': form})
 
 @login_required
 def get_unit_meters(request, unit_id):
@@ -813,38 +790,44 @@ def billing_wizard_preview(request):
         new_seq = int(last_invoice.invoice_number.split('-')[-1]) + 1 if last_invoice else 1
         
         for data in preview_data:
-            try:
-                invoice_number = f"INV-{billing_date.strftime('%Y-%m')}-{new_seq:03d}"
-                
-                invoice = Invoice.objects.create(
-                    unit=data['unit'],
-                    tenant=data['tenant'],
-                    invoice_number=invoice_number,
-                    invoice_date=billing_date.date(),
-                    due_date=due_date.date(),
-                    billing_period=billing_date.strftime('%B %Y'),
-                    water_units=data['water_units'],
-                    water_rate=water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'),
-                    electricity_units=data['electricity_units'],
-                    electricity_rate=elec_rate_config.rate_per_unit if elec_rate_config else Decimal('0.00'),
-                    total_fixed_charges=total_fixed_charges,
-                    fixed_charges_breakdown=fixed_charges_breakdown,
-                    previous_balance=data['prev_balance'],
-                    generated_by=request.user
-                )
-                invoice.calculate_totals()
-                invoice.save()
-                
-                # Update Account Balance
-                acc, _ = AccountBalance.objects.get_or_create(tenant=data['tenant'])
-                acc.current_balance = invoice.total_due
-                acc.save()
-                
-                new_seq += 1
-                invoices_created += 1
+            tenant = data['tenant']
+            invoice = None # Keep track of the invoice for notifications
 
-                # NOTIFICATION LOGIC 
-               
+            try:
+                # 1. ATOMIC BLOCK: Strictly for Database Operations
+                with transaction.atomic():
+                    invoice_number = f"INV-{billing_date.strftime('%Y-%m')}-{new_seq:03d}"
+                    
+                    invoice = Invoice.objects.create(
+                        unit=data['unit'],
+                        tenant=tenant,
+                        invoice_number=invoice_number,
+                        invoice_date=billing_date.date(),
+                        due_date=due_date.date(),
+                        billing_period=billing_date.strftime('%B %Y'),
+                        water_units=data['water_units'],
+                        water_rate=water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'),
+                        electricity_units=data['electricity_units'],
+                        electricity_rate=elec_rate_config.rate_per_unit if elec_rate_config else Decimal('0.00'),
+                        total_fixed_charges=total_fixed_charges,
+                        fixed_charges_breakdown=fixed_charges_breakdown,
+                        previous_balance=data['prev_balance'],
+                        generated_by=request.user
+                    )
+                    invoice.calculate_totals()
+                    invoice.save()
+                    
+                    # Update Account Balance
+                    acc, _ = AccountBalance.objects.get_or_create(tenant=tenant)
+                    acc.current_balance = invoice.total_due
+                    acc.save()
+                    
+                    new_seq += 1
+                    invoices_created += 1
+
+                # 2. NOTIFICATIONS: Placed outside the atomic block!
+                # We do this here so slow network calls don't lock up the database.
+                
                 # Send email notification
                 if tenant.user.email:
                     try:
@@ -853,7 +836,8 @@ def billing_wizard_preview(request):
                             email_notifier = InvoiceNotification()
                             email_notifier.send_invoice_notification(invoice)
                     except Exception as email_error:
-                        print(f"Email error: {str(email_error)}")
+                        # Log it, but don't fail the whole invoice creation
+                        logger.error(f"Email error for {tenant}: {str(email_error)}")
 
                 # Send SMS notification
                 if tenant.phone_number:
@@ -863,11 +847,12 @@ def billing_wizard_preview(request):
                             sms_notifier = InvoiceSMS()
                             sms_result = sms_notifier.send_invoice_notification(invoice)
                             if not sms_result['success']:
-                                print(f"SMS error: {sms_result.get('error', 'Unknown')}")
+                                logger.error(f"SMS error for {tenant}: {sms_result.get('error', 'Unknown')}")
                     except Exception as sms_error:
-                        print(f"SMS error: {str(sms_error)}")
+                        logger.error(f"SMS error for {tenant}: {str(sms_error)}")
 
             except Exception as e:
+                # If the DB fails, it safely rolls back here without affecting other tenants in the loop
                 errors.append(f"Error generating for {data['unit'].unit_number}: {str(e)}")
                 
         del request.session['billing_month'] # Clear session
@@ -1002,118 +987,90 @@ def invoice_detail(request, invoice_id):
     
     return render(request, 'core/invoice_detail.html', context)
 
-from .email_utils import PaymentNotification
-@login_required
+@manager_required
 def record_payment(request, invoice_id):
     """
-    Record a payment against an invoice.
-    Supports manual entry and M-Pesa reference recording.
+    Record a payment against an invoice using Django Forms.
     """
-    # Security check
-    if request.user.role != 'PROPERTY_MANAGER':
-        messages.error(request, 'Access denied')
-        return redirect('tenant_dashboard')
+    manager = PropertyManager.objects.get(user=request.user)
+    invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
     
-    try:
-        manager = PropertyManager.objects.get(user=request.user)
-        invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
+    # Calculate total already paid
+    total_paid = Payment.objects.filter(invoice=invoice).aggregate(
+        total=Sum('amount_paid')
+    )['total'] or Decimal('0.00')
+    
+    remaining_balance = invoice.total_due - total_paid
+
+    if request.method == 'POST':
+        form = PaymentForm(request.POST)
         
-        if request.method == 'POST':
+        if form.is_valid():
             try:
-                # Get payment details
-                payment_date = request.POST.get('payment_date')
-                amount_paid = Decimal(request.POST.get('amount_paid'))
-                payment_method = request.POST.get('payment_method')
-                mpesa_reference = request.POST.get('mpesa_reference', '').strip()
-                mpesa_phone = request.POST.get('mpesa_phone', '').strip()
-                notes = request.POST.get('notes', '').strip()
-                
-                # Validate amount
-                if amount_paid <= 0:
-                    messages.error(request, 'Payment amount must be greater than zero')
-                    return redirect('record_payment', invoice_id=invoice_id)
-                
-                # Create payment record
-                payment = Payment.objects.create(
-                    invoice=invoice,
-                    payment_date=payment_date,
-                    amount_paid=amount_paid,
-                    payment_method=payment_method,
-                    mpesa_reference=mpesa_reference if payment_method == 'MPESA' else None,
-                    mpesa_phone=mpesa_phone if payment_method == 'MPESA' else None,
-                    notes=notes,
-                    recorded_by=request.user
-                )
-                
-                # Update invoice status (happens automatically in Payment.save())
-                
-                # Update tenant account balance
+                # 1. ATOMIC BLOCK: Save Payment and Update Account Balance safely
                 with transaction.atomic():
+                    # Create payment record
+                    payment = form.save(commit=False)
+                    payment.invoice = invoice
+                    payment.recorded_by = request.user
+                    
+                    # If method is not MPESA, clear out the mpesa fields just in case
+                    if payment.payment_method != 'MPESA':
+                        payment.mpesa_reference = None
+                        payment.mpesa_phone = None
+                        
+                    payment.save() # This triggers invoice.update_status() automatically
+                    
+                    # Update tenant account balance
                     tenant = invoice.tenant
                     account_balance, created = AccountBalance.objects.select_for_update().get_or_create(
                         tenant=tenant,
                         defaults={'current_balance': Decimal('0.00')}
                     )
-
-                    # Directly deduct the paid amount from the total running balance
-                    account_balance.current_balance -= amount_paid
+                    account_balance.current_balance -= payment.amount_paid
                     account_balance.save()
-                
-                # Send payment confirmation email
+
+                # 2. NOTIFICATIONS (Outside the atomic block)
                 try:
                     email_notifier = PaymentNotification()
                     email_notifier.send_payment_confirmation(payment)
                 except Exception as email_error:
-                    print(f"Failed to send payment confirmation email: {str(email_error)}")
+                    logger.error(f"Email error: {str(email_error)}")
 
-                # --------------------------------------------------
-                # NEW SMS NOTIFICATION LOGIC MERGED HERE
-                # --------------------------------------------------
                 try:
                     sms_notifier = PaymentSMS()
                     sms_result = sms_notifier.send_payment_confirmation(payment)
-                    
-                    # Safely check if the result is a dict and grab the success status
-                    if isinstance(sms_result, dict) and not sms_result.get('success'):
-                        print(f"Failed to send SMS confirmation: {sms_result.get('error', 'Unknown error')}")
                 except Exception as sms_error:
-                    print(f"SMS error: {str(sms_error)}")
+                    logger.error(f"SMS error: {str(sms_error)}")
 
                 messages.success(
                     request,
-                    f'✓ Payment of KES {amount_paid} recorded successfully! '
+                    f'✓ Payment of KES {payment.amount_paid} recorded successfully! '
                     f'Invoice status: {invoice.get_status_display()}'
                 )
                 return redirect('invoice_detail', invoice_id=invoice.id)
-            
+                
             except Exception as e:
-                messages.error(request, f'Error recording payment: {str(e)}')
-                return redirect('invoice_detail', invoice_id=invoice_id)
+                messages.error(request, f'Database error recording payment: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors in the form below.')
             
-        # GET request - show form
-        # Calculate total already paid
-        total_paid = Payment.objects.filter(invoice=invoice).aggregate(
-            total=Sum('amount_paid')
-        )['total'] or Decimal('0.00')
+    else:
+        # GET request - load form with pre-filled defaults
+        form = PaymentForm(initial={
+            'payment_date': timezone.now().date(),
+            'amount_paid': remaining_balance if remaining_balance > 0 else Decimal('0.00'),
+            'payment_method': 'MPESA'
+        })
         
-        remaining_balance = invoice.total_due - total_paid
-        
-        context = {
-            'invoice': invoice,
-            'total_paid': total_paid,
-            'remaining_balance': remaining_balance,
-            'today': timezone.now().date(),
-        }
-        
-        return render(request, 'core/record_payment.html', context)
+    context = {
+        'form': form,
+        'invoice': invoice,
+        'total_paid': total_paid,
+        'remaining_balance': remaining_balance,
+    }
     
-    except PropertyManager.DoesNotExist:
-        messages.error(request, 'Property Manager profile not found')
-        return redirect('manager_dashboard')
-    except Exception as e:
-        messages.error(request, f'Error recording payment: {str(e)}')
-        return redirect('invoice_detail', invoice_id=invoice_id)
-
+    return render(request, 'core/record_payment.html', context)
 
 @login_required
 def payment_list(request):

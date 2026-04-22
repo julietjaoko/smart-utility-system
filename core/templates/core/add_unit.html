@@ -1,48 +1,64 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Add Unit{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'manage_units' %}">Units</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Add Unit</span>
+</nav>
+{% endblock %}
 
 {% block content %}
-<h1>Add New Unit</h1>
+<div class="card" style="max-width: 600px;">
+    <div class="card-header">
+        <h2 class="card-title"><i data-lucide="plus-circle"></i> Add New Unit</h2>
+    </div>
 
-<form method="POST" style="max-width: 600px; margin-top: 30px;">
-    {% csrf_token %}
-    
-    <div style="margin-bottom: 20px;">
-        <label for="unit_number" style="display: block; margin-bottom: 5px; font-weight: bold;">Unit Number:</label>
-        <input type="text" 
-               id="unit_number" 
-               name="unit_number" 
-               required 
-               placeholder="e.g., A101"
-               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-    </div>
-    
-    <div style="margin-bottom: 20px;">
-        <label for="estate_name" style="display: block; margin-bottom: 5px; font-weight: bold;">Estate Name:</label>
-        <input type="text" 
-               id="estate_name" 
-               name="estate_name" 
-               required 
-               placeholder="e.g., Greenview Apartments"
-               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-    </div>
-    
-    <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 10px; font-weight: bold;">Utilities:</label>
-        <div style="margin-bottom: 10px;">
-            <input type="checkbox" id="has_water_meter" name="has_water_meter" checked>
-            <label for="has_water_meter">Has Water Meter</label>
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="{{ form.unit_number.id_for_label }}">Unit Number</label>
+            {{ form.unit_number }}
+            <small class="text-error">{{ form.unit_number.errors }}</small>
         </div>
-        <div>
-            <input type="checkbox" id="has_electricity_meter" name="has_electricity_meter">
-            <label for="has_electricity_meter">Has Electricity Meter</label>
+
+        <div class="form-group">
+            <label for="{{ form.estate_name.id_for_label }}">Estate Name</label>
+            {{ form.estate_name }}
+            <small class="text-error">{{ form.estate_name.errors }}</small>
         </div>
-    </div>
-    
-    <div style="display: flex; gap: 10px;">
-        <button type="submit" class="btn">Add Unit</button>
-        <a href="{% url 'manage_units' %}" class="btn" style="background-color: #666;">Cancel</a>
-    </div>
-</form>
+
+        <h3 style="font-size: 1rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm); margin-top: var(--spacing-lg);">Utility Configuration</h3>
+        
+        <div class="setting-card">
+            <div class="setting-info">
+                <label for="{{ form.has_water_meter.id_for_label }}">Water Meter</label>
+                <small>Does this unit track its own water usage?</small>
+            </div>
+            <label class="toggle-switch">
+                {{ form.has_water_meter }}
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div class="setting-card">
+            <div class="setting-info">
+                <label for="{{ form.has_electricity_meter.id_for_label }}">Electricity Meter</label>
+                <small>Does this unit track its own electricity usage?</small>
+            </div>
+            <label class="toggle-switch">
+                {{ form.has_electricity_meter }}
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        
+        <div style="margin-top: var(--spacing-xl); display: flex; gap: var(--spacing-md);">
+            <button type="submit" class="btn btn-primary">Save Unit</button>
+            <a href="{% url 'manage_units' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

@@ -1,5 +1,17 @@
 {% extends 'core/base.html' %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'invoice_list' %}">Invoices</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'invoice_detail' invoice.id %}">{{ invoice.invoice_number }}</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Record Payment</span>
+</nav>
+{% endblock %}
+
 {% block title %}Record Payment{% endblock %}
 
 {% block content %}
@@ -60,75 +72,47 @@
         {% csrf_token %}
         
         <div class="form-group">
-            <label for="payment_date">Payment Date *</label>
-            <input 
-                type="date" 
-                name="payment_date" 
-                id="payment_date" 
-                required
-                value="{{ today|date:'Y-m-d' }}"
-                max="{{ today|date:'Y-m-d' }}">
+            <label for="{{ form.payment_date.id_for_label }}">Payment Date *</label>
+            {{ form.payment_date }}
+            <small class="text-error" style="color: var(--error);">{{ form.payment_date.errors }}</small>
             <small>Date when payment was received</small>
         </div>
         
         <div class="form-group">
-            <label for="amount_paid">Amount Paid (KES) *</label>
-            <input 
-                type="number" 
-                name="amount_paid" 
-                id="amount_paid" 
-                step="0.01" 
-                min="0.01" 
-                required
-                value="{{ remaining_balance|floatformat:2 }}"
-                placeholder="Enter amount received">
+            <label for="{{ form.amount_paid.id_for_label }}">Amount Paid (KES) *</label>
+            {{ form.amount_paid }}
+            <small class="text-error" style="color: var(--error);">{{ form.amount_paid.errors }}</small>
             <small>Amount can be less than, equal to, or more than the remaining balance</small>
         </div>
         
         <div class="form-group">
-            <label for="payment_method">Payment Method *</label>
-            <select name="payment_method" id="payment_method" required onchange="toggleMpesaFields()">
-                <option value="">-- Select payment method --</option>
-                <option value="MPESA" selected>M-Pesa</option>
-                <option value="CASH">Cash</option>
-                <option value="BANK">Bank Transfer</option>
-            </select>
+            <label for="{{ form.payment_method.id_for_label }}">Payment Method *</label>
+            {{ form.payment_method }}
+            <small class="text-error" style="color: var(--error);">{{ form.payment_method.errors }}</small>
         </div>
         
-        <!-- M-Pesa specific fields -->
         <div id="mpesaFields">
             <div class="form-group">
-                <label for="mpesa_reference">M-Pesa Transaction Code</label>
-                <input 
-                    type="text" 
-                    name="mpesa_reference" 
-                    id="mpesa_reference" 
-                    placeholder="e.g., QGJ4X7Y8ZW"
-                    style="text-transform: uppercase; font-family: monospace;">
+                <label for="{{ form.mpesa_reference.id_for_label }}">M-Pesa Transaction Code</label>
+                {{ form.mpesa_reference }}
+                <small class="text-error" style="color: var(--error);">{{ form.mpesa_reference.errors }}</small>
                 <small>M-Pesa confirmation code (optional but recommended)</small>
             </div>
             
             <div class="form-group">
-                <label for="mpesa_phone">Phone Number Used</label>
-                <input 
-                    type="text" 
-                    name="mpesa_phone" 
-                    id="mpesa_phone" 
-                    placeholder="e.g., 0712345678">
+                <label for="{{ form.mpesa_phone.id_for_label }}">Phone Number Used</label>
+                {{ form.mpesa_phone }}
+                <small class="text-error" style="color: var(--error);">{{ form.mpesa_phone.errors }}</small>
                 <small>Phone number that made the M-Pesa payment (optional)</small>
             </div>
         </div>
         
         <div class="form-group">
-            <label for="notes">Payment Notes (Optional)</label>
-            <textarea 
-                name="notes" 
-                id="notes" 
-                rows="3"
-                placeholder="Any additional notes about this payment..."></textarea>
+            <label for="{{ form.notes.id_for_label }}">Payment Notes (Optional)</label>
+            {{ form.notes }}
+            <small class="text-error" style="color: var(--error);">{{ form.notes.errors }}</small>
         </div>
         
-        <!-- Info Alert -->
         <div class="alert alert-info">
             <i data-lucide="info" width="20" height="20"></i>
             <div>
