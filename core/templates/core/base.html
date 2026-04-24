@@ -471,11 +471,29 @@
                 margin-bottom: var(--spacing-lg);
             }
         }
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid var(--primary-light, #EFF6FF);
+            border-bottom-color: var(--primary, #2563EB);
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    
+    <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; flex-direction: column; align-items: center; justify-content: center;">
+        <div class="loader"></div>
+        <p style="margin-top: 1rem; color: var(--primary); font-weight: 600; font-family: inherit;">Processing, please wait...</p>
+    </div>
     {% if request.user.is_authenticated %}
     <div class="app-layout">
         
@@ -636,6 +654,22 @@
                 });
             });
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.getElementById('loading-overlay');
+            const forms = document.querySelectorAll('form');
+
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    // Only show if the form doesn't have validation errors
+                    if (form.checkValidity()) {
+                        overlay.style.display = 'flex';
+                    }
+                });
+            });
+        });
+
+        
     </script>
 </body>
 </html>
