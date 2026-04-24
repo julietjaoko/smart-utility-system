@@ -2,6 +2,129 @@
 
 {% block title %}My Invoices{% endblock %}
 
+{% block extra_css %}
+<style>
+.balance-banner {
+    padding: var(--spacing-xl);
+    border-radius: var(--radius);
+    margin-bottom: var(--spacing-xl);
+    border-left: 4px solid;
+}
+
+.balance-banner__inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.invoice-filter {
+    margin-bottom: var(--spacing-lg);
+}
+
+.invoice-filter select {
+    max-width: 300px;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mpesa-panel {
+    margin-top: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+}
+
+.mpesa-panel[hidden] {
+    display: none;
+}
+
+.mpesa-panel__header {
+    margin-bottom: var(--spacing-md);
+}
+
+.mpesa-panel__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.mpesa-panel__subtitle {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.mpesa-panel__actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+.mpesa-feedback {
+    margin-top: var(--spacing-md);
+    padding: 0.875rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.mpesa-feedback.success {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.mpesa-feedback.error {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+@media (max-width: 768px) {
+    .balance-banner__inner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .invoice-filter select {
+        max-width: 100%;
+    }
+
+    .invoice-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .invoice-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .mpesa-panel__actions {
+        flex-direction: column;
+    }
+
+    .mpesa-panel__actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'tenant_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">My Invoices</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -15,9 +138,8 @@
         </a>
     </div>
     
-    <!-- Account Balance -->
-    <div style="background: {% if current_balance > 0 %}rgba(239, 68, 68, 0.1){% else %}rgba(16, 185, 129, 0.1){% endif %}; padding: var(--spacing-xl); border-radius: var(--radius); margin-bottom: var(--spacing-xl); border-left: 4px solid {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %};">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="balance-banner" style="background: {% if current_balance > 0 %}rgba(239, 68, 68, 0.1){% else %}rgba(16, 185, 129, 0.1){% endif %}; border-left-color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %};">
+        <div class="balance-banner__inner">
             <div>
                 <div style="font-size: 0.875rem; font-weight: 600; color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %}; margin-bottom: 0.25rem;">Current Account Balance</div>
                 <div style="font-size: 2rem; font-weight: 700; color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %};">
@@ -37,10 +159,9 @@
         </div>
     </div>
     
-    <!-- Filter -->
-    <div style="margin-bottom: var(--spacing-lg);">
+    <div class="invoice-filter">
         <form method="GET">
-            <select name="status" onchange="this.form.submit()" style="max-width: 300px;">
+            <select name="status" onchange="this.form.submit()">
                 <option value="">All Invoices</option>
                 <option value="UNPAID" {% if status_filter == 'UNPAID' %}selected{% endif %}>Unpaid</option>
                 <option value="PAID" {% if status_filter == 'PAID' %}selected{% endif %}>Paid</option>
@@ -75,13 +196,17 @@
                         </span>
                     </td>
                     <td>
-                        <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                        <div class="invoice-actions">
                             <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
                                 View
                             </a>
                             
                             {% if invoice.status != 'PAID' %}
-                            <button onclick="initiateMpesaPayment('{% url 'initiate_mpesa_payment' invoice.id %}', '{{ invoice.total_due|floatformat:2 }}')" class="btn btn-success" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                            <button
+                                type="button"
+                                class="btn btn-success"
+                                style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                                onclick="openMpesaPanel('{% url 'initiate_mpesa_payment' invoice.id %}', '{{ invoice.invoice_number }}', '{{ invoice.total_due|floatformat:2 }}')">
                                 <i data-lucide="smartphone" width="14" height="14"></i>
                                 Pay via M-Pesa
                             </button>
@@ -122,40 +247,130 @@
         <p style="font-size: 1.125rem; font-weight: 500; color: var(--text-primary);">No invoices found</p>
     </div>
     {% endif %}
+
+    <div id="mpesa-panel" class="mpesa-panel" hidden>
+        <div class="mpesa-panel__header">
+            <div class="mpesa-panel__title">Pay Invoice via M-Pesa</div>
+            <div class="mpesa-panel__subtitle" id="mpesa-panel-subtitle">
+                Enter the phone number to receive the STK push.
+            </div>
+        </div>
+
+        <form id="mpesa-payment-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="mpesa-phone-input">M-Pesa Phone Number</label>
+                <input
+                    type="text"
+                    id="mpesa-phone-input"
+                    name="phone_number"
+                    placeholder="e.g., 0712345678"
+                    value="{{ request.user.tenant.phone_number|default:'' }}"
+                    required>
+            </div>
+
+            <div class="mpesa-panel__actions">
+                <button type="submit" class="btn btn-success" id="mpesa-submit-btn">
+                    <i data-lucide="smartphone" width="16" height="16"></i>
+                    Send STK Push
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeMpesaPanel()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+
+        <div id="mpesa-feedback" hidden></div>
+    </div>
 </div>
 
 <script>
-function initiateMpesaPayment(paymentUrl, amount) {
-    // We pre-fill the prompt with the tenant's phone number if we have it!
-    const phone = prompt(`Enter M-Pesa phone number to pay KES ${amount} (e.g., 0712345678):`, "{{ request.user.tenant.phone_number|default:'' }}");
-    
-    if (!phone) return; // User clicked Cancel
-    
-    // Show a loading indication (optional but good for UX)
-    alert('Processing request... Please wait.');
-    
-    fetch(paymentUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `phone_number=${encodeURIComponent(phone)}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('✓ Payment request sent! Please check your phone and enter your M-Pesa PIN.');
-        } else {
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        alert('Error sending payment request: ' + error);
-    });
+let currentMpesaUrl = '';
+let currentInvoiceNumber = '';
+
+function openMpesaPanel(paymentUrl, invoiceNumber, amount) {
+    currentMpesaUrl = paymentUrl;
+    currentInvoiceNumber = invoiceNumber;
+
+    const panel = document.getElementById('mpesa-panel');
+    const subtitle = document.getElementById('mpesa-panel-subtitle');
+    const feedback = document.getElementById('mpesa-feedback');
+
+    subtitle.textContent = `Invoice ${invoiceNumber} - Amount KES ${amount}`;
+    feedback.hidden = true;
+    feedback.className = '';
+    feedback.textContent = '';
+
+    panel.hidden = false;
+    document.getElementById('mpesa-phone-input').focus();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeMpesaPanel() {
+    const panel = document.getElementById('mpesa-panel');
+    const feedback = document.getElementById('mpesa-feedback');
+
+    panel.hidden = true;
+    feedback.hidden = true;
+    feedback.className = '';
+    feedback.textContent = '';
+}
+
+function showMpesaFeedback(message, type) {
+    const feedback = document.getElementById('mpesa-feedback');
+    feedback.hidden = false;
+    feedback.className = `mpesa-feedback ${type}`;
+    feedback.textContent = message;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('mpesa-payment-form');
+    const submitBtn = document.getElementById('mpesa-submit-btn');
+
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const phone = document.getElementById('mpesa-phone-input').value.trim();
+
+            if (!phone) {
+                showMpesaFeedback('Please enter a phone number.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span> Sending...';
+
+            fetch(currentMpesaUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `phone_number=${encodeURIComponent(phone)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMpesaFeedback(
+                        `STK push sent for ${currentInvoiceNumber}. Check the phone and complete the prompt.`,
+                        'success'
+                    );
+                } else {
+                    showMpesaFeedback(data.error || 'Payment request failed.', 'error');
+                }
+            })
+            .catch(() => {
+                showMpesaFeedback('Unable to send payment request right now.', 'error');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-lucide="smartphone" width="16" height="16"></i> Send STK Push';
+                lucide.createIcons();
+            });
+        });
+    }
+
     lucide.createIcons();
 });
 </script>

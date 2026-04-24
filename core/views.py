@@ -85,7 +85,10 @@ def manager_dashboard(request):
         
         # Calculate statistics
         total_units = Unit.objects.filter(manager=manager).count()
-        active_tenants = Tenant.objects.filter(unit__manager=manager).count()
+        active_tenants = Tenant.objects.filter(
+            unit__manager=manager,
+            is_active=True
+        ).count()
         
         # Get meter readings from current month
         from django.utils import timezone
@@ -1156,71 +1159,89 @@ def initiate_mpesa_payment(request, invoice_id):
     Securely handles requests from both Property Managers and Tenants.
     """
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Invalid request method. Must be POST.'})
-        
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid request method. Must be POST.'
+        })
+
     phone_number = request.POST.get('phone_number')
     if not phone_number:
-        return JsonResponse({'success': False, 'error': 'Phone number is required.'})
+        return JsonResponse({
+            'success': False,
+            'error': 'Phone number is required.'
+        })
 
-    # 1. SECURITY & AUTHORIZATION CHECK
     invoice = None
     if request.user.role == 'PROPERTY_MANAGER':
         manager = PropertyManager.objects.get(user=request.user)
-        # Ensure the invoice belongs to a unit this manager controls
         invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
     elif request.user.role == 'TENANT':
         tenant = Tenant.objects.get(user=request.user)
-        # Ensure the invoice belongs strictly to this tenant
         invoice = get_object_or_404(Invoice, id=invoice_id, tenant=tenant)
     else:
-        return JsonResponse({'success': False, 'error': 'Unauthorized role.'})
+        return JsonResponse({
+            'success': False,
+            'error': 'Unauthorized role.'
+        })
 
-    # 2. VALIDATE INVOICE STATUS
     if invoice.status == 'PAID':
-        return JsonResponse({'success': False, 'error': 'This invoice is already fully paid.'})
+        return JsonResponse({
+            'success': False,
+            'error': 'This invoice is already fully paid.'
+        })
 
-    # 3. CALCULATE EXACT REMAINING BALANCE
-    # We calculate this dynamically on the server to prevent a user from 
-    # manipulating the amount via the browser's developer tools!
     total_paid = Payment.objects.filter(invoice=invoice).aggregate(
         total=Sum('amount_paid')
     )['total'] or Decimal('0.00')
-    
-    amount_due = invoice.total_due - total_paid
-    
-    if amount_due <= 0:
-        return JsonResponse({'success': False, 'error': 'No pending balance for this invoice.'})
 
-    # 4. INITIATE M-PESA PUSH
+    amount_due = invoice.total_due - total_paid
+
+    if amount_due <= 0:
+        return JsonResponse({
+            'success': False,
+            'error': 'No pending balance for this invoice.'
+        })
+
     try:
-        # Import your M-Pesa integration utility here 
-        # (assuming it's in core/mpesa.py based on standard Django practices)
-        from .mpesa import MpesaClient
-        
-        mpesa_client = MpesaClient()
-        
-        # Build the dynamic absolute URL for Safaricom to ping back
-        dynamic_callback_url = request.build_absolute_uri(
-            reverse('mpesa_webhook', args=[invoice.id])
-        )
-        
-        # Call the updated mpesa client
+        from .mpesa import MpesaDarajaSandbox
+
+        mpesa_client = MpesaDarajaSandbox()
+
+        base_callback_url = settings.MPESA_CALLBACK_URL.rstrip('/')
+        dynamic_callback_url = f"{base_callback_url}{reverse('mpesa_webhook', args=[invoice.id])}"
+
         response = mpesa_client.initiate_stk_push(
             phone_number=phone_number,
             amount=int(amount_due),
             account_reference=invoice.invoice_number,
             transaction_desc=f"Payment for {invoice.invoice_number}",
-            callback_url=dynamic_callback_url  # Pass the dynamic URL!
+            callback_url=dynamic_callback_url
         )
-        
-        if response.get('ResponseCode') == '0':
-            return JsonResponse({'success': True, 'message': 'STK Push sent successfully.'})
-        else:
-            return JsonResponse({'success': False, 'error': response.get('errorMessage', 'M-Pesa API error')})
-            
+
+        if response.get('success'):
+            return JsonResponse({
+                'success': True,
+                'message': response.get(
+                    'response_description',
+                    'STK Push sent successfully. Check your phone.'
+                ),
+                'checkout_request_id': response.get('checkout_request_id'),
+                'merchant_request_id': response.get('merchant_request_id'),
+            })
+
+        return JsonResponse({
+            'success': False,
+            'error': response.get('error', 'M-Pesa API error'),
+            'response_code': response.get('response_code')
+        })
+
     except Exception as e:
-        logger.error(f"M-Pesa push failed for INV-{invoice.id}: {str(e)}")
-        return JsonResponse({'success': False, 'error': 'Failed to connect to M-Pesa servers. Please try again later.'})
+        logger.exception(f"M-Pesa push failed for invoice {invoice.id}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'M-Pesa request failed: {str(e)}'
+        })
+
 
 
 @csrf_exempt

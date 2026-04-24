@@ -1,11 +1,115 @@
 {% extends 'core/base.html' %}
 
 {% block title %}Manager Dashboard{% endblock %}
+{% block extra_css %}
+<style>
+.dashboard-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.dashboard-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.5rem 0.875rem;
+    white-space: nowrap;
+}
+
+.section-kicker {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin: 0 0 0.75rem;
+}
+
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: var(--spacing-xl);
+}
+
+.quick-action-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    min-width: 0;
+}
+
+.quick-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.quick-action-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.quick-action-text {
+    min-width: 0;
+}
+
+.quick-action-title {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.quick-action-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .dashboard-hero {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dashboard-date {
+        width: 100%;
+        text-align: center;
+    }
+
+    .quick-actions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-value {
+        font-size: 1.625rem;
+    }
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="card">
 
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--spacing-xl); flex-wrap: wrap; gap: var(--spacing-md);">
+    <div class="dashboard-hero">
         <div>
             <h1 style="font-size: 1.375rem; font-weight: 600; color: var(--text-primary); margin: 0 0 0.25rem;">
                 Good morning, {{ request.user.get_full_name|default:request.user.username }}
@@ -14,10 +118,10 @@
                 Here's what's happening across your estate today
             </p>
         </div>
-        <div style="font-size: 0.75rem; color: var(--text-secondary); background: var(--bg-secondary, #f5f5f5); border: 1px solid var(--border-color, #e5e7eb); border-radius: 6px; padding: 6px 12px; white-space: nowrap;" id="dashboard-date"></div>
+        <div class="dashboard-date" id="dashboard-date"></div>
     </div>
 
-    <p style="font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted, #9ca3af); margin: 0 0 0.625rem;">Overview</p>
+    <p class="section-kicker">Overview</p>
     <div class="stats-grid" style="margin-bottom: var(--spacing-xl);">
 
         <div class="stat-card" style="display: flex; flex-direction: column; gap: 4px;">
@@ -46,97 +150,96 @@
 
     </div>
 
-    <p style="font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted, #9ca3af); margin: 0 0 0.625rem;">Quick Actions</p>
+    <p class="section-kicker">Quick Actions</p>
     
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: var(--spacing-xl);">
-
-        <a href="{% url 'manage_units' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+    <div class="quick-actions-grid">
+        <a href="{% url 'manage_units' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #E0E7FF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #4338CA;">
                 <i data-lucide="building" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Manage Units</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">View directory and edit properties</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Manage Units</span>
+                <span class="quick-action-desc">View directory and edit properties</span>
             </span>
         </a>
 
-        <a href="{% url 'manage_tenants' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+        <a href="{% url 'manage_tenants' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #CCFBF1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #0F766E;">
                 <i data-lucide="users" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Manage Tenants</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Onboard, deactivate & view profiles</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Manage Tenants</span>
+                <span class="quick-action-desc">Onboard, deactivate & view profiles</span>
             </span>
         </a>
 
-        <a href="{% url 'enter_meter_reading' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--primary-light, #EFF6FF); border: 1px solid var(--primary-border, #BFDBFE); border-radius: 10px; text-decoration: none; transition: opacity 0.15s;">
+        <a href="{% url 'enter_meter_reading' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: rgba(255,255,255,0.6); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--primary, #2563EB);">
                 <i data-lucide="activity" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 600; color: var(--primary, #2563EB); margin-bottom: 2px;">Enter Meter Reading</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--primary, #2563EB); opacity: 0.75;">Log new unit consumption</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Enter Meter Reading</span>
+                <span class="quick-action-desc">Log new unit consumption</span>
             </span>
         </a>
 
-        <a href="{% url 'meter_reading_list' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+        <a href="{% url 'meter_reading_list' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #E1F5EE; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #0F6E56;">
                 <i data-lucide="list" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">View Readings</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Browse submissions & resolve anomalies</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">View Readings</span>
+                <span class="quick-action-desc">Browse submissions & resolve anomalies</span>
             </span>
         </a>
 
-        <a href="{% url 'billing_wizard_start' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+        <a href="{% url 'billing_wizard_start' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #EEEDFE; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #534AB7;">
                 <i data-lucide="file-plus" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Generate Invoices</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Create bulk bills for this period</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Generate Invoices</span>
+                <span class="quick-action-desc">Create bulk bills for this period</span>
             </span>
         </a>
 
-        <a href="{% url 'invoice_list' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+        <a href="{% url 'invoice_list' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #FAEEDA; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #854F0B;">
                 <i data-lucide="receipt" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">View Invoices</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Track issued & unpaid bills</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">View Invoices</span>
+                <span class="quick-action-desc">Track issued & unpaid bills</span>
             </span>
         </a>
-        
-        <a href="{% url 'payment_list' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+
+        <a href="{% url 'payment_list' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #DCFCE7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #166534;">
                 <i data-lucide="wallet" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Payment Ledger</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Review M-Pesa & cash receipts</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Payment Ledger</span>
+                <span class="quick-action-desc">Review M-Pesa & cash receipts</span>
             </span>
         </a>
 
-        <a href="{% url 'manage_rates' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+        <a href="{% url 'manage_rates' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: var(--bg-secondary, #f3f4f6); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary);">
                 <i data-lucide="settings" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Manage Rates</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Adjust utility pricing & fixed fees</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Manage Rates</span>
+                <span class="quick-action-desc">Adjust utility pricing & fixed fees</span>
             </span>
         </a>
 
-        <a href="{% url 'advanced_analytics' %}" style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card-bg, #ffffff); border: 1px solid var(--border-color, #e5e7eb); border-radius: 10px; text-decoration: none; transition: border-color 0.15s, background 0.15s;">
+        <a href="{% url 'advanced_analytics' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #FAECE7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #993C1D;">
                 <i data-lucide="bar-chart-4" width="16" height="16"></i>
             </span>
-            <span style="min-width: 0;">
-                <span style="display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Advanced Analytics</span>
-                <span style="display: block; font-size: 0.75rem; color: var(--text-secondary);">Deep-dive reports & forecasts</span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Advanced Analytics</span>
+                <span class="quick-action-desc">Deep-dive reports & forecasts</span>
             </span>
         </a>
 

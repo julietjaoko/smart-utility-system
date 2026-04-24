@@ -1,5 +1,32 @@
 {% extends 'core/base.html' %}
 
+{% block title %}Add Unit{% endblock %}
+
+{% block extra_css %}
+<style>
+.unit-form-card {
+    max-width: 680px;
+}
+
+.form-actions {
+    margin-top: var(--spacing-xl);
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+@media (max-width: 768px) {
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
@@ -11,9 +38,18 @@
 {% endblock %}
 
 {% block content %}
-<div class="card" style="max-width: 600px;">
+<div class="card unit-form-card">
     <div class="card-header">
-        <h2 class="card-title"><i data-lucide="plus-circle"></i> Add New Unit</h2>
+        <h1 class="card-title">
+            <i data-lucide="plus-circle" width="28" height="28"></i>
+            Add New Unit
+        </h1>
+        <div class="header-actions">
+            <a href="{% url 'manage_units' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Back
+            </a>
+        </div>
     </div>
 
     <form method="POST">
@@ -22,16 +58,18 @@
         <div class="form-group">
             <label for="{{ form.unit_number.id_for_label }}">Unit Number</label>
             {{ form.unit_number }}
-            <small class="text-error">{{ form.unit_number.errors }}</small>
+            <small class="text-error" style="color: var(--error);">{{ form.unit_number.errors }}</small>
         </div>
 
         <div class="form-group">
             <label for="{{ form.estate_name.id_for_label }}">Estate Name</label>
             {{ form.estate_name }}
-            <small class="text-error">{{ form.estate_name.errors }}</small>
+            <small class="text-error" style="color: var(--error);">{{ form.estate_name.errors }}</small>
         </div>
 
-        <h3 style="font-size: 1rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm); margin-top: var(--spacing-lg);">Utility Configuration</h3>
+        <h3 style="font-size: 1rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm); margin-top: var(--spacing-lg);">
+            Utility Configuration
+        </h3>
         
         <div class="setting-card">
             <div class="setting-info">
@@ -55,8 +93,11 @@
             </label>
         </div>
         
-        <div style="margin-top: var(--spacing-xl); display: flex; gap: var(--spacing-md);">
-            <button type="submit" class="btn btn-primary">Save Unit</button>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="check" width="16" height="16"></i>
+                Save Unit
+            </button>
             <a href="{% url 'manage_units' %}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>

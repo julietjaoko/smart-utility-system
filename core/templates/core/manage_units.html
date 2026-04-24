@@ -1,6 +1,52 @@
 {% extends 'core/base.html' %}
 
 {% block title %}Manage Units{% endblock %}
+{% block extra_css %}
+<style>
+.unit-meter-list {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.unit-row-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.unit-row-actions .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--background);
+    border-radius: var(--radius);
+    border: 2px dashed var(--border);
+    margin-top: var(--spacing-lg);
+}
+
+@media (max-width: 768px) {
+    .unit-row-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .unit-row-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .empty-state {
+        padding: 2.5rem 1.25rem;
+    }
+}
+</style>
+{% endblock %}
 
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
@@ -12,7 +58,7 @@
 
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-md);">
+    <div class="card-header">
         <div>
             <h1 class="card-title">
                 <i data-lucide="building" width="28" height="28"></i>
@@ -21,9 +67,11 @@
             <p style="color: var(--text-secondary); margin-top: 0.5rem;">Manage all units, blocks, and meter configurations.</p>
         </div>
         
-        <a href="{% url 'add_unit' %}" class="btn btn-primary">
-            <i data-lucide="plus" width="16" height="16"></i> Add New Unit
-        </a>
+        <div class="header-actions">
+            <a href="{% url 'add_unit' %}" class="btn btn-primary">
+                <i data-lucide="plus" width="16" height="16"></i> Add New Unit
+            </a>
+        </div>
     </div>
 
     {% if units %}
@@ -48,7 +96,7 @@
                         </div>
                     </td>
                     <td>
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <div class="unit-meter-list">
                             {% if unit.has_water_meter %}
                                 <span class="badge badge-info" style="display: flex; align-items: center; gap: 4px;">
                                     <i data-lucide="droplet" width="12" height="12"></i> Water
@@ -67,11 +115,11 @@
                         </div>
                     </td>
                     <td>
-                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                            <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                        <div class="unit-row-actions">
+                            <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary">
                                 <i data-lucide="eye" width="14" height="14"></i> Manage
                             </a>
-                            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary">
                                 <i data-lucide="edit" width="14" height="14"></i> Edit
                             </a>
                         </div>
@@ -83,7 +131,7 @@
     </div>
     
     {% else %}
-    <div style="text-align: center; padding: 4rem 2rem; background: var(--background); border-radius: var(--radius); border: 2px dashed var(--border); margin-top: var(--spacing-lg);">
+    <div class="empty-state">
         <div style="display: inline-flex; justify-content: center; align-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(5, 150, 105, 0.1); margin-bottom: var(--spacing-md);">
             <i data-lucide="building" width="32" height="32" style="color: var(--primary);"></i>
         </div>

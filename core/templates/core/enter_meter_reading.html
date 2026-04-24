@@ -2,6 +2,66 @@
 
 {% block title %}Enter Meter Reading{% endblock %}
 
+{% block extra_css %}
+<style>
+.reading-form-card {
+    max-width: 760px;
+}
+
+.previous-reading-card {
+    display: none;
+    background: var(--background);
+    padding: var(--spacing-md);
+    border-radius: var(--radius);
+    margin-bottom: var(--spacing-lg);
+    border-left: 4px solid var(--primary);
+}
+
+.previous-reading-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.info-panel {
+    margin-top: var(--spacing-lg);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+}
+
+.info-panel__inner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+}
+
+@media (max-width: 768px) {
+    .previous-reading-grid {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
@@ -13,12 +73,18 @@
 {% endblock %}
 
 {% block content %}
-<div class="card" style="max-width: 700px;">
+<div class="card reading-form-card">
     <div class="card-header">
         <h1 class="card-title">
             <i data-lucide="bar-chart-3" width="28" height="28"></i>
             Enter Meter Reading
         </h1>
+        <div class="header-actions">
+            <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Back to Readings
+            </a>
+        </div>
     </div>
     
     <form method="POST" enctype="multipart/form-data">
@@ -28,7 +94,7 @@
             <label for="{{ form.unit.id_for_label }}">Select Unit *</label>
             {{ form.unit }}
             <small class="text-error" style="color: var(--error);">{{ form.unit.errors }}</small>
-            <small>Choose the unit you're recording readings for</small>
+            <small>Choose the unit you're recording readings for.</small>
         </div>
         
         <div id="meterSection" style="{% if not form.is_bound and not form.unit.value %}display: none;{% endif %}">
@@ -36,10 +102,10 @@
                 <label for="{{ form.meter.id_for_label }}">Select Meter *</label>
                 {{ form.meter }}
                 <small class="text-error" style="color: var(--error);">{{ form.meter.errors }}</small>
-                <small>Available meters for selected unit</small>
+                <small>Only active meters for the selected unit are shown.</small>
             </div>
             
-            <div id="previousReadingInfo" style="display: none; background: var(--background); padding: var(--spacing-md); border-radius: var(--radius); margin-bottom: var(--spacing-lg); border-left: 4px solid var(--primary);">
+            <div id="previousReadingInfo" class="previous-reading-card">
                 <div style="display: flex; align-items: start; gap: var(--spacing-sm);">
                     <i data-lucide="info" width="20" height="20" style="color: var(--primary); flex-shrink: 0;"></i>
                     <div>
@@ -66,6 +132,7 @@
             <label for="{{ form.photo.id_for_label }}">Meter Photo (Optional)</label>
             {{ form.photo }}
             <small class="text-error" style="color: var(--error);">{{ form.photo.errors }}</small>
+            <small>Attach a photo if you want stronger verification history.</small>
         </div>
 
         <div class="form-group">
@@ -74,19 +141,21 @@
             <small class="text-error" style="color: var(--error);">{{ form.notes.errors }}</small>
         </div>
         
-        <div class="alert alert-info" style="margin-top: var(--spacing-lg);">
-            <i data-lucide="lightbulb" width="20" height="20"></i>
-            <div>
-                <strong>Best Practices</strong>
-                <ul style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.9; padding-left: 1.25rem;">
-                    <li>Record readings at the same time each month</li>
-                    <li>Double-check the reading value before submitting</li>
-                    <li>System will automatically detect and flag unusual jumps in consumption</li>
-                </ul>
+        <div class="info-panel">
+            <div class="info-panel__inner">
+                <i data-lucide="lightbulb" width="20" height="20" style="color: var(--info); flex-shrink: 0;"></i>
+                <div>
+                    <strong style="display: block; color: var(--text-primary);">Best Practices</strong>
+                    <ul style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); padding-left: 1.25rem;">
+                        <li>Record readings around the same time each month.</li>
+                        <li>Double-check the reading value before saving.</li>
+                        <li>The system will flag unusual consumption automatically for review.</li>
+                    </ul>
+                </div>
             </div>
         </div>
         
-        <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+        <div class="form-actions">
             <button type="submit" class="btn btn-success">
                 <i data-lucide="check" width="16" height="16"></i>
                 Save Reading
@@ -97,7 +166,6 @@
 </div>
 
 <script>
-// Load meters when unit is selected
 function loadMeters() {
     const unitId = document.getElementById('unit').value;
     const meterSelect = document.getElementById('meter');
@@ -110,11 +178,9 @@ function loadMeters() {
         return;
     }
     
-    // Show loading state
     meterSelect.innerHTML = '<option value="">Loading meters...</option>';
     meterSection.style.display = 'block';
     
-    // Fetch meters for this unit
     fetch(`/api/unit/${unitId}/meters/`)
         .then(response => {
             if (!response.ok) {
@@ -139,7 +205,6 @@ function loadMeters() {
                 meterSelect.innerHTML = '<option value="">No active meters found for this unit</option>';
             }
             
-            // Reinitialize icons
             lucide.createIcons();
         })
         .catch(error => {
@@ -148,7 +213,6 @@ function loadMeters() {
         });
 }
 
-// Show previous reading info when meter is selected
 function showPreviousReading() {
     const meterSelect = document.getElementById('meter');
     const selectedOption = meterSelect.options[meterSelect.selectedIndex];
@@ -157,7 +221,7 @@ function showPreviousReading() {
     
     if (selectedOption.value && selectedOption.dataset.previousReading !== 'None') {
         previousReadingDetails.innerHTML = `
-            <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; font-size: 0.875rem;">
+            <div class="previous-reading-grid">
                 <span style="font-weight: 600; color: var(--text-primary);">Last Reading:</span>
                 <span style="color: var(--text-secondary);">${selectedOption.dataset.previousReading} units</span>
                 <span style="font-weight: 600; color: var(--text-primary);">Date:</span>
@@ -171,11 +235,9 @@ function showPreviousReading() {
         previousReadingInfo.style.display = 'none';
     }
     
-    // Reinitialize icons
     lucide.createIcons();
 }
 
-// Initialize icons on page load
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
 });

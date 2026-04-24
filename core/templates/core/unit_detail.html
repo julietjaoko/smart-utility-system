@@ -2,6 +2,69 @@
 
 {% block title %}Unit Profile - {{ unit.unit_number }}{% endblock %}
 
+{% block extra_css %}
+<style>
+.unit-header-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.unit-quick-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+}
+
+.unit-meter-badges {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.unit-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
+}
+
+.tenant-stat-row {
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .unit-header-actions,
+    .unit-quick-actions {
+        flex-direction: column;
+    }
+
+    .unit-header-actions .btn,
+    .unit-quick-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .unit-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tenant-stat-row {
+        font-size: 1rem;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
@@ -14,7 +77,7 @@
 
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--spacing-md);">
+    <div class="card-header">
         <div>
             <h1 class="card-title">
                 <i data-lucide="home" width="28" height="28"></i>
@@ -22,19 +85,19 @@
             </h1>
             <p style="color: var(--text-secondary); margin-top: 0.5rem;">{{ unit.estate_name }}</p>
         </div>
-        <div>
+        <div class="header-actions unit-header-actions">
             <a href="{% url 'manage_units' %}" class="btn btn-secondary">
                 <i data-lucide="arrow-left" width="16" height="16"></i>
                 Back to Directory
             </a>
-            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" style="margin-left: 0.5rem;">
+            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary">
                 <i data-lucide="edit" width="16" height="16"></i>
                 Edit Unit
             </a>
         </div>
     </div>
 
-    <div style="display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-xl); flex-wrap: wrap;">
+    <div class="unit-quick-actions">
         <a href="{% url 'consumption_analytics' %}?unit={{ unit.id }}" class="btn btn-primary">
             <i data-lucide="trending-up" width="16" height="16"></i>
             Advanced Analytics
@@ -55,7 +118,7 @@
                 <i data-lucide="user" width="20" height="20"></i>
             </div>
             <div class="stat-label">Current Tenant</div>
-            <div class="stat-value" style="font-size: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+            <div class="stat-value tenant-stat-row">
                 {% if tenant %}
                     <span>{{ tenant.user.get_full_name|default:tenant.user.username }}</span>
                     <form method="POST" action="{% url 'deactivate_tenant' tenant.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to deactivate this tenant? This will revoke their login access and vacate the unit.');">
@@ -66,7 +129,7 @@
                     </form>
                 {% else %}
                     <span style="color: var(--text-tertiary);">Vacant</span>
-                    <a href="{% url 'add_tenant' %}?unit_id={{ unit.id }}" class="badge badge-primary" style="text-decoration: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    <a href="{% url 'add_tenant' %}?unit_id={{ unit.id }}" class="badge" style="background-color: #DBEAFE; color: #1D4ED8; text-decoration: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <i data-lucide="user-plus" width="12" height="12"></i> Add
                     </a>
                 {% endif %}
@@ -88,7 +151,7 @@
                 <i data-lucide="settings" width="20" height="20"></i>
             </div>
             <div class="stat-label">Active Meters</div>
-            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+            <div class="unit-meter-badges">
                 {% if unit.has_water_meter %}
                     <span class="badge badge-info">Water</span>
                 {% endif %}
@@ -99,8 +162,7 @@
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-xl); margin-top: var(--spacing-xl);">
-        
+    <div class="unit-detail-grid">
         <div>
             <h3 style="margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 0.5rem;">
                 <i data-lucide="file-text" width="18" height="18"></i> Recent Invoices
@@ -177,7 +239,6 @@
                 </table>
             </div>
         </div>
-
     </div>
 </div>
 {% endblock %}

@@ -12,6 +12,70 @@
 
 {% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
 
+{% block extra_css %}
+<style>
+.invoice-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.invoice-toolbar {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.info-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.charge-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.invoice-footer-actions {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .invoice-toolbar,
+    .invoice-footer-actions {
+        flex-direction: column;
+    }
+
+    .invoice-toolbar .btn,
+    .invoice-footer-actions .btn,
+    .invoice-footer-actions form {
+        width: 100%;
+    }
+
+    .invoice-footer-actions form .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .charge-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -25,8 +89,7 @@
         </a>
     </div>
     
-    <!-- Invoice Header -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-xl);">
+    <div class="invoice-summary-grid">
         <div>
             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Invoice Number</div>
             <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); font-family: monospace;">{{ invoice.invoice_number }}</div>
@@ -43,20 +106,19 @@
         </div>
     </div>
 
-    <div style="display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-lg);">
+    <div class="invoice-toolbar">
         <a href="{% url 'download_invoice_pdf' invoice.id %}" class="btn btn-secondary">
             <i data-lucide="download" width="16" height="16"></i>
             Download PDF
         </a>
     </div>
         
-    <!-- Unit & Tenant Info -->
     <div style="background: var(--background); padding: var(--spacing-xl); border-radius: var(--radius); margin-bottom: var(--spacing-xl);">
         <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg); display: flex; align-items: center; gap: var(--spacing-xs);">
             <i data-lucide="map-pin" width="18" height="18"></i>
             Property Information
         </h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg);">
+        <div class="info-panel-grid">
             <div>
                 <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Unit</div>
                 <div style="color: var(--text-primary); font-weight: 500;">{{ invoice.unit.unit_number }}</div>
@@ -78,19 +140,18 @@
         </div>
     </div>
     
-    <!-- Charges Breakdown -->
     <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl); margin-bottom: var(--spacing-xl);">
         <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg); display: flex; align-items: center; gap: var(--spacing-xs);">
             <i data-lucide="calculator" width="18" height="18"></i>
             Charges Breakdown
         </h3>
         
-        <div style="display: flex; justify-content: space-between; padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border);">
+        <div class="charge-row">
             <div style="color: var(--text-secondary); font-weight: 500;">Previous Balance Brought Forward</div>
             <div style="font-weight: 600; font-family: monospace; font-size: 1rem; color: var(--text-primary);">KES {{ invoice.previous_balance|floatformat:2 }}</div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border);">
+        <div class="charge-row">
             <div style="color: var(--text-secondary); font-weight: 500;">
                 Water Consumption ({{ invoice.water_units }} units @ KES {{ invoice.water_rate }})
             </div>
@@ -98,7 +159,7 @@
         </div>
         
         {% if invoice.electricity_units > 0 %}
-        <div style="display: flex; justify-content: space-between; padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border);">
+        <div class="charge-row">
             <div style="color: var(--text-secondary); font-weight: 500;">
                 Electricity Consumption ({{ invoice.electricity_units }} units @ KES {{ invoice.electricity_rate }})
             </div>
@@ -106,25 +167,24 @@
         </div>
         {% endif %}
         
-        <div style="display: flex; justify-content: space-between; padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border);">
+        <div class="charge-row">
             <div style="color: var(--text-secondary); font-weight: 500;">Fixed Charges (Security, Garbage, etc.)</div>
             <div style="font-weight: 600; font-family: monospace; font-size: 1rem; color: var(--text-primary);">KES {{ invoice.total_fixed_charges|floatformat:2 }}</div>
         </div>
         
-        <div style="display: flex; justify-content: space-between; padding: var(--spacing-md) 0; border-bottom: 2px solid var(--border); margin-top: var(--spacing-sm);">
+        <div style="display: flex; justify-content: space-between; padding: var(--spacing-md) 0; border-bottom: 2px solid var(--border); margin-top: var(--spacing-sm); gap: var(--spacing-md);">
             <div style="font-weight: 600; color: var(--text-primary); text-transform: uppercase;">Subtotal for {{ invoice.billing_period }}</div>
             <div style="font-weight: 700; font-family: monospace; font-size: 1.125rem; color: var(--text-primary);">KES {{ invoice.subtotal|floatformat:2 }}</div>
         </div>
         
         <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); padding: var(--spacing-lg); border-radius: var(--radius); margin-top: var(--spacing-md);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md);">
                 <div style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase;">TOTAL DUE</div>
                 <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning); font-family: monospace;">KES {{ invoice.total_due|floatformat:2 }}</div>
             </div>
         </div>
     </div>
     
-    <!-- Payment History -->
     <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
         <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg); display: flex; align-items: center; gap: var(--spacing-xs);">
             <i data-lucide="credit-card" width="18" height="18"></i>
@@ -140,6 +200,7 @@
                         <th>Amount</th>
                         <th>Method</th>
                         <th>Reference</th>
+                        <th>Receipt</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -148,7 +209,7 @@
                         <td>{{ payment.payment_date|date:"M d, Y" }}</td>
                         <td style="font-weight: 700; color: var(--success);">KES {{ payment.amount_paid|floatformat:2 }}</td>
                         <td><span class="badge badge-info">{{ payment.get_payment_method_display }}</span></td>
-                        <td style="font-family: monospace; font-size: 0.875rem;">{{ payment.mpesa_reference|default:"—" }}</td>
+                        <td style="font-family: monospace; font-size: 0.875rem;">{{ payment.mpesa_reference|default:"-" }}</td>
                         <td>
                             <a href="{% url 'download_payment_receipt' payment.id %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
                                 <i data-lucide="download" width="14" height="14"></i>
@@ -162,12 +223,12 @@
         </div>
         
         <div style="background: rgba(16, 185, 129, 0.1); padding: var(--spacing-md); border-radius: var(--radius); margin-top: var(--spacing-md); border-left: 4px solid var(--success);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md);">
                 <div style="font-weight: 600; color: var(--success);">Total Paid</div>
                 <div style="font-size: 1.25rem; font-weight: 700; color: var(--success);">KES {{ total_paid|floatformat:2 }}</div>
             </div>
             {% if remaining_balance > 0 %}
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--spacing-sm); padding-top: var(--spacing-sm); border-top: 1px solid rgba(16, 185, 129, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--spacing-sm); padding-top: var(--spacing-sm); border-top: 1px solid rgba(16, 185, 129, 0.2); gap: var(--spacing-md);">
                 <div style="font-weight: 600; color: var(--error);">Remaining Balance</div>
                 <div style="font-size: 1.25rem; font-weight: 700; color: var(--error);">KES {{ remaining_balance|floatformat:2 }}</div>
             </div>
@@ -181,7 +242,7 @@
         {% endif %}
         
         {% if request.user.role == 'PROPERTY_MANAGER' and invoice.status != 'PAID' %}
-        <div style="margin-top: var(--spacing-xl); padding-top: var(--spacing-lg); border-top: 1px solid var(--border); display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+        <div class="invoice-footer-actions">
             <a href="{% url 'record_payment' invoice.id %}" class="btn btn-primary">
                 <i data-lucide="credit-card" width="16" height="16"></i>
                 Record Payment

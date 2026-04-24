@@ -160,13 +160,22 @@ class MeterReading(models.Model):
         Override save to automatically calculate consumption and detect anomalies.
         This runs every time a reading is saved.
         """
-        # Get the previous reading for this meter
+        # Only compare against readings taken before this one, so backdated imports
+        # and corrections do not accidentally use a newer reading as "previous".
         previous_reading = MeterReading.objects.filter(
-            meter=self.meter
+            meter=self.meter,
+            reading_date__lt=self.reading_date
         ).exclude(
-            pk=self.pk if self.pk else None # Exclude current reading if updating
+            pk=self.pk if self.pk else None
         ).order_by('-reading_date').first()
-        
+
+        recent_readings = MeterReading.objects.filter(
+            meter=self.meter,
+            reading_date__lt=self.reading_date
+        ).exclude(
+            pk=self.pk if self.pk else None
+        ).order_by('-reading_date')[:3]
+
         if previous_reading:
             # Calculate consumption: current - previous
             self.consumption = self.reading_value - previous_reading.reading_value
@@ -174,7 +183,8 @@ class MeterReading(models.Model):
             # Anomaly Detection: Check for unusual patterns
             # Get average consumption from last 3 readings
             recent_readings = MeterReading.objects.filter(
-                meter=self.meter
+                meter=self.meter,
+                reading_date__lt=self.reading_date
             ).exclude(pk=self.pk if self.pk else None).order_by('-reading_date')[:3]
             
             if recent_readings.count() >= 2:

@@ -155,7 +155,7 @@ MPESA_CONSUMER_KEY = os.environ.get('MPESA_CONSUMER_KEY', 'NJDK1YqtCR9mh0RHIZAI2
 MPESA_CONSUMER_SECRET = os.environ.get('MPESA_CONSUMER_SECRET', 'gCfGqL3pdGETEzZDGrcYWAsvfdLhdLdEnlxMwPGMbwZhBX39zsZWdHfhyx9BTJUM')
 MPESA_SHORTCODE = os.environ.get('MPESA_SHORTCODE', '174379') # Sandbox default
 MPESA_PASSKEY = os.environ.get('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')
-MPESA_CALLBACK_URL = os.environ.get('MPESA_CALLBACK_URL', 'https://miguelina-interdestructive-soothingly.ngrok-free.dev')
+MPESA_CALLBACK_URL = os.environ.get('MPESA_CALLBACK_URL', 'https://miguelina-interdestructive-soothingly.ngrok-free.dev/mpesa/webhook/5/') 
 
 LOGIN_URL = '/'
 

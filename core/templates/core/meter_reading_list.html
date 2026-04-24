@@ -2,43 +2,161 @@
 
 {% block title %}Meter Readings{% endblock %}
 
+{% block extra_css %}
+<style>
+.reading-tabs {
+    display: flex;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--spacing-lg);
+    overflow-x: auto;
+}
+
+.reading-tab {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1rem;
+    white-space: nowrap;
+}
+
+.reading-tab.active {
+    border-bottom-color: var(--primary);
+    color: var(--primary);
+}
+
+.reading-filter-form {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    background: var(--background);
+    padding: var(--spacing-md);
+    border-radius: 8px;
+}
+
+.reading-filter-form > div {
+    flex: 1;
+    min-width: 200px;
+}
+
+.triage-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.reading-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.reading-pagination-current {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    background: var(--background);
+    border-radius: 4px;
+}
+
+.info-alert {
+    margin-bottom: var(--spacing-lg);
+    background: rgba(245, 158, 11, 0.10);
+    border: 1px solid rgba(245, 158, 11, 0.20);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+}
+
+.info-alert__inner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+@media (max-width: 768px) {
+    .reading-filter-form {
+        flex-direction: column;
+    }
+
+    .triage-actions {
+        flex-direction: column;
+    }
+
+    .triage-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .reading-pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .reading-pagination .btn,
+    .reading-pagination-current {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Meter Readings</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-header">
         <h1 class="card-title">
             <i data-lucide="bar-chart-3" width="28" height="28"></i>
             Meter Readings
         </h1>
-        <a href="{% url 'enter_meter_reading' %}" class="btn btn-primary">
-            <i data-lucide="plus" width="16" height="16"></i>
-            Enter New Reading
-        </a>
+        <div class="header-actions">
+            <a href="{% url 'enter_meter_reading' %}" class="btn btn-primary">
+                <i data-lucide="plus" width="16" height="16"></i>
+                Enter New Reading
+            </a>
+        </div>
     </div>
 
-    <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: var(--spacing-lg);">
-        <button onclick="switchTab('all')" id="btn-tab-all" style="padding: 0.75rem 1.5rem; background: transparent; border: none; border-bottom: 2px solid var(--primary-color); color: var(--primary-color); font-weight: 600; cursor: pointer; font-size: 1rem;">
+    <div class="reading-tabs">
+        <button onclick="switchTab('all')" id="btn-tab-all" class="reading-tab active">
             All Readings
         </button>
-        <button onclick="switchTab('triage')" id="btn-tab-triage" style="padding: 0.75rem 1.5rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); font-weight: 600; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <button onclick="switchTab('triage')" id="btn-tab-triage" class="reading-tab" style="display: flex; align-items: center; gap: 0.5rem;">
             Requires Action
             {% if pending_count > 0 %}
-                <span style="background: var(--danger-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">{{ pending_count }}</span>
+                <span style="background: var(--error); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">{{ pending_count }}</span>
             {% endif %}
         </button>
     </div>
 
     <div id="tab-triage" style="display: none;">
         {% if pending_count > 0 %}
-            <div class="alert alert-warning" style="margin-bottom: var(--spacing-lg);">
-                <i data-lucide="alert-triangle" width="20" height="20"></i>
-                <div>
-                    <strong>Action Required</strong>
-                    <p style="margin-top: 0.25rem; font-size: 0.875rem;">These readings were flagged as anomalous (unusually high, zero, or negative). They must be explicitly verified or rejected before invoices can be generated.</p>
+            <div class="info-alert">
+                <div class="info-alert__inner">
+                    <i data-lucide="alert-triangle" width="20" height="20" style="color: var(--warning); flex-shrink: 0;"></i>
+                    <div>
+                        <strong style="display: block; color: var(--text-primary);">Action Required</strong>
+                        <p style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-secondary);">These readings were flagged as anomalous and must be verified or rejected before invoices can be generated.</p>
+                    </div>
                 </div>
             </div>
 
-            <div style="overflow-x: auto;">
-                <table class="table">
+            <div class="table-container">
+                <table>
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -57,10 +175,10 @@
                             <td>{{ reading.meter.get_meter_type_display }}</td>
                             <td>{{ reading.reading_value }}</td>
                             <td>
-                                <strong style="color: var(--danger-color);">{{ reading.consumption }}</strong>
+                                <strong style="color: var(--error);">{{ reading.consumption }}</strong>
                             </td>
                             <td>
-                                <div style="display: flex; gap: 0.5rem;">
+                                <div class="triage-actions">
                                     <a href="{% url 'resolve_anomaly' reading.id 'verify' %}" class="btn btn-success" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
                                         <i data-lucide="check" width="14" height="14"></i> Verify
                                     </a>
@@ -76,7 +194,7 @@
             </div>
         {% else %}
             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
-                <i data-lucide="check-circle-2" width="48" height="48" style="color: var(--success-color); margin-bottom: 1rem; opacity: 0.8;"></i>
+                <i data-lucide="check-circle-2" width="48" height="48" style="color: var(--success); margin-bottom: 1rem; opacity: 0.8;"></i>
                 <h3>All Clear!</h3>
                 <p>There are no pending anomalies requiring your attention.</p>
             </div>
@@ -84,12 +202,12 @@
     </div>
 
     <div id="tab-all">
-        <form method="GET" style="display: flex; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); flex-wrap: wrap; background: var(--bg-secondary); padding: var(--spacing-md); border-radius: 8px;">
-            <div style="flex: 1; min-width: 200px;">
-                <input type="text" name="search" class="form-control" placeholder="Search unit or notes..." value="{{ current_filters.search|default:'' }}">
+        <form method="GET" class="reading-filter-form">
+            <div>
+                <input type="text" name="search" placeholder="Search unit or notes..." value="{{ current_filters.search|default:'' }}">
             </div>
-            <div style="min-width: 150px;">
-                <select name="unit" class="form-control">
+            <div>
+                <select name="unit">
                     <option value="">All Units</option>
                     {% for unit in units %}
                         <option value="{{ unit.id }}" {% if current_filters.unit == unit.id|stringformat:"s" %}selected{% endif %}>
@@ -102,8 +220,8 @@
             <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">Clear</a>
         </form>
 
-        <div style="overflow-x: auto;">
-            <table class="table">
+        <div class="table-container">
+            <table>
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -111,7 +229,8 @@
                         <th>Type</th>
                         <th>Reading</th>
                         <th>Consumption</th>
-                        <th>Status</th> <th>Action</th>
+                        <th>Status</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -130,7 +249,7 @@
                                     Anomaly
                                 </div>
                             {% else %}
-                                <div style="color: var(--success-color, #10b981); display: flex; align-items: center; gap: 4px; font-weight: 600; margin-bottom: 4px;">
+                                <div style="color: var(--success); display: flex; align-items: center; gap: 4px; font-weight: 600; margin-bottom: 4px;">
                                     <i data-lucide="check-circle-2" width="16" height="16"></i> 
                                     Normal
                                 </div>
@@ -167,12 +286,12 @@
         </div>
 
         {% if page_obj.has_other_pages %}
-        <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: var(--spacing-lg);">
+        <div class="reading-pagination">
             {% if page_obj.has_previous %}
                 <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary">&laquo; Prev</a>
             {% endif %}
             
-            <span style="display: flex; align-items: center; padding: 0 1rem; background: var(--bg-secondary); border-radius: 4px;">
+            <span class="reading-pagination-current">
                 Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
             </span>
             
@@ -186,23 +305,19 @@
 
 <script>
 function switchTab(tabName) {
-    // Hide both tabs
     document.getElementById('tab-all').style.display = 'none';
     document.getElementById('tab-triage').style.display = 'none';
     
-    // Reset button styles
     document.getElementById('btn-tab-all').style.borderBottomColor = 'transparent';
     document.getElementById('btn-tab-all').style.color = 'var(--text-secondary)';
     document.getElementById('btn-tab-triage').style.borderBottomColor = 'transparent';
     document.getElementById('btn-tab-triage').style.color = 'var(--text-secondary)';
     
-    // Show selected tab and highlight button
     document.getElementById('tab-' + tabName).style.display = 'block';
-    document.getElementById('btn-tab-' + tabName).style.borderBottomColor = 'var(--primary-color)';
-    document.getElementById('btn-tab-' + tabName).style.color = 'var(--primary-color)';
+    document.getElementById('btn-tab-' + tabName).style.borderBottomColor = 'var(--primary)';
+    document.getElementById('btn-tab-' + tabName).style.color = 'var(--primary)';
 }
 
-// Auto-switch to triage tab if there are pending anomalies
 document.addEventListener('DOMContentLoaded', function() {
     {% if pending_count > 0 %}
         switchTab('triage');

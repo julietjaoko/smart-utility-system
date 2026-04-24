@@ -24,7 +24,7 @@
     <form method="POST">
         {% csrf_token %}
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+        <div class="tenant-name-grid">
             <div class="form-group">
                 <label for="{{ form.first_name.id_for_label }}">First Name *</label>
                 {{ form.first_name }}
@@ -70,7 +70,7 @@
             <small>You can leave this blank and assign a unit later.</small>
         </div>
         
-        <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+        <div class="form-actions">
             <button type="submit" class="btn btn-primary">
                 <i data-lucide="check" width="16" height="16"></i>
                 Create Tenant
@@ -79,4 +79,34 @@
         </div>
     </form>
 </div>
+{% endblock %}
+{% block extra_css %}
+<style>
+.tenant-name-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xl);
+}
+
+@media (max-width: 768px) {
+    .tenant-name-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
 {% endblock %}

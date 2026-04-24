@@ -2,6 +2,79 @@
 
 {% block title %}Manage Rates{% endblock %}
 
+{% block extra_css %}
+<style>
+.rates-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.rate-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: var(--spacing-md);
+}
+
+.rate-card__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.rate-card__action {
+    flex-shrink: 0;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.info-panel {
+    margin-top: var(--spacing-xl);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+}
+
+.info-panel__inner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+@media (max-width: 768px) {
+    .rate-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rate-card__action .btn,
+    .section-header .btn,
+    .rates-toolbar .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Rates & Charges</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
@@ -9,27 +82,27 @@
             <i data-lucide="settings" width="28" height="28"></i>
             Rate Configuration
         </h1>
-        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
-            <i data-lucide="arrow-left" width="16" height="16"></i>
-            Dashboard
-        </a>
+        <div class="header-actions rates-toolbar">
+            <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Dashboard
+            </a>
+        </div>
     </div>
     
-    <!-- Current Rates Section -->
     <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">Current Utility Rates</h2>
     
     <div class="stats-grid">
-        <!-- Water Rate Card -->
         <div class="stat-card">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div style="flex: 1;">
+            <div class="rate-card">
+                <div class="rate-card__content">
                     <div class="stat-icon">
                         <i data-lucide="droplet" width="20" height="20"></i>
                     </div>
                     <div class="stat-label">Water</div>
                     {% if water_rate %}
                     <div class="stat-value">KES {{ water_rate.rate_per_unit }}</div>
-                    <small style="color: var(--text-secondary);">per m³</small>
+                    <small style="color: var(--text-secondary);">per m3</small>
                     <div style="margin-top: var(--spacing-sm); font-size: 0.75rem; color: var(--text-secondary);">
                         Effective: {{ water_rate.effective_from|date:"M d, Y" }}
                     </div>
@@ -37,16 +110,17 @@
                     <p style="color: var(--text-secondary); margin-top: var(--spacing-md);">Not configured</p>
                     {% endif %}
                 </div>
-                <a href="{% url 'add_rate' %}?type=water" class="btn btn-primary" style="padding: 0.5rem 1rem;">
-                    {% if water_rate %}Update{% else %}Set Rate{% endif %}
-                </a>
+                <div class="rate-card__action">
+                    <a href="{% url 'add_rate' %}?type=water" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                        {% if water_rate %}Update{% else %}Set Rate{% endif %}
+                    </a>
+                </div>
             </div>
         </div>
         
-        <!-- Electricity Rate Card -->
         <div class="stat-card">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div style="flex: 1;">
+            <div class="rate-card">
+                <div class="rate-card__content">
                     <div class="stat-icon">
                         <i data-lucide="zap" width="20" height="20"></i>
                     </div>
@@ -61,16 +135,17 @@
                     <p style="color: var(--text-secondary); margin-top: var(--spacing-md);">Not configured</p>
                     {% endif %}
                 </div>
-                <a href="{% url 'add_rate' %}?type=electricity" class="btn btn-primary" style="padding: 0.5rem 1rem;">
-                    {% if electricity_rate %}Update{% else %}Set Rate{% endif %}
-                </a>
+                <div class="rate-card__action">
+                    <a href="{% url 'add_rate' %}?type=electricity" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                        {% if electricity_rate %}Update{% else %}Set Rate{% endif %}
+                    </a>
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- Fixed Charges Section -->
     <div style="margin-top: var(--spacing-2xl);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+        <div class="section-header">
             <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">Fixed Monthly Charges</h2>
             <a href="{% url 'add_fixed_charge' %}" class="btn btn-primary">
                 <i data-lucide="plus" width="16" height="16"></i>
@@ -116,17 +191,18 @@
         {% endif %}
     </div>
     
-    <!-- Help Section -->
-    <div class="alert alert-info" style="margin-top: var(--spacing-xl);">
-        <i data-lucide="info" width="20" height="20"></i>
-        <div>
-            <strong>How Billing Works</strong>
-            <ul style="margin-top: 0.5rem; font-size: 0.875rem; opacity: 0.9; padding-left: 1.25rem;">
-                <li>Utility Rates: Set the cost per unit for water and electricity</li>
-                <li>Fixed Charges: Monthly fees like garbage collection, security, maintenance</li>
-                <li>Invoice Calculation: (Water units × Rate) + (Electricity units × Rate) + Fixed Charges</li>
-                <li>Previous Balance: Outstanding or credit amounts are carried forward</li>
-            </ul>
+    <div class="info-panel">
+        <div class="info-panel__inner">
+            <i data-lucide="info" width="20" height="20" style="color: var(--info); flex-shrink: 0;"></i>
+            <div>
+                <strong style="display: block; color: var(--text-primary);">How Billing Works</strong>
+                <ul style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); padding-left: 1.25rem;">
+                    <li>Utility rates define the cost per unit for water and electricity.</li>
+                    <li>Fixed charges cover monthly fees such as garbage collection, security, and maintenance.</li>
+                    <li>Invoice calculation: (Water units x Rate) + (Electricity units x Rate) + Fixed Charges.</li>
+                    <li>Outstanding balances or credits are carried forward automatically.</li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>

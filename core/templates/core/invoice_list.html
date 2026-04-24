@@ -1,6 +1,72 @@
 {% extends 'core/base.html' %}
 
 {% block title %}Invoices{% endblock %}
+{% block extra_css %}
+<style>
+.invoice-toolbar {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.bulk-bar {
+    background: var(--surface);
+    padding: var(--spacing-md);
+    border-radius: var(--radius) var(--radius) 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.bulk-bar__group {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.invoice-row-action {
+    display: inline-flex;
+}
+
+@media (max-width: 768px) {
+    .invoice-toolbar {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .invoice-toolbar .btn {
+        width: 100%;
+    }
+
+    .bulk-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bulk-bar__group {
+        flex-direction: column;
+    }
+
+    .bulk-bar__group .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .invoice-row-action {
+        width: 100%;
+    }
+
+    .invoice-row-action .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
 
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
@@ -17,7 +83,7 @@
             <i data-lucide="receipt" width="28" height="28"></i>
             Invoices
         </h1>
-        <div style="display: flex; gap: var(--spacing-sm);">
+        <div class="invoice-toolbar">
             {% if total_invoices > 0 %}
             <a href="{% url 'export_invoices_excel' %}?{% if current_filters.status %}status={{ current_filters.status }}&{% endif %}{% if current_filters.unit %}unit={{ current_filters.unit }}{% endif %}" class="btn btn-secondary">
                 <i data-lucide="file-spreadsheet" width="16" height="16"></i>
@@ -105,9 +171,8 @@
         {% if page_obj %}
         <form method="POST" id="bulkForm">
             {% csrf_token %}
-            
-            <div style="background: var(--surface); padding: var(--spacing-md); border-radius: var(--radius) var(--radius) 0 0; border: 1px solid var(--border); border-bottom: none; display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; gap: var(--spacing-sm);">
+            <div class="bulk-bar">
+                <div class="bulk-bar__group">
                     <button type="button" onclick="selectAll()" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;">
                         <i data-lucide="check-square" width="14" height="14"></i> Select All
                     </button>
@@ -116,7 +181,7 @@
                     </button>
                 </div>
                 
-                <div style="display: flex; gap: var(--spacing-sm);">
+                <div class="bulk-bar__group">
                     <button type="button" onclick="bulkSend()" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; color: var(--info);">
                         <i data-lucide="send" width="14" height="14"></i> Send Selected
                     </button>
@@ -160,10 +225,13 @@
                                 </span>
                             </td>
                             <td>
-                                <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">
-                                    View
-                                </a>
+                                <div class="invoice-row-action">
+                                    <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">
+                                        View
+                                    </a>
+                                </div>
                             </td>
+
                         </tr>
                         {% endfor %}
                     </tbody>
