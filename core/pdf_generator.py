@@ -195,17 +195,17 @@ class InvoicePDF:
             ['Subtotal (Current Charges):', f'KES {self.invoice.subtotal:,.2f}'],
         ]
         
-        if self.invoice.previous_balance != 0:
-            if self.invoice.previous_balance < 0:
-                summary_data.append([
-                    'Credit from Previous Month:',
-                    f'- KES {abs(self.invoice.previous_balance):,.2f}'
-                ])
-            else:
-                summary_data.append([
-                    'Outstanding from Previous Month:',
-                    f'KES {self.invoice.previous_balance:,.2f}'
-                ])
+        # ALWAYS show previous balance for clarity
+        if self.invoice.previous_balance < 0:
+            summary_data.append([
+                'Credit from Previous Month:',
+                f'- KES {abs(self.invoice.previous_balance):,.2f}'
+            ])
+        else:
+            summary_data.append([
+                'Balance Brought Forward:',
+                f'KES {self.invoice.previous_balance:,.2f}'
+            ])
         
         summary_data.append([
             '<b>TOTAL AMOUNT DUE:</b>',

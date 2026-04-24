@@ -647,3 +647,51 @@ class TenantPreferences(models.Model):
     
     def __str__(self):
         return f"Preferences for {self.tenant.user.get_full_name()}"
+    
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+# ---------------------------------------------------------
+# SIGNALS: Automatic Background Tasks
+# ---------------------------------------------------------
+
+@receiver(post_save, sender=Unit)
+def manage_unit_meters(sender, instance, created, **kwargs):
+    """
+    Automatically creates or activates/deactivates meters when a Unit is saved.
+    """
+    # 1. Handle Water Meter
+    if instance.has_water_meter:
+        # get_or_create safely makes one if it doesn't exist, and ignores if it does
+        meter, meter_created = Meter.objects.get_or_create(
+            unit=instance,
+            meter_type='WATER',
+            defaults={
+                'meter_number': f'WTR-{instance.unit_number}', # Default serial number
+                'is_active': True
+            }
+        )
+        # If it already existed but was inactive, reactivate it
+        if not meter_created and not meter.is_active:
+            meter.is_active = True
+            meter.save()
+    else:
+        # If unchecked, safely deactivate the meter (don't delete to preserve history!)
+        Meter.objects.filter(unit=instance, meter_type='WATER').update(is_active=False)
+        
+        
+    # 2. Handle Electricity Meter
+    if instance.has_electricity_meter:
+        meter, meter_created = Meter.objects.get_or_create(
+            unit=instance,
+            meter_type='ELECTRICITY',
+            defaults={
+                'meter_number': f'ELEC-{instance.unit_number}', # Default serial number
+                'is_active': True
+            }
+        )
+        if not meter_created and not meter.is_active:
+            meter.is_active = True
+            meter.save()
+    else:
+        Meter.objects.filter(unit=instance, meter_type='ELECTRICITY').update(is_active=False)

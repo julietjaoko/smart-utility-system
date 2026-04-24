@@ -1,0 +1,82 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Add New Tenant{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'manage_tenants' %}">Tenants</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Add Tenant</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 700px;">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="user-plus" width="28" height="28"></i>
+            Onboard New Tenant
+        </h1>
+    </div>
+    
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+            <div class="form-group">
+                <label for="{{ form.first_name.id_for_label }}">First Name *</label>
+                {{ form.first_name }}
+                <small class="text-error" style="color: var(--error);">{{ form.first_name.errors }}</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.last_name.id_for_label }}">Last Name *</label>
+                {{ form.last_name }}
+                <small class="text-error" style="color: var(--error);">{{ form.last_name.errors }}</small>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">Email Address (Username) *</label>
+            {{ form.email }}
+            <small class="text-error" style="color: var(--error);">{{ form.email.errors }}</small>
+            <small>{{ form.email.help_text }}</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
+            {{ form.phone_number }}
+            <small class="text-error" style="color: var(--error);">{{ form.phone_number.errors }}</small>
+            <small>Used for M-Pesa payments and SMS notifications.</small>
+        </div>
+        
+        <div style="background: var(--background); padding: var(--spacing-md); border-radius: var(--radius); border-left: 4px solid var(--primary); margin-bottom: var(--spacing-lg);">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="{{ form.password.id_for_label }}">Temporary Password *</label>
+                {{ form.password }}
+                <small class="text-error" style="color: var(--error);">{{ form.password.errors }}</small>
+                <small>{{ form.password.help_text }}</small>
+            </div>
+        </div>
+        
+        <h3 style="font-size: 1rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm); margin-top: var(--spacing-lg);">Property Assignment</h3>
+        
+        <div class="form-group">
+            <label for="{{ form.unit.id_for_label }}">Assign Unit (Optional)</label>
+            {{ form.unit }}
+            <small class="text-error" style="color: var(--error);">{{ form.unit.errors }}</small>
+            <small>You can leave this blank and assign a unit later.</small>
+        </div>
+        
+        <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="check" width="16" height="16"></i>
+                Create Tenant
+            </button>
+            <a href="{% url 'manage_tenants' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

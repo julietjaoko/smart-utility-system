@@ -1,24 +1,32 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout, authenticate, get_user_model
 from django.contrib.auth.decorators import login_required
+from .decorators import manager_required, tenant_required
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
-from .models import Unit, Tenant, PropertyManager, Meter, MeterReading, Invoice, Payment, AccountBalance
-from django.http import JsonResponse
+from django.urls import reverse
+from .models import Unit, Tenant, PropertyManager, Meter, MeterReading, Invoice, Payment, AccountBalance, RateConfig, FixedCharge, ElectricityToken, TenantPreferences
+from django.http import JsonResponse, FileResponse, HttpResponse
 from django.core.paginator import Paginator
-from django.db.models import Q
-from django.db.models import Sum, Avg, Count
+from django.db.models import Sum, Avg, Count, Max, Q, F
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 import json
-from django.db.models import Max
-from datetime import datetime, timedelta
 from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
-from .sms_utils import InvoiceSMS, PaymentSMS
+from .sms_utils import InvoiceSMS, PaymentSMS, TokenSMS
 from .email_utils import InvoiceNotification, PaymentNotification
-from .forms import UnitForm, MeterReadingForm, PaymentForm
-from .decorators import manager_required, tenant_required
+from .forms import TenantUpdateForm, UnitForm, MeterReadingForm, PaymentForm, TenantCreationForm
+from .email_utils import InvoiceNotification
+from django.utils.dateparse import parse_date
+from .pdf_generator import InvoicePDF, PaymentReceiptPDF
+import os
+from .excel_exporter import InvoiceExporter, PaymentExporter, ConsumptionExporter
+from django.db.models.functions import TruncMonth, TruncYear
+from calendar import month_name
+from .mpesa import process_mpesa_callback
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -168,14 +176,13 @@ def manage_tenants(request):
         return redirect('tenant_dashboard')
     
     manager = PropertyManager.objects.get(user=request.user)
-    tenants = Tenant.objects.filter(unit__manager=manager)
+    
+    # NEW QUERY: Get tenants currently in a unit OR tenants with past invoices in your units
+    tenants = Tenant.objects.filter(
+        Q(unit__manager=manager) | Q(invoice__unit__manager=manager)
+    ).distinct()
     
     return render(request, 'core/manage_tenants.html', {'tenants': tenants})
-
-from .models import MeterReading
-from django.shortcuts import get_object_or_404
-
-from .forms import UnitForm, MeterReadingForm
 
 @manager_required
 def enter_meter_reading(request):
@@ -475,8 +482,6 @@ def consumption_analytics(request):
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
     
-from .models import RateConfig, FixedCharge
-from django.db.models import Sum
 
 @login_required
 def manage_rates(request):
@@ -633,8 +638,7 @@ def delete_fixed_charge(request, charge_id):
     
     return redirect('manage_rates')
 
-from .email_utils import InvoiceNotification
-from django.utils.dateparse import parse_date
+
 
 @login_required
 def billing_wizard_start(request):
@@ -1144,68 +1148,79 @@ def payment_list(request):
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
     
-from .mpesa import MpesaDarajaSandbox
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
 
 @login_required
 def initiate_mpesa_payment(request, invoice_id):
     """
-    Initiate M-Pesa STK Push for invoice payment.
-    Sends payment request to tenant's phone.
+    Initiates an M-Pesa STK push.
+    Securely handles requests from both Property Managers and Tenants.
     """
-    # Security check
-    if request.user.role != 'PROPERTY_MANAGER':
-        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
-    
-    if request.method == 'POST':
-        try:
-            manager = PropertyManager.objects.get(user=request.user)
-            invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
-            
-            # Get phone number from request
-            phone_number = request.POST.get('phone_number')
-            
-            if not phone_number:
-                return JsonResponse({'success': False, 'error': 'Phone number is required'})
-            
-            # Calculate amount (remaining balance)
-            total_paid = Payment.objects.filter(invoice=invoice).aggregate(
-                total=Sum('amount_paid')
-            )['total'] or Decimal('0.00')
-            
-            remaining_balance = invoice.total_due - total_paid
-            
-            if remaining_balance <= 0:
-                return JsonResponse({'success': False, 'error': 'Invoice is already paid'})
-            
-            # Initialize M-Pesa
-            mpesa = MpesaDarajaSandbox()
-            
-            # Initiate STK Push
-            result = mpesa.initiate_stk_push(
-                phone_number=phone_number,
-                amount=int(remaining_balance),
-                account_reference=invoice.invoice_number,
-                transaction_desc=f"Payment for {invoice.billing_period}"
-            )
-            
-            if result.get('success'):
-                messages.success(
-                    request,
-                    f'✓ Payment request sent to {phone_number}. '
-                    f'Please check your phone and enter M-Pesa PIN.'
-                )
-                return JsonResponse(result)
-            else:
-                messages.error(request, f'M-Pesa Error: {result.get("error")}')
-                return JsonResponse(result, status=400)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method. Must be POST.'})
         
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    phone_number = request.POST.get('phone_number')
+    if not phone_number:
+        return JsonResponse({'success': False, 'error': 'Phone number is required.'})
+
+    # 1. SECURITY & AUTHORIZATION CHECK
+    invoice = None
+    if request.user.role == 'PROPERTY_MANAGER':
+        manager = PropertyManager.objects.get(user=request.user)
+        # Ensure the invoice belongs to a unit this manager controls
+        invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
+    elif request.user.role == 'TENANT':
+        tenant = Tenant.objects.get(user=request.user)
+        # Ensure the invoice belongs strictly to this tenant
+        invoice = get_object_or_404(Invoice, id=invoice_id, tenant=tenant)
+    else:
+        return JsonResponse({'success': False, 'error': 'Unauthorized role.'})
+
+    # 2. VALIDATE INVOICE STATUS
+    if invoice.status == 'PAID':
+        return JsonResponse({'success': False, 'error': 'This invoice is already fully paid.'})
+
+    # 3. CALCULATE EXACT REMAINING BALANCE
+    # We calculate this dynamically on the server to prevent a user from 
+    # manipulating the amount via the browser's developer tools!
+    total_paid = Payment.objects.filter(invoice=invoice).aggregate(
+        total=Sum('amount_paid')
+    )['total'] or Decimal('0.00')
     
-    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+    amount_due = invoice.total_due - total_paid
+    
+    if amount_due <= 0:
+        return JsonResponse({'success': False, 'error': 'No pending balance for this invoice.'})
+
+    # 4. INITIATE M-PESA PUSH
+    try:
+        # Import your M-Pesa integration utility here 
+        # (assuming it's in core/mpesa.py based on standard Django practices)
+        from .mpesa import MpesaClient
+        
+        mpesa_client = MpesaClient()
+        
+        # Build the dynamic absolute URL for Safaricom to ping back
+        dynamic_callback_url = request.build_absolute_uri(
+            reverse('mpesa_webhook', args=[invoice.id])
+        )
+        
+        # Call the updated mpesa client
+        response = mpesa_client.initiate_stk_push(
+            phone_number=phone_number,
+            amount=int(amount_due),
+            account_reference=invoice.invoice_number,
+            transaction_desc=f"Payment for {invoice.invoice_number}",
+            callback_url=dynamic_callback_url  # Pass the dynamic URL!
+        )
+        
+        if response.get('ResponseCode') == '0':
+            return JsonResponse({'success': True, 'message': 'STK Push sent successfully.'})
+        else:
+            return JsonResponse({'success': False, 'error': response.get('errorMessage', 'M-Pesa API error')})
+            
+    except Exception as e:
+        logger.error(f"M-Pesa push failed for INV-{invoice.id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to connect to M-Pesa servers. Please try again later.'})
 
 
 @csrf_exempt
@@ -1365,7 +1380,6 @@ def tenant_consumption_history(request):
         messages.error(request, 'Tenant profile not found')
         return redirect('login')
     
-from django.http import JsonResponse
 
 @login_required
 def get_unit_meters(request, unit_id):
@@ -1408,9 +1422,6 @@ def get_unit_meters(request, unit_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
     
-from django.http import FileResponse
-from .pdf_generator import InvoicePDF, PaymentReceiptPDF
-import os
 
 @login_required
 def download_invoice_pdf(request, invoice_id):
@@ -1479,8 +1490,6 @@ def download_payment_receipt(request, payment_id):
     
     return response
 
-from .excel_exporter import InvoiceExporter, PaymentExporter, ConsumptionExporter
-from django.http import HttpResponse
 
 @login_required
 def export_invoices_excel(request):
@@ -1646,11 +1655,8 @@ def export_consumption_excel(request):
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
     
-from django.db.models import Sum, Avg, Count, Q, F
-from django.db.models.functions import TruncMonth, TruncYear
-from datetime import datetime, timedelta
-from calendar import month_name
-import json
+
+
 
 @login_required
 def advanced_analytics(request):
@@ -1998,9 +2004,6 @@ def resolve_anomaly(request, reading_id, action):
         
     return redirect('meter_reading_list')
 
-# In core/views.py
-# Add this function somewhere around your other unit management views
-
 @login_required
 def unit_detail(request, unit_id):
     """
@@ -2043,7 +2046,6 @@ def unit_detail(request, unit_id):
     
     return render(request, 'core/unit_detail.html', context)
 
-# In core/views.py add these functions
 
 @login_required
 def edit_unit(request, unit_id):
@@ -2073,7 +2075,10 @@ def edit_unit(request, unit_id):
 
 @login_required
 def deactivate_tenant(request, tenant_id):
-    """Deactivates a tenant, revokes login access, and vacates the unit."""
+    """
+    Deactivates a tenant, revokes login access, and vacates the unit.
+    Includes a strict financial check to ensure balances are settled first.
+    """
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
@@ -2084,6 +2089,37 @@ def deactivate_tenant(request, tenant_id):
         tenant = get_object_or_404(Tenant, id=tenant_id, unit__manager=manager)
         unit = tenant.unit
         
+        # ---------------------------------------------------------
+        # STRICT FINANCIAL SAFETY CHECK
+        # ---------------------------------------------------------
+        try:
+            account = AccountBalance.objects.get(tenant=tenant)
+            
+            if account.current_balance > 0:
+                # They owe money
+                messages.error(
+                    request, 
+                    f'Action Blocked: {tenant.user.get_full_name()} still owes KES {account.current_balance}. '
+                    f'Please record their final payment before deactivating.'
+                )
+                return redirect('unit_detail', unit_id=unit.id)
+                
+            elif account.current_balance < 0:
+                # They are owed a refund (credit)
+                messages.error(
+                    request, 
+                    f'Action Blocked: {tenant.user.get_full_name()} has a credit balance of KES {abs(account.current_balance)}. '
+                    f'Please refund the deposit/credit to balance the account to zero.'
+                )
+                return redirect('unit_detail', unit_id=unit.id)
+                
+        except AccountBalance.DoesNotExist:
+            # If no balance record exists at all, it's safe to proceed
+            pass
+            
+        # ---------------------------------------------------------
+        # SAFE OFFBOARDING LOGIC
+        # ---------------------------------------------------------
         # 1. Mark Tenant profile as inactive
         tenant.is_active = False
         
@@ -2096,14 +2132,16 @@ def deactivate_tenant(request, tenant_id):
         tenant.unit = None
         tenant.save()
         
-        messages.success(request, f'Tenant {user.get_full_name()} deactivated. Unit {unit.unit_number} is now vacant.')
+        messages.success(request, f'✓ Tenant {user.get_full_name()} deactivated successfully. Unit {unit.unit_number} is now vacant.')
         return redirect('unit_detail', unit_id=unit.id)
+        
+    return redirect('manage_units')
     
 @login_required
 def bulk_delete_invoices(request):
     """
     Bulk delete selected invoices.
-    Only allows deletion of unpaid invoices.
+    Only allows deletion of unpaid invoices and properly adjusts the tenant's account balance.
     """
     # Security check
     if request.user.role != 'PROPERTY_MANAGER':
@@ -2119,28 +2157,41 @@ def bulk_delete_invoices(request):
                 messages.warning(request, 'No invoices selected')
                 return redirect('invoice_list')
             
-            # Get selected invoices
-            invoices = Invoice.objects.filter(
-                id__in=invoice_ids,
-                unit__manager=manager,
-                status='UNPAID'  # Only allow deletion of unpaid invoices
-            )
-            
-            count = invoices.count()
-            
-            if count == 0:
-                messages.warning(request, 'No valid invoices to delete. Only unpaid invoices can be deleted.')
-                return redirect('invoice_list')
-            
-            # Delete invoices
-            invoices.delete()
-            
-            messages.success(request, f'✓ Successfully deleted {count} invoice(s)')
+            # Wrap in an atomic block so if balance updates fail, invoices aren't deleted
+            with transaction.atomic():
+                # Get selected invoices and prefetch the tenant to avoid N+1 queries
+                invoices = Invoice.objects.filter(
+                    id__in=invoice_ids,
+                    unit__manager=manager,
+                    status='UNPAID'  # Only allow deletion of unpaid invoices
+                ).select_related('tenant')
+                
+                count = invoices.count()
+                
+                if count == 0:
+                    messages.warning(request, 'No valid invoices to delete. Only unpaid invoices can be deleted.')
+                    return redirect('invoice_list')
+                
+                # 1. Deduct the invoice amounts from the tenants' account balances BEFORE deleting
+                for invoice in invoices:
+                    if invoice.tenant:
+                        account_balance = AccountBalance.objects.filter(tenant=invoice.tenant).first()
+                        if account_balance:
+                            account_balance.current_balance -= invoice.total_due
+                            account_balance.save()
+                
+                # 2. Delete the invoices safely
+                invoices.delete()
+                
+            messages.success(request, f'✓ Successfully deleted {count} invoice(s) and restored tenant balances.')
             return redirect('invoice_list')
         
         except PropertyManager.DoesNotExist:
             messages.error(request, 'Property Manager profile not found')
             return redirect('manager_dashboard')
+        except Exception as e:
+            messages.error(request, f'Database error during deletion: {str(e)}')
+            return redirect('invoice_list')
     
     return redirect('invoice_list')
 
@@ -2198,8 +2249,7 @@ def bulk_send_invoices(request):
     
     return redirect('invoice_list')
 
-from .models import ElectricityToken, TenantPreferences
-from .sms_utils import TokenSMS
+
 
 @login_required
 def tenant_preferences(request):
@@ -2385,3 +2435,254 @@ def delete_electricity_token(request, token_id):
     except Tenant.DoesNotExist:
         messages.error(request, 'Tenant profile not found')
         return redirect('login')
+
+@manager_required
+def send_invoice_reminder(request, invoice_id):
+    """
+    Sends a manual payment reminder (Email/SMS) to the tenant for a specific invoice.
+    """
+    manager = PropertyManager.objects.get(user=request.user)
+    invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
+    
+    if invoice.status == 'PAID':
+        messages.error(request, 'Cannot send a reminder for an invoice that is already paid.')
+        return redirect('invoice_detail', invoice_id=invoice.id)
+        
+    emails_sent = False
+    sms_sent = False
+    tenant = invoice.tenant
+    
+    # 1. Send Email Reminder
+    if tenant.user.email:
+        try:
+            email_notifier = InvoiceNotification()
+            # Reusing your existing notification logic
+            email_notifier.send_invoice_notification(invoice) 
+            emails_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send email reminder for INV-{invoice.id}: {e}")
+            
+    # 2. Send SMS Reminder
+    if tenant.phone_number:
+        try:
+            sms_notifier = InvoiceSMS()
+            sms_notifier.send_invoice_notification(invoice)
+            sms_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send SMS reminder for INV-{invoice.id}: {e}")
+            
+    if emails_sent or sms_sent:
+        messages.success(request, f'✓ Payment reminder successfully sent to {tenant.user.get_full_name() or tenant.user.username}.')
+    else:
+        messages.warning(request, '⚠️ Could not send reminder. Tenant may not have a valid email or phone number on file.')
+        
+    return redirect('invoice_detail', invoice_id=invoice.id)
+
+
+
+@csrf_exempt
+def mpesa_webhook(request, invoice_id):
+    """
+    Receives the payment confirmation from Safaricom.
+    Because we append the invoice_id to the URL, we know exactly who paid!
+    """
+    if request.method == 'POST':
+        try:
+            # Parse Safaricom's JSON payload
+            callback_data = json.loads(request.body)
+            result = process_mpesa_callback(callback_data)
+            
+            if result.get('success'):
+                amount_paid = Decimal(str(result['amount']))
+                mpesa_receipt = result['mpesa_receipt']
+                phone_used = result['phone_number']
+                
+                # Fetch the invoice
+                invoice = Invoice.objects.get(id=invoice_id)
+                tenant = invoice.tenant
+                
+                # Prevent duplicate processing of the same receipt
+                if Payment.objects.filter(mpesa_reference=mpesa_receipt).exists():
+                    return HttpResponse('Already Processed', status=200)
+
+                with transaction.atomic():
+                    # 1. Create the Payment Record
+                    payment = Payment.objects.create(
+                        invoice=invoice,
+                        amount_paid=amount_paid,
+                        payment_date=timezone.now().date(),
+                        payment_method='MPESA',
+                        mpesa_reference=mpesa_receipt,
+                        mpesa_phone=phone_used,
+                        notes=f"Automated STK Push Payment. Receipt: {mpesa_receipt}"
+                    )
+                    
+                    # 2. Update the Account Balance safely
+                    account_balance, _ = AccountBalance.objects.select_for_update().get_or_create(
+                        tenant=tenant,
+                        defaults={'current_balance': Decimal('0.00')}
+                    )
+                    account_balance.current_balance -= amount_paid
+                    account_balance.save()
+
+                # 3. Send automated receipt (Outside atomic block)
+                try:
+                    email_notifier = PaymentNotification() # Assuming from email_utils
+                    email_notifier.send_payment_confirmation(payment)
+                except Exception as e:
+                    logger.error(f"Failed to send email receipt for M-Pesa payment {mpesa_receipt}: {e}")
+
+            # Always return a 200 OK so Safaricom knows we received the message
+            return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Accepted'})
+            
+        except Exception as e:
+            logger.error(f"M-Pesa Webhook Error: {str(e)}")
+            return JsonResponse({'ResultCode': 1, 'ResultDesc': 'Failed'}, status=500)
+
+    # Reject GET requests
+    return HttpResponse('Method Not Allowed', status=405)
+
+User = get_user_model()
+
+@manager_required
+def add_tenant(request):
+    """
+    Onboard a new tenant. Creates both the User account and the Tenant profile.
+    """
+    manager = PropertyManager.objects.get(user=request.user)
+    
+    if request.method == 'POST':
+        form = TenantCreationForm(request.POST, manager=manager)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    email = form.cleaned_data['email']
+                    password = form.cleaned_data['password']
+                    
+                    # 1. Create the base User account
+                    # We use the email as their username for easy login
+                    user = User.objects.create_user(
+                        username=email,
+                        email=email,
+                        password=password,
+                        first_name=form.cleaned_data['first_name'],
+                        last_name=form.cleaned_data['last_name'],
+                        role='TENANT'
+                    )
+                    
+                    # 2. Create the linked Tenant profile
+                    tenant = Tenant.objects.create(
+                        user=user,
+                        unit=form.cleaned_data['unit'],
+                        phone_number=form.cleaned_data['phone_number'],
+                        move_in_date=timezone.now().date()
+                    )
+                    
+                messages.success(
+                    request, 
+                    f'✓ Tenant {user.get_full_name()} added successfully! '
+                    f'They can now log in using their email and the temporary password.'
+                )
+                return redirect('manage_tenants')
+                
+            except Exception as e:
+                messages.error(request, f'Database error creating tenant: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        # GET request: Check if we clicked from a specific unit page
+        initial_data = {}
+        if 'unit_id' in request.GET:
+            initial_data['unit'] = request.GET.get('unit_id')
+            
+        # Pass the initial data to pre-fill the dropdown!
+        form = TenantCreationForm(manager=manager, initial=initial_data)
+        
+    return render(request, 'core/add_tenant.html', {'form': form})
+
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
+
+@login_required
+def change_password(request):
+    """
+    Allows both Tenants and Property Managers to change their password securely.
+    """
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            # Important: Keep the user logged in after password change
+            update_session_auth_hash(request, user)
+            
+            messages.success(request, '✓ Your password was successfully updated!')
+            
+            # Redirect back to their respective dashboard
+            if request.user.role == 'PROPERTY_MANAGER':
+                return redirect('manager_dashboard')
+            else:
+                return redirect('tenant_dashboard')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = PasswordChangeForm(request.user)
+        
+    return render(request, 'core/change_password.html', {'form': form})
+
+
+@login_required
+def edit_tenant(request, tenant_id):
+    """Handles updating existing tenant details and transferring units."""
+    if request.user.role != 'PROPERTY_MANAGER':
+        messages.error(request, 'Access denied')
+        return redirect('tenant_dashboard')
+        
+    manager = PropertyManager.objects.get(user=request.user)
+    
+    # Safely fetch the tenant using the Q object to ensure they belong to this manager's property
+    tenant = get_object_or_404(
+        Tenant.objects.distinct(),
+        Q(id=tenant_id) & (Q(unit__manager=manager) | Q(invoice__unit__manager=manager))
+    )
+        
+    if request.method == 'POST':
+        form = TenantUpdateForm(request.POST, manager=manager, tenant=tenant)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # 1. Update the base User model
+                    user = tenant.user
+                    user.first_name = form.cleaned_data['first_name']
+                    user.last_name = form.cleaned_data['last_name']
+                    user.save()
+                    
+                    # 2. Update the Tenant profile
+                    tenant.phone_number = form.cleaned_data['phone_number']
+                    tenant.unit = form.cleaned_data['unit']
+                    
+                    # If they are assigned a unit, ensure they are marked as active
+                    if tenant.unit:
+                        tenant.is_active = True
+                        user.is_active = True
+                        user.save()
+                        
+                    tenant.save()
+                    
+                messages.success(request, f'✓ Tenant {user.get_full_name()} updated successfully.')
+                return redirect('manage_tenants')
+                
+            except Exception as e:
+                messages.error(request, f'Database error: {str(e)}')
+    else:
+        # Pre-fill the form with their current details
+        initial_data = {
+            'first_name': tenant.user.first_name,
+            'last_name': tenant.user.last_name,
+            'phone_number': tenant.phone_number,
+            'unit': tenant.unit,
+        }
+        form = TenantUpdateForm(manager=manager, tenant=tenant, initial=initial_data)
+        
+    return render(request, 'core/edit_tenant.html', {'form': form, 'tenant': tenant})

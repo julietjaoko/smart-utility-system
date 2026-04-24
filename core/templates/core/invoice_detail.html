@@ -180,53 +180,26 @@
         </div>
         {% endif %}
         
-        <!-- Action Buttons (Manager only) -->
         {% if request.user.role == 'PROPERTY_MANAGER' and invoice.status != 'PAID' %}
-        <div style="margin-top: var(--spacing-xl); padding-top: var(--spacing-lg); border-top: 1px solid var(--border); display: flex; gap: var(--spacing-sm);">
+        <div style="margin-top: var(--spacing-xl); padding-top: var(--spacing-lg); border-top: 1px solid var(--border); display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
             <a href="{% url 'record_payment' invoice.id %}" class="btn btn-primary">
                 <i data-lucide="credit-card" width="16" height="16"></i>
                 Record Payment
             </a>
-            <button onclick="initiateMpesaPayment()" class="btn btn-success">
-                <i data-lucide="smartphone" width="16" height="16"></i>
-                Send M-Pesa Request
-            </button>
+            
+            <form method="POST" action="{% url 'send_invoice_reminder' invoice.id %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" onclick="return confirm('Send a payment reminder to this tenant?');">
+                    <i data-lucide="bell" width="16" height="16"></i>
+                    Send Reminder
+                </button>
+            </form>
         </div>
         {% endif %}
     </div>
 </div>
 
 <script>
-function initiateMpesaPayment() {
-    const phone = prompt('Enter tenant phone number (e.g., 0712345678):');
-    
-    if (!phone) return;
-    
-    if (!confirm(`Send payment request of KES {{ remaining_balance|floatformat:2 }} to ${phone}?`)) {
-        return;
-    }
-    
-    fetch('{% url "initiate_mpesa_payment" invoice.id %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: `phone_number=${encodeURIComponent(phone)}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('✓ Payment request sent! Tenant should check their phone and enter M-Pesa PIN.');
-        } else {
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        alert('Error sending payment request: ' + error);
-    });
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
 });

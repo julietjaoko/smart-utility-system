@@ -2,9 +2,19 @@
 
 {% block title %}Unit Profile - {{ unit.unit_number }}{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'manage_units' %}">Units</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Unit {{ unit.unit_number }}</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--spacing-md);">
         <div>
             <h1 class="card-title">
                 <i data-lucide="home" width="28" height="28"></i>
@@ -56,9 +66,12 @@
                     </form>
                 {% else %}
                     <span style="color: var(--text-tertiary);">Vacant</span>
+                    <a href="{% url 'add_tenant' %}?unit_id={{ unit.id }}" class="badge badge-primary" style="text-decoration: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="user-plus" width="12" height="12"></i> Add
+                    </a>
                 {% endif %}
             </div>
-            </div>
+        </div>
         
         <div class="stat-card">
             <div class="stat-icon">

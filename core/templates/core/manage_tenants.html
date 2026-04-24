@@ -1,0 +1,107 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Manage Tenants{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Tenants</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-md);">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="users" width="28" height="28"></i>
+                Tenants Directory
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Manage all current and past tenants across your units.</p>
+        </div>
+        
+        <a href="{% url 'add_tenant' %}" class="btn btn-primary">
+            <i data-lucide="user-plus" width="16" height="16"></i> Add New Tenant
+        </a>
+    </div>
+
+    <div class="table-container" style="margin-top: var(--spacing-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tenant Name</th>
+                    <th>Contact Info</th>
+                    <th>Assigned Unit</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tenant in tenants %}
+                <tr style="{% if not tenant.is_active %}opacity: 0.6; background-color: var(--background);{% endif %}">
+                    <td>
+                        <strong style="font-size: 1.05rem;">
+                            {{ tenant.user.get_full_name|default:tenant.user.username }}
+                        </strong>
+                    </td>
+                    <td>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <i data-lucide="mail" width="12" height="12"></i> {{ tenant.user.email }}
+                            </div>
+                            {% if tenant.phone_number %}
+                            <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+                                <i data-lucide="phone" width="12" height="12"></i> {{ tenant.phone_number }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if tenant.unit %}
+                            <a href="{% url 'unit_detail' tenant.unit.id %}" style="color: var(--primary); font-weight: 500; text-decoration: none;">
+                                Unit {{ tenant.unit.unit_number }}
+                            </a>
+                        {% else %}
+                            <span style="color: var(--text-tertiary); font-style: italic;">Unassigned / Vacated</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenant.is_active %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge" style="background-color: var(--border-color); color: var(--text-secondary);">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            {% if tenant.unit %}
+                                <a href="{% url 'unit_detail' tenant.unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                    Manage Unit
+                                </a>
+                            {% else %}
+                                <span style="font-size: 0.85rem; color: var(--text-tertiary); margin-right: 0.5rem;">History Retained</span>
+                            {% endif %}
+                            
+                            <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                <i data-lucide="edit" width="14" height="14" style="margin-right: 2px;"></i> Edit
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">
+                        <i data-lucide="users" width="48" height="48" style="opacity: 0.3; margin-bottom: var(--spacing-md);"></i>
+                        <p>No tenants found in your directory.</p>
+                        <a href="{% url 'add_tenant' %}" class="btn btn-primary" style="margin-top: var(--spacing-md);">
+                            Add Your First Tenant
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

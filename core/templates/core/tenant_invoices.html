@@ -49,7 +49,6 @@
         </form>
     </div>
     
-    <!-- Invoices List -->
     {% if page_obj %}
     <div class="table-container">
         <table>
@@ -76,10 +75,18 @@
                         </span>
                     </td>
                     <td>
-                        <a href="{% url 'invoice_detail' invoice.id %}" style="color: var(--primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
-                            View
-                            <i data-lucide="arrow-right" width="14" height="14"></i>
-                        </a>
+                        <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                            <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                View
+                            </a>
+                            
+                            {% if invoice.status != 'PAID' %}
+                            <button onclick="initiateMpesaPayment('{% url 'initiate_mpesa_payment' invoice.id %}', '{{ invoice.total_due|floatformat:2 }}')" class="btn btn-success" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                <i data-lucide="smartphone" width="14" height="14"></i>
+                                Pay via M-Pesa
+                            </button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -87,7 +94,6 @@
         </table>
     </div>
     
-    <!-- Pagination -->
     {% if page_obj.has_other_pages %}
     <div class="pagination">
         {% if page_obj.has_previous %}
@@ -119,6 +125,36 @@
 </div>
 
 <script>
+function initiateMpesaPayment(paymentUrl, amount) {
+    // We pre-fill the prompt with the tenant's phone number if we have it!
+    const phone = prompt(`Enter M-Pesa phone number to pay KES ${amount} (e.g., 0712345678):`, "{{ request.user.tenant.phone_number|default:'' }}");
+    
+    if (!phone) return; // User clicked Cancel
+    
+    // Show a loading indication (optional but good for UX)
+    alert('Processing request... Please wait.');
+    
+    fetch(paymentUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `phone_number=${encodeURIComponent(phone)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✓ Payment request sent! Please check your phone and enter your M-Pesa PIN.');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error sending payment request: ' + error);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
 });

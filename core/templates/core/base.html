@@ -281,13 +281,62 @@
         .stat-value { font-size: 2rem; font-weight: 700; color: var(--text-primary); }
         .stat-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background-color: rgba(5, 150, 105, 0.1); border-radius: 8px; margin-bottom: var(--spacing-sm); color: var(--primary); }
 
-        /* Responsive Adjustments */
+        /* Ensure tables don't squish */
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background: var(--surface); 
+            min-width: 600px; /* Forces table to allow scrolling instead of breaking */
+        }
+        th, td { 
+            padding: var(--spacing-md); 
+            text-align: left; 
+            border-top: 1px solid var(--border); 
+            white-space: nowrap; /* Prevents awkward text wrapping */
+        }
+        .table-container { 
+            overflow-x: auto; 
+            border-radius: var(--radius); 
+            border: 1px solid var(--border); 
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on mobile devices */
+        }
+
+        /* --- RESPONSIVE ADJUSTMENTS --- */
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); } /* Hide sidebar offscreen */
-            .sidebar.active { transform: translateX(0); box-shadow: var(--shadow-lg); } /* Slide in */
+            /* Sidebar toggling */
+            .sidebar { transform: translateX(-100%); } 
+            .sidebar.active { transform: translateX(0); box-shadow: var(--shadow-lg); } 
             .main-content { margin-left: 0; }
-            .menu-toggle { display: block; } /* Show hamburger menu */
+            .menu-toggle { display: block; } 
             .container { padding: var(--spacing-md); }
+            
+            /* Make card headers stack on mobile */
+            .responsive-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--spacing-md);
+            }
+            .header-actions {
+                width: 100%;
+            }
+            .header-actions .btn {
+                flex: 1; /* Makes header buttons expand equally */
+                justify-content: center;
+            }
+            
+            /* Make bulk action bars stack */
+            .bulk-actions {
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }
+            .bulk-actions > div {
+                justify-content: space-between;
+                width: 100%;
+            }
+            .bulk-actions .btn {
+                flex: 1;
+                justify-content: center;
+            }
         }
 
         /* --- LOADING SPINNER --- */
@@ -441,7 +490,11 @@
                         <i data-lucide="layout-dashboard" width="20"></i> Dashboard
                     </a>
                     <a href="{% url 'manage_units' %}" class="nav-item">
-                        <i data-lucide="home" width="20"></i> Units & Tenants
+                        <i data-lucide="home" width="20"></i> Units
+                    </a>
+                    <a href="{% url 'manage_tenants' %}" class="nav-item">
+                        <i data-lucide="users" width="20" height="20"></i>
+                        <span>Tenants</span>
                     </a>
                     <a href="{% url 'meter_reading_list' %}" class="nav-item">
                         <i data-lucide="gauge" width="20"></i> Meter Readings

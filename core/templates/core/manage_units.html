@@ -2,45 +2,99 @@
 
 {% block title %}Manage Units{% endblock %}
 
-{% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-    <h1>Manage Units</h1>
-    <div>
-        <a href="{% url 'add_unit' %}" class="btn btn-primary" style="margin-right: 10px;">Add Unit</a>
-        <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">Back</a>
-    </div>
-</div>
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Units</span>
+</nav>
+{% endblock %}
 
-<div class="table-container">
-    <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-            <tr style="background-color: #003366; color: white;">
-                <th style="padding: 10px; text-align: left; color: white;">Unit Number</th>
-                <th style="padding: 10px; text-align: left; color: white;">Estate</th>
-                <th style="padding: 10px; text-align: center; color: white;">Water Meter</th>
-                <th style="padding: 10px; text-align: center; color: white;">Electricity Meter</th>
-                <th style="padding: 10px; text-align: center; color: white;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for unit in units %}
-            <tr style="border-bottom: 1px solid #ddd;">
-                <td style="padding: 10px;">{{ unit.unit_number }}</td>
-                <td style="padding: 10px;">{{ unit.estate_name }}</td>
-                <td style="padding: 10px; text-align: center;">{% if unit.has_water_meter %}✓{% else %}✗{% endif %}</td>
-                <td style="padding: 10px; text-align: center;">{% if unit.has_electricity_meter %}✓{% else %}✗{% endif %}</td>
-                <td style="padding: 10px; text-align: center;">
-                    <a href="{% url 'unit_detail' unit.id %}" class="btn btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">View Profile</a>
-                    <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.75rem; margin-left: 5px;">Edit</a>
-                    <a href="#" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.75rem; margin-left: 5px;">Delete</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" style="padding: 20px; text-align: center; color: #666;">No units found. Add your first unit!</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% block content %}
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-md);">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="building" width="28" height="28"></i>
+                Property Units
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Manage all units, blocks, and meter configurations.</p>
+        </div>
+        
+        <a href="{% url 'add_unit' %}" class="btn btn-primary">
+            <i data-lucide="plus" width="16" height="16"></i> Add New Unit
+        </a>
+    </div>
+
+    {% if units %}
+    <div class="table-container" style="margin-top: var(--spacing-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Unit Details</th>
+                    <th>Active Meters</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for unit in units %}
+                <tr>
+                    <td>
+                        <strong style="font-size: 1.05rem; display: block; margin-bottom: 4px;">
+                            Unit {{ unit.unit_number }}
+                        </strong>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="map-pin" width="12" height="12"></i> {{ unit.estate_name }}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            {% if unit.has_water_meter %}
+                                <span class="badge badge-info" style="display: flex; align-items: center; gap: 4px;">
+                                    <i data-lucide="droplet" width="12" height="12"></i> Water
+                                </span>
+                            {% endif %}
+                            
+                            {% if unit.has_electricity_meter %}
+                                <span class="badge badge-warning" style="display: flex; align-items: center; gap: 4px;">
+                                    <i data-lucide="zap" width="12" height="12"></i> Electricity
+                                </span>
+                            {% endif %}
+                            
+                            {% if not unit.has_water_meter and not unit.has_electricity_meter %}
+                                <span style="color: var(--text-tertiary); font-size: 0.85rem; font-style: italic;">No active meters</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                            <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                <i data-lucide="eye" width="14" height="14"></i> Manage
+                            </a>
+                            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                <i data-lucide="edit" width="14" height="14"></i> Edit
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% else %}
+    <div style="text-align: center; padding: 4rem 2rem; background: var(--background); border-radius: var(--radius); border: 2px dashed var(--border); margin-top: var(--spacing-lg);">
+        <div style="display: inline-flex; justify-content: center; align-items: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(5, 150, 105, 0.1); margin-bottom: var(--spacing-md);">
+            <i data-lucide="building" width="32" height="32" style="color: var(--primary);"></i>
+        </div>
+        <h2 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-xs);">No Units Added Yet</h2>
+        <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto var(--spacing-lg);">
+            Start by adding the physical properties, houses, or apartments you manage. Once added, you can assign tenants and track utilities.
+        </p>
+        <a href="{% url 'add_unit' %}" class="btn btn-primary">
+            <i data-lucide="plus" width="16" height="16"></i> Add Your First Unit
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

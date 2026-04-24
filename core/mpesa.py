@@ -61,7 +61,7 @@ class MpesaDarajaSandbox:
             print(f"Exception in get_access_token: {str(e)}")
             return None
     
-    def initiate_stk_push(self, phone_number, amount, account_reference, transaction_desc):
+    def initiate_stk_push(self, phone_number, amount, account_reference, transaction_desc, callback_url=None):
         """
         Initiate STK Push (Lipa Na M-Pesa Online) payment request.
         
@@ -108,7 +108,7 @@ class MpesaDarajaSandbox:
                 'PartyA': phone_number,
                 'PartyB': self.business_short_code,
                 'PhoneNumber': phone_number,
-                'CallBackURL': self.callback_url,
+                'CallBackURL': callback_url or self.callback_url, 
                 'AccountReference': account_reference,
                 'TransactionDesc': transaction_desc
             }

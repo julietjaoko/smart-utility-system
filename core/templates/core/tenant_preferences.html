@@ -14,6 +14,27 @@
             Dashboard
         </a>
     </div>
+
+    <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: var(--spacing-xs);">
+        <i data-lucide="shield" width="18" height="18"></i>
+        Account Security
+    </h3>
+    
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-lg); margin-bottom: var(--spacing-2xl); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">Login Password</div>
+            <div style="font-size: 0.875rem; color: var(--text-secondary);">Update your password to keep your account secure.</div>
+        </div>
+        <a href="{% url 'change_password' %}" class="btn btn-secondary">
+            <i data-lucide="key" width="16" height="16"></i>
+            Change Password
+        </a>
+    </div>
+
+    <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: var(--spacing-xs);">
+        <i data-lucide="bell" width="18" height="18"></i>
+        Notification Preferences
+    </h3>
     
     <form method="POST">
         {% csrf_token %}
