@@ -160,17 +160,22 @@
                 <i data-lucide="check" width="16" height="16"></i>
                 Save Reading
             </button>
-            <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">Cancel</a>
+            <button type="button" onclick="if(window.closeModal) { closeModal(); } else { window.history.back(); }" class="btn btn-secondary">Cancel</button>
         </div>
     </form>
 </div>
 
 <script>
 function loadMeters() {
-    const unitId = document.getElementById('unit').value;
-    const meterSelect = document.getElementById('meter');
+    // Looks for standard Django ID (id_unit) or the name attribute
+    const unitSelect = document.getElementById('id_unit') || document.querySelector('[name="unit"]');
+    const meterSelect = document.getElementById('id_meter') || document.querySelector('[name="meter"]');
     const meterSection = document.getElementById('meterSection');
     const previousReadingInfo = document.getElementById('previousReadingInfo');
+    
+    if (!unitSelect || !meterSelect) return;
+    
+    const unitId = unitSelect.value;
     
     if (!unitId) {
         meterSection.style.display = 'none';
@@ -183,9 +188,7 @@ function loadMeters() {
     
     fetch(`/api/unit/${unitId}/meters/`)
         .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
+            if (!response.ok) throw new Error('Network error');
             return response.json();
         })
         .then(data => {
@@ -204,22 +207,23 @@ function loadMeters() {
             } else {
                 meterSelect.innerHTML = '<option value="">No active meters found for this unit</option>';
             }
-            
             lucide.createIcons();
         })
         .catch(error => {
-            console.error('Error loading meters:', error);
-            meterSelect.innerHTML = '<option value="">Error loading meters. Please try again.</option>';
+            console.error('Error:', error);
+            meterSelect.innerHTML = '<option value="">Error loading meters.</option>';
         });
 }
 
 function showPreviousReading() {
-    const meterSelect = document.getElementById('meter');
+    const meterSelect = document.getElementById('id_meter') || document.querySelector('[name="meter"]');
+    if (!meterSelect || meterSelect.selectedIndex === -1) return;
+    
     const selectedOption = meterSelect.options[meterSelect.selectedIndex];
     const previousReadingInfo = document.getElementById('previousReadingInfo');
     const previousReadingDetails = document.getElementById('previousReadingDetails');
     
-    if (selectedOption.value && selectedOption.dataset.previousReading !== 'None') {
+    if (selectedOption.value && selectedOption.dataset.previousReading && selectedOption.dataset.previousReading !== 'None') {
         previousReadingDetails.innerHTML = `
             <div class="previous-reading-grid">
                 <span style="font-weight: 600; color: var(--text-primary);">Last Reading:</span>
@@ -234,12 +238,16 @@ function showPreviousReading() {
     } else {
         previousReadingInfo.style.display = 'none';
     }
-    
     lucide.createIcons();
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    lucide.createIcons();
-});
+// Automatically attach listeners when the modal loads the script
+(function attachListeners() {
+    const unitSelect = document.getElementById('id_unit') || document.querySelector('[name="unit"]');
+    const meterSelect = document.getElementById('id_meter') || document.querySelector('[name="meter"]');
+    
+    if (unitSelect) unitSelect.addEventListener('change', loadMeters);
+    if (meterSelect) meterSelect.addEventListener('change', showPreviousReading);
+})();
 </script>
 {% endblock %}

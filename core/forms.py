@@ -29,14 +29,14 @@ class MeterReadingForm(forms.ModelForm):
         queryset=Unit.objects.none(),
         required=True,
         empty_label="-- Select a unit --",
-        widget=forms.Select(attrs={'id': 'unit', 'onchange': 'loadMeters()'}),
+        widget=forms.Select(attrs={'id': 'unit'}),
     )
 
     class Meta:
         model = MeterReading
         fields = ['meter', 'reading_date', 'reading_value', 'photo', 'notes']
         widgets = {
-            'meter': forms.Select(attrs={'id': 'meter', 'onchange': 'showPreviousReading()'}),
+            'meter': forms.Select(attrs={'id': 'meter'}),
             'reading_date': forms.DateInput(attrs={'type': 'date'}),
             'reading_value': forms.NumberInput(attrs={'step': '0.01', 'min': '0', 'placeholder': 'e.g., 1250.50'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Optional notes...', 'style': 'resize: vertical;'}),
@@ -66,7 +66,7 @@ class PaymentForm(forms.ModelForm):
         widgets = {
             'payment_date': forms.DateInput(attrs={'type': 'date'}),
             'amount_paid': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01', 'placeholder': 'Enter amount received'}),
-            'payment_method': forms.Select(attrs={'id': 'payment_method', 'onchange': 'toggleMpesaFields()'}),
+            'payment_method': forms.Select(attrs={'id': 'payment_method'}),
             'mpesa_reference': forms.TextInput(attrs={
                 'id': 'mpesa_reference',
                 'placeholder': 'e.g., QGJ4X7Y8ZW',

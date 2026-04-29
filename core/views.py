@@ -888,41 +888,45 @@ def invoice_list(request):
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
-    
+        
     try:
         manager = PropertyManager.objects.get(user=request.user)
         
-        # Get all invoices for this manager's units
-        invoices = Invoice.objects.filter(
-            unit__manager=manager
-        ).select_related('unit', 'tenant__user').order_by('-invoice_date')
+        # 1. BASE QUERYSET (We use this for the top stats so they don't break when filtering)
+        base_invoices = Invoice.objects.filter(unit__manager=manager)
         
-        # Filter by status if specified
-        status_filter = request.GET.get('status')
+        # Calculate summary statistics BEFORE filtering
+        total_invoices = base_invoices.count()
+        unpaid_invoices = base_invoices.filter(status='UNPAID').count()
+        overdue_invoices = base_invoices.filter(status='OVERDUE').count()
+        total_outstanding = base_invoices.filter(
+            status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE']
+        ).aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
+        
+        # 2. TABLE QUERYSET (We apply the actual filters to this one)
+        invoices = base_invoices.select_related('unit', 'tenant__user').order_by('-invoice_date')
+        
+        # Filter by status (Force uppercase so 'Paid' becomes 'PAID' to match DB)
+        status_filter = request.GET.get('status', '').strip().upper()
         if status_filter:
             invoices = invoices.filter(status=status_filter)
-        
-        # Filter by unit if specified
-        unit_filter = request.GET.get('unit')
+            
+        # Filter by unit (Ensure we are passing an integer ID, not text)
+        unit_filter = request.GET.get('unit', '').strip()
         if unit_filter:
-            invoices = invoices.filter(unit__id=unit_filter)
-        
+            try:
+                invoices = invoices.filter(unit__id=int(unit_filter))
+            except ValueError:
+                pass # Ignore if the HTML accidentally passed a string instead of an ID
+                
         # Search by invoice number or unit number
-        search_query = request.GET.get('search')
+        search_query = request.GET.get('search', '').strip()
         if search_query:
             invoices = invoices.filter(
                 Q(invoice_number__icontains=search_query) |
                 Q(unit__unit_number__icontains=search_query)
             )
-        
-        # Calculate summary statistics
-        total_invoices = invoices.count()
-        unpaid_invoices = invoices.filter(status='UNPAID').count()
-        overdue_invoices = invoices.filter(status='OVERDUE').count()
-        total_outstanding = invoices.filter(
-            status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE']
-        ).aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
-        
+            
         # Pagination: 20 per page
         from django.core.paginator import Paginator
         paginator = Paginator(invoices, 20)
@@ -940,18 +944,17 @@ def invoice_list(request):
             'overdue_invoices': overdue_invoices,
             'total_outstanding': total_outstanding,
             'current_filters': {
-                'status': status_filter,
+                'status': request.GET.get('status', ''), # Keep original casing for the dropdown
                 'unit': unit_filter,
                 'search': search_query,
             }
         }
         
         return render(request, 'core/invoice_list.html', context)
-    
+        
     except PropertyManager.DoesNotExist:
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
-
 
 @login_required
 def invoice_detail(request, invoice_id):
@@ -1089,44 +1092,44 @@ def payment_list(request):
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
-    
+        
     try:
         manager = PropertyManager.objects.get(user=request.user)
         
-        # Get all payments for this manager's units
-        payments = Payment.objects.filter(
-            invoice__unit__manager=manager
-        ).select_related(
+        # 1. BASE QUERYSET (For accurate top-level dashboard stats)
+        base_payments = Payment.objects.filter(invoice__unit__manager=manager)
+        
+        total_payments = base_payments.count()
+        total_amount = base_payments.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+        
+        # 2. TABLE QUERYSET (Apply all your filters to this one)
+        payments = base_payments.select_related(
             'invoice__unit',
             'invoice__tenant__user',
             'recorded_by'
         ).order_by('-payment_date')
         
-        # Filter by payment method
-        method_filter = request.GET.get('method')
+        # Filter by payment method (Force uppercase to match DB: 'MPESA', 'CASH', 'BANK')
+        method_filter = request.GET.get('method', '').strip().upper()
         if method_filter:
             payments = payments.filter(payment_method=method_filter)
-        
-        # Filter by date range
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
+            
+        # Filter by date range (add .strip() to be safe)
+        start_date = request.GET.get('start_date', '').strip()
+        end_date = request.GET.get('end_date', '').strip()
         if start_date:
             payments = payments.filter(payment_date__gte=start_date)
         if end_date:
             payments = payments.filter(payment_date__lte=end_date)
-        
+            
         # Search by invoice number or M-Pesa reference
-        search_query = request.GET.get('search')
+        search_query = request.GET.get('search', '').strip()
         if search_query:
             payments = payments.filter(
                 Q(invoice__invoice_number__icontains=search_query) |
                 Q(mpesa_reference__icontains=search_query)
             )
-        
-        # Calculate totals
-        total_payments = payments.count()
-        total_amount = payments.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
-        
+            
         # Pagination
         from django.core.paginator import Paginator
         paginator = Paginator(payments, 20)
@@ -1138,7 +1141,7 @@ def payment_list(request):
             'total_payments': total_payments,
             'total_amount': total_amount,
             'current_filters': {
-                'method': method_filter,
+                'method': request.GET.get('method', ''), # Keep original casing for HTML dropdown
                 'start_date': start_date,
                 'end_date': end_date,
                 'search': search_query,
@@ -1146,7 +1149,7 @@ def payment_list(request):
         }
         
         return render(request, 'core/payment_list.html', context)
-    
+        
     except PropertyManager.DoesNotExist:
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
@@ -2511,6 +2514,10 @@ def mpesa_webhook(request, invoice_id):
         try:
             # Parse Safaricom's JSON payload
             callback_data = json.loads(request.body)
+            print("\n=== SAFARICOM WEBHOOK RECEIVED ===")
+            print(json.dumps(callback_data, indent=2))
+            print("==================================\n")
+            
             result = process_mpesa_callback(callback_data)
             
             if result.get('success'):

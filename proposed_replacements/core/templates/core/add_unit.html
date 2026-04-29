@@ -5,16 +5,14 @@
 {% block extra_css %}
 <style>
 .unit-form-card {
-    max-width: 680px;
+    max-width: 760px;
 }
 
 .form-actions {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: var(--spacing-md) !important;
-    margin-top: var(--spacing-xl) !important;
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
@@ -43,41 +41,36 @@
 {% block content %}
 <div class="card unit-form-card">
     <div class="card-header">
-        <h1 class="card-title">
-            <i data-lucide="plus-circle" width="28" height="28"></i>
-            Add New Unit
-        </h1>
-        <div class="header-actions">
-            <a href="{% url 'manage_units' %}" class="btn btn-secondary">
-                <i data-lucide="arrow-left" width="16" height="16"></i>
-                Back
-            </a>
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="plus-circle" width="28" height="28"></i>
+                Add New Unit
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.55rem;">Create the unit first, then you can assign a tenant and begin billing.</p>
         </div>
     </div>
 
     <form method="POST">
         {% csrf_token %}
-        
+
         <div class="form-group">
             <label for="{{ form.unit_number.id_for_label }}">Unit Number</label>
             {{ form.unit_number }}
-            <small class="text-error" style="color: var(--error);">{{ form.unit_number.errors }}</small>
+            <small style="color: var(--error);">{{ form.unit_number.errors }}</small>
         </div>
 
         <div class="form-group">
             <label for="{{ form.estate_name.id_for_label }}">Estate Name</label>
             {{ form.estate_name }}
-            <small class="text-error" style="color: var(--error);">{{ form.estate_name.errors }}</small>
+            <small style="color: var(--error);">{{ form.estate_name.errors }}</small>
         </div>
 
-        <h3 style="font-size: 1rem; color: var(--text-secondary); margin-bottom: var(--spacing-sm); margin-top: var(--spacing-lg);">
-            Utility Configuration
-        </h3>
-        
+        <h3 style="font-size: 1rem; color: var(--text-secondary); margin: 1.5rem 0 0.8rem;">Utility Configuration</h3>
+
         <div class="setting-card">
             <div class="setting-info">
                 <label for="{{ form.has_water_meter.id_for_label }}">Water Meter</label>
-                <small>Does this unit track its own water usage?</small>
+                <small>Turn this on if this unit tracks its own water usage.</small>
             </div>
             <label class="toggle-switch">
                 {{ form.has_water_meter }}
@@ -88,22 +81,20 @@
         <div class="setting-card">
             <div class="setting-info">
                 <label for="{{ form.has_electricity_meter.id_for_label }}">Electricity Meter</label>
-                <small>Does this unit track its own electricity usage?</small>
+                <small>Turn this on if this unit tracks its own electricity usage.</small>
             </div>
             <label class="toggle-switch">
                 {{ form.has_electricity_meter }}
                 <span class="toggle-slider"></span>
             </label>
         </div>
-        
+
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
                 <i data-lucide="check" width="16" height="16"></i>
                 Save Unit
             </button>
-            <button type="button" onclick="if(window.closeModal) { closeModal(); } else { window.location.href='{% url 'manage_units' %}'; }" class="btn btn-secondary">
-                Cancel
-            </button>
+            <a href="{% url 'manage_units' %}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>

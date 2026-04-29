@@ -1,0 +1,166 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Manage Units{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.page-toolbar__meta {
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--primary-strong);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.unit-meter-list,
+.unit-row-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.unit-row-actions .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3.4rem 1.5rem;
+    border: 2px dashed var(--border);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fcfefd 0%, #f6fbf8 100%);
+}
+
+@media (max-width: 768px) {
+    .page-toolbar,
+    .page-toolbar__meta,
+    .unit-row-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-toolbar .btn,
+    .unit-row-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Units</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="building-2" width="28" height="28"></i>
+                Property Units
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.55rem;">Your houses, apartments, and meter-ready spaces are managed from here.</p>
+        </div>
+
+        <a href="{% url 'add_unit' %}" class="btn btn-primary" data-modal-url="{% url 'add_unit' %}" data-modal-title="Add New Unit">
+            <i data-lucide="plus" width="16" height="16"></i>
+            Add New Unit
+        </a>
+    </div>
+
+    <div class="page-toolbar" style="margin-bottom: 1.25rem;">
+        <div class="page-toolbar__meta">
+            <span class="meta-pill"><i data-lucide="building-2" width="15" height="15"></i> {{ units|length }} unit{{ units|length|pluralize }}</span>
+            <span class="meta-pill"><i data-lucide="droplet" width="15" height="15"></i> Water and electricity setup at a glance</span>
+        </div>
+    </div>
+
+    {% if units %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Unit Details</th>
+                    <th>Utility Setup</th>
+                    <th>Quick Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for unit in units %}
+                <tr>
+                    <td>
+                        <strong style="display:block;font-size:1rem;">Unit {{ unit.unit_number }}</strong>
+                        <span style="display:inline-flex;align-items:center;gap:0.35rem;margin-top:0.35rem;color:var(--text-secondary);">
+                            <i data-lucide="map-pin" width="14" height="14"></i>
+                            {{ unit.estate_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="unit-meter-list">
+                            {% if unit.has_water_meter %}
+                                <span class="badge badge-info"><i data-lucide="droplet" width="12" height="12"></i> Water Meter</span>
+                            {% endif %}
+                            {% if unit.has_electricity_meter %}
+                                <span class="badge badge-warning"><i data-lucide="zap" width="12" height="12"></i> Electricity Meter</span>
+                            {% endif %}
+                            {% if not unit.has_water_meter and not unit.has_electricity_meter %}
+                                <span style="color: var(--text-muted); font-style: italic;">No utility meters configured</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="unit-row-actions">
+                            <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary">
+                                <i data-lucide="eye" width="14" height="14"></i>
+                                Open
+                            </a>
+                            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary" data-modal-url="{% url 'edit_unit' unit.id %}" data-modal-title="Edit Unit {{ unit.unit_number }}">
+                                <i data-lucide="square-pen" width="14" height="14"></i>
+                                Edit
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div style="display:inline-flex;width:68px;height:68px;border-radius:18px;align-items:center;justify-content:center;background:rgba(15,118,110,0.10);margin-bottom:1rem;">
+            <i data-lucide="building-2" width="32" height="32" style="color:var(--primary);"></i>
+        </div>
+        <h2 style="font-size:1.25rem;font-weight:800;margin-bottom:0.55rem;">No units added yet</h2>
+        <p style="max-width:460px;margin:0 auto 1.25rem;color:var(--text-secondary);">Create the first unit and you will be able to assign tenants, capture readings, and bill utilities from one place.</p>
+        <a href="{% url 'add_unit' %}" class="btn btn-primary" data-modal-url="{% url 'add_unit' %}" data-modal-title="Add New Unit">
+            <i data-lucide="plus" width="16" height="16"></i>
+            Add Your First Unit
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -75,7 +75,9 @@
                 <i data-lucide="check" width="16" height="16"></i>
                 Create Tenant
             </button>
-            <a href="{% url 'manage_tenants' %}" class="btn btn-secondary">Cancel</a>
+            <button type="button" onclick="if(window.closeModal) { closeModal(); } else { window.location.href='{% url 'manage_tenants' %}'; }" class="btn btn-secondary">
+                Cancel
+            </button>
         </div>
     </form>
 </div>
@@ -89,9 +91,12 @@
 }
 
 .form-actions {
-    display: flex;
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-xl);
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: var(--spacing-md) !important;
+    margin-top: var(--spacing-xl) !important;
 }
 
 @media (max-width: 768px) {

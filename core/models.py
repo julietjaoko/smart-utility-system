@@ -465,6 +465,17 @@ class Invoice(models.Model):
         
         self.save()
 
+    @property
+    def amount_paid_total(self):
+        from django.db.models import Sum
+        from decimal import Decimal
+        total = self.payments.aggregate(total=Sum('amount_paid'))['total']
+        return total or Decimal('0.00')
+
+    @property
+    def balance_due(self):
+        return self.total_due - self.amount_paid_total
+
 
 # Payment Model
 class Payment(models.Model):

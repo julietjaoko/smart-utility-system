@@ -51,7 +51,7 @@
                 </div>
                 
                 <div>
-                    <select name="method" style="width: 100%;">
+                    <select name="method" onchange="this.form.submit()">
                         <option value="">All Methods</option>
                         <option value="MPESA" {% if current_filters.method == 'MPESA' %}selected{% endif %}>M-Pesa</option>
                         <option value="CASH" {% if current_filters.method == 'CASH' %}selected{% endif %}>Cash</option>

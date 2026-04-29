@@ -48,6 +48,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'utility_system.urls'
@@ -77,7 +78,6 @@ WSGI_APPLICATION = 'utility_system.wsgi.application'
 # DATABASE CONFIGURATION (Aiven Cloud & Local)
 # ==========================================
 
-# First, capture the host so we can check it
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 
 DATABASES = {
@@ -139,9 +139,10 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 AUTH_USER_MODEL = 'core.User'
 
-import os
 
 # Media files (uploaded photos)
 MEDIA_URL = '/media/'
@@ -155,7 +156,7 @@ MPESA_CONSUMER_KEY = os.environ.get('MPESA_CONSUMER_KEY', 'NJDK1YqtCR9mh0RHIZAI2
 MPESA_CONSUMER_SECRET = os.environ.get('MPESA_CONSUMER_SECRET', 'gCfGqL3pdGETEzZDGrcYWAsvfdLhdLdEnlxMwPGMbwZhBX39zsZWdHfhyx9BTJUM')
 MPESA_SHORTCODE = os.environ.get('MPESA_SHORTCODE', '174379') # Sandbox default
 MPESA_PASSKEY = os.environ.get('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')
-MPESA_CALLBACK_URL = os.environ.get('MPESA_CALLBACK_URL', 'https://miguelina-interdestructive-soothingly.ngrok-free.dev/mpesa/webhook/5/') 
+MPESA_CALLBACK_URL = os.environ.get('MPESA_CALLBACK_URL', 'https://miguelina-interdestructive-soothingly.ngrok-free.dev') 
 
 LOGIN_URL = '/'
 

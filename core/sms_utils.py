@@ -43,21 +43,29 @@ class AfricasTalkingSMS:
                 phone_number = '+' + phone_number
             elif not phone_number.startswith('+'):
                 phone_number = '+254' + phone_number
-            
-            # Send SMS
+                
+            # Send SMS (Sender ID removed for sandbox compatibility!)
             response = self.sms.send(
                 message=message,
-                recipients=[phone_number],
-                sender_id=self.sender_id
+                recipients=[phone_number]
             )
+            
+            # Print the exact response to your terminal!
+            print("\n=== AFRICA'S TALKING API RESPONSE ===")
+            print(response)
+            print("=====================================\n")
             
             return {
                 'success': True,
                 'response': response,
                 'message': 'SMS sent successfully'
             }
-        
+            
         except Exception as e:
+            # Print the exact error to your terminal!
+            print("\n=== AFRICA'S TALKING API ERROR ===")
+            print(str(e))
+            print("==================================\n")
             return {
                 'success': False,
                 'error': str(e),

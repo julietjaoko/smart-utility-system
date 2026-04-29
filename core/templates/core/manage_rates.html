@@ -111,9 +111,9 @@
                     {% endif %}
                 </div>
                 <div class="rate-card__action">
-                    <a href="{% url 'add_rate' %}?type=water" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                    <button onclick="openModal('{% url 'add_rate' %}?type=water', 'Set Water Rate')" class="btn btn-primary" style="padding: 0.5rem 1rem;">
                         {% if water_rate %}Update{% else %}Set Rate{% endif %}
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -136,9 +136,9 @@
                     {% endif %}
                 </div>
                 <div class="rate-card__action">
-                    <a href="{% url 'add_rate' %}?type=electricity" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                    <button onclick="openModal('{% url 'add_rate' %}?type=electricity', 'Set Electricity Rate')" class="btn btn-primary" style="padding: 0.5rem 1rem;">
                         {% if electricity_rate %}Update{% else %}Set Rate{% endif %}
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -147,10 +147,10 @@
     <div style="margin-top: var(--spacing-2xl);">
         <div class="section-header">
             <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">Fixed Monthly Charges</h2>
-            <a href="{% url 'add_fixed_charge' %}" class="btn btn-primary">
+            <button onclick="openModal('{% url 'add_fixed_charge' %}', 'Add Fixed Charge')" class="btn btn-primary">
                 <i data-lucide="plus" width="16" height="16"></i>
                 Add Charge
-            </a>
+            </button>
         </div>
         
         {% if fixed_charges %}
@@ -186,7 +186,7 @@
         <div style="text-align: center; padding: var(--spacing-2xl); background: var(--background); border-radius: var(--radius);">
             <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
             <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">No fixed charges configured</p>
-            <a href="{% url 'add_fixed_charge' %}" class="btn btn-primary">Add First Charge</a>
+            <button onclick="openModal('{% url 'add_fixed_charge' %}', 'Add Fixed Charge')" class="btn btn-primary">Add First Charge</button>
         </div>
         {% endif %}
     </div>

@@ -1,0 +1,172 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Manage Tenants{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.toolbar-badges {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+
+.toolbar-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.08);
+    color: #1d4ed8;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.tenant-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tenant-actions .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+    .page-toolbar,
+    .toolbar-badges,
+    .tenant-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-toolbar .btn,
+    .tenant-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Tenants</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="users" width="28" height="28"></i>
+                Tenants Directory
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.55rem;">Add, edit, and track everyone currently occupying your units.</p>
+        </div>
+
+        <a href="{% url 'add_tenant' %}" class="btn btn-primary" data-modal-url="{% url 'add_tenant' %}" data-modal-title="Add New Tenant">
+            <i data-lucide="user-plus" width="16" height="16"></i>
+            Add New Tenant
+        </a>
+    </div>
+
+    <div class="page-toolbar" style="margin-bottom: 1.25rem;">
+        <div class="toolbar-badges">
+            <span class="toolbar-pill"><i data-lucide="users" width="15" height="15"></i> {{ tenants|length }} tenant{{ tenants|length|pluralize }}</span>
+            <span class="toolbar-pill"><i data-lucide="shield-check" width="15" height="15"></i> Active and historical records preserved</span>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tenant Name</th>
+                    <th>Contact</th>
+                    <th>Assigned Unit</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tenant in tenants %}
+                <tr style="{% if not tenant.is_active %}opacity:0.68;background:#f9fbfa;{% endif %}">
+                    <td>
+                        <strong style="display:block;font-size:1rem;">{{ tenant.user.get_full_name|default:tenant.user.username }}</strong>
+                        <span style="display:inline-flex;align-items:center;gap:0.35rem;margin-top:0.35rem;color:var(--text-secondary);">
+                            <i data-lucide="mail" width="14" height="14"></i>
+                            {{ tenant.user.email }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if tenant.phone_number %}
+                        <span style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--text-secondary);">
+                            <i data-lucide="phone" width="14" height="14"></i>
+                            {{ tenant.phone_number }}
+                        </span>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-style:italic;">No phone number added</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenant.unit %}
+                            <a href="{% url 'unit_detail' tenant.unit.id %}" style="color:var(--primary);font-weight:700;text-decoration:none;">Unit {{ tenant.unit.unit_number }}</a>
+                        {% else %}
+                            <span style="color:var(--text-muted);font-style:italic;">Unassigned or vacated</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if tenant.is_active %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge" style="background:#e2e8f0;color:#475569;">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="tenant-actions">
+                            {% if tenant.unit %}
+                            <a href="{% url 'unit_detail' tenant.unit.id %}" class="btn btn-secondary">
+                                <i data-lucide="building-2" width="14" height="14"></i>
+                                View Unit
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'edit_tenant' tenant.id %}" class="btn btn-secondary" data-modal-url="{% url 'edit_tenant' tenant.id %}" data-modal-title="Edit Tenant">
+                                <i data-lucide="square-pen" width="14" height="14"></i>
+                                Edit
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align:center;padding:3rem 1.25rem;">
+                        <div style="display:inline-flex;width:68px;height:68px;border-radius:18px;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);margin-bottom:1rem;">
+                            <i data-lucide="users" width="32" height="32" style="color:#2563eb;"></i>
+                        </div>
+                        <p style="font-size:1.05rem;font-weight:700;">No tenants found yet.</p>
+                        <p style="color:var(--text-secondary);margin-top:0.45rem;">Add the first tenant without leaving this page.</p>
+                        <a href="{% url 'add_tenant' %}" class="btn btn-primary" style="margin-top:1rem;" data-modal-url="{% url 'add_tenant' %}" data-modal-title="Add New Tenant">
+                            <i data-lucide="user-plus" width="16" height="16"></i>
+                            Add Your First Tenant
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

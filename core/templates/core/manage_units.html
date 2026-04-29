@@ -68,9 +68,9 @@
         </div>
         
         <div class="header-actions">
-            <a href="{% url 'add_unit' %}" class="btn btn-primary">
+            <button onclick="openModal('{% url 'add_unit' %}', 'Add New Unit')" class="btn btn-primary">
                 <i data-lucide="plus" width="16" height="16"></i> Add New Unit
-            </a>
+            </button>
         </div>
     </div>
 
@@ -119,9 +119,9 @@
                             <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary">
                                 <i data-lucide="eye" width="14" height="14"></i> Manage
                             </a>
-                            <a href="{% url 'edit_unit' unit.id %}" class="btn btn-secondary">
+                            <button onclick="openModal('{% url 'edit_unit' unit.id %}', 'Edit Unit')" class="btn btn-secondary">
                                 <i data-lucide="edit" width="14" height="14"></i> Edit
-                            </a>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -139,9 +139,9 @@
         <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto var(--spacing-lg);">
             Start by adding the physical properties, houses, or apartments you manage. Once added, you can assign tenants and track utilities.
         </p>
-        <a href="{% url 'add_unit' %}" class="btn btn-primary">
+        <button onclick="openModal('{% url 'add_unit' %}', 'Add New Unit')" class="btn btn-primary">
             <i data-lucide="plus" width="16" height="16"></i> Add Your First Unit
-        </a>
+        </button>
     </div>
     {% endif %}
 </div>

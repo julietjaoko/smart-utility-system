@@ -124,7 +124,7 @@
                 <i data-lucide="check" width="16" height="16"></i>
                 Save Rate
             </button>
-            <a href="{% url 'manage_rates' %}" class="btn btn-secondary">Cancel</a>
+            <button type="button" onclick="if(window.closeModal) { closeModal(); } else { window.history.back(); }" class="btn btn-secondary">Cancel</button>
         </div>
     </form>
 </div>
