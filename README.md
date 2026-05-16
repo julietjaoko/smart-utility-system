@@ -76,7 +76,7 @@ Managing utilities across multiple residential units is complex and error-prone.
    
    AFRICASTALKING_USERNAME=your-africa-talking-username
    AFRICASTALKING_API_KEY=your-api-key
-   AFRICASTALKING_SENDER_ID=SUMS
+   AFRICASTALKING_SENDER_ID=
    ```
 
 5. **Set up the database:**
