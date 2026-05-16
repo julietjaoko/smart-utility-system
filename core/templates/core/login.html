@@ -88,11 +88,13 @@
             <p class="auth-subtitle">Sign in to manage utilities, billing, and tenant activity.</p>
         </div>
 
-        {% if form.errors %}
-            <div class="alert-error">
-                <i data-lucide="alert-circle" width="18" height="18"></i>
-                <span>Your username and password didn't match, or your account is inactive. Please try again.</span>
-            </div>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }}">
+                    <i data-lucide="alert-circle" width="18" height="18"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
         {% endif %}
 
         <form method="POST">

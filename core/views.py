@@ -33,33 +33,52 @@ logger = logging.getLogger(__name__)
 
 def login_view(request):
     if request.user.is_authenticated:
-        if request.user.role == 'PROPERTY_MANAGER':
-            return redirect('manager_dashboard')
-        elif request.user.role == 'TENANT':
-            return redirect('tenant_dashboard')
-        else:
-            return redirect('/admin/')
-        
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        
+        if request.user.role == "PROPERTY_MANAGER":
+            if PropertyManager.objects.filter(user=request.user).exists():
+                return redirect("manager_dashboard")
+
+            logout(request)
+            messages.error(request, "Property Manager profile not found. Please contact admin.")
+            return redirect("login")
+
+        if request.user.role == "TENANT":
+            if Tenant.objects.filter(user=request.user).exists():
+                return redirect("tenant_dashboard")
+
+            logout(request)
+            messages.error(request, "Tenant profile not found. Please contact admin.")
+            return redirect("login")
+
+        return redirect("/admin/")
+
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+
         user = authenticate(request, username=username, password=password)
-        
+
         if user is not None:
+            if user.role == "PROPERTY_MANAGER" and not PropertyManager.objects.filter(user=user).exists():
+                messages.error(request, "Property Manager profile not found. Please contact admin.")
+                return render(request, "core/login.html")
+
+            if user.role == "TENANT" and not Tenant.objects.filter(user=user).exists():
+                messages.error(request, "Tenant profile not found. Please contact admin.")
+                return render(request, "core/login.html")
+
             login(request, user)
-            # Redirect based on role
-            if user.role == 'PROPERTY_MANAGER':
-                return redirect('manager_dashboard')
-            elif user.role == 'TENANT':
-                return redirect('tenant_dashboard')
+
+            if user.role == "PROPERTY_MANAGER":
+                return redirect("manager_dashboard")
+            elif user.role == "TENANT":
+                return redirect("tenant_dashboard")
             else:
-                # Fallback for Admins or users with no role assigned
-                return redirect('/admin/')
-        else:
-            messages.error(request, 'Invalid username or password')
-    
-    return render(request, 'core/login.html')
+                return redirect("/admin/")
+
+        messages.error(request, "Invalid username or password")
+
+    return render(request, "core/login.html")
+
 
 
 @login_required
@@ -110,8 +129,9 @@ def manager_dashboard(request):
         return render(request, 'core/manager_dashboard.html', context)
     
     except PropertyManager.DoesNotExist:
-        messages.error(request, 'Property Manager profile not found. Please contact admin.')
-        return redirect('login')
+        logout(request)
+        messages.error(request, "Property Manager profile not found. Please contact admin.")
+        return redirect("login")
 
 
 @login_required
@@ -131,15 +151,15 @@ def tenant_dashboard(request):
         return render(request, 'core/tenant_dashboard.html', context)
         
     except Tenant.DoesNotExist:
-        messages.error(request, 'Tenant profile not found.')
-        return redirect('login')
+        logout(request)
+        messages.error(request, "Tenant profile not found.")
+        return redirect("login")
 
 
 @manager_required
 def manage_units(request):
     manager = PropertyManager.objects.get(user=request.user)
     units = Unit.objects.filter(manager=manager)
-    return render(request, 'core/manage_units.html', {'units': units})
     return render(request, 'core/manage_units.html', {'units': units})
 
 

@@ -1,27 +1,56 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django import forms
+
 from .models import (
-    User, PropertyManager, Unit, Tenant, 
-    Meter, MeterReading
+    User, PropertyManager, Unit, Tenant,
+    Meter, MeterReading, ElectricityToken, TenantPreferences,
+    RateConfig, FixedCharge, Invoice, Payment, AccountBalance
 )
 
-# Customize User Admin
+
+class PropertyManagerAdminForm(forms.ModelForm):
+    class Meta:
+        model = PropertyManager
+        fields = "__all__"
+
+    def clean_user(self):
+        user = self.cleaned_data["user"]
+        if user.role != "PROPERTY_MANAGER":
+            raise forms.ValidationError("This user must have the Property Manager role.")
+        return user
+
+
+class PropertyManagerInline(admin.StackedInline):
+    model = PropertyManager
+    can_delete = False
+    extra = 0
+    max_num = 1
+
+
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    """
-    Admin interface for User model.
-    Shows key fields and allows filtering by role.
-    """
-    list_display = ['username', 'email', 'role', 'is_active', 'date_joined']
-    list_filter = ['role', 'is_active']
-    search_fields = ['username', 'email', 'first_name', 'last_name']
-    ordering = ['-date_joined']
+class UserAdmin(DjangoUserAdmin):
+    list_display = ["username", "email", "role", "is_active", "is_staff", "date_joined"]
+    list_filter = DjangoUserAdmin.list_filter + ("role",)
+    search_fields = ["username", "email", "first_name", "last_name"]
+    ordering = ["-date_joined"]
+
+    fieldsets = DjangoUserAdmin.fieldsets + (
+        ("Application profile", {"fields": ("role", "phone_number")}),
+    )
+
+    add_fieldsets = DjangoUserAdmin.add_fieldsets + (
+        ("Application profile", {"fields": ("role", "phone_number")}),
+    )
+
+    inlines = [PropertyManagerInline]
 
 
 @admin.register(PropertyManager)
 class PropertyManagerAdmin(admin.ModelAdmin):
-    """Admin interface for Property Manager model."""
-    list_display = ['user', 'estate_name']
-    search_fields = ['user__username', 'estate_name']
+    form = PropertyManagerAdminForm
+    list_display = ["user", "estate_name"]
+    search_fields = ["user__username", "user__email", "estate_name"]
 
 
 @admin.register(Unit)
@@ -67,7 +96,6 @@ class MeterReadingAdmin(admin.ModelAdmin):
     def get_list_display_links(self, request, list_display):
         return ['meter']
     
-from .models import RateConfig, FixedCharge, Invoice, Payment, AccountBalance
 
 @admin.register(RateConfig)
 class RateConfigAdmin(admin.ModelAdmin):
@@ -97,7 +125,6 @@ class AccountBalanceAdmin(admin.ModelAdmin):
     list_display = ['tenant', 'current_balance', 'last_updated']
     readonly_fields = ['last_updated']
 
-from .models import ElectricityToken, TenantPreferences
 
 @admin.register(ElectricityToken)
 class ElectricityTokenAdmin(admin.ModelAdmin):
