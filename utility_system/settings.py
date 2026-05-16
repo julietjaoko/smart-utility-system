@@ -26,7 +26,17 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default=".vercel.app,localhost,127.0.0.1",
+    cast=lambda value: [host.strip() for host in value.split(",")],
+)
+
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="https://*.vercel.app",
+    cast=lambda value: [origin.strip() for origin in value.split(",")],
+)
 
 
 # Application definition
@@ -43,13 +53,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'utility_system.urls'
@@ -187,3 +197,11 @@ DEFAULT_FROM_EMAIL = 'SUMS <noreply@sums.com>'
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
 AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default='')
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+CONN_MAX_AGE = config("DB_CONN_MAX_AGE", default=60, cast=int)
+DATABASES["default"]["CONN_MAX_AGE"] = CONN_MAX_AGE
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True

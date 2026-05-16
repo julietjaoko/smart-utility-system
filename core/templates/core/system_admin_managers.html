@@ -1,0 +1,66 @@
+{% extends 'core/base.html' %}
+{% block title %}Property Managers{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="briefcase-business"></i>
+                Property Managers
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Create and manage manager accounts.
+            </p>
+        </div>
+        <a href="{% url 'system_admin_create_manager' %}" class="btn btn-primary">
+            <i data-lucide="user-plus" width="16"></i>
+            New Manager
+        </a>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Manager</th>
+                    <th>Estate</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for manager in managers %}
+                <tr>
+                    <td>
+                        <strong>{{ manager.user.get_full_name|default:manager.user.username }}</strong>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">{{ manager.user.username }}</div>
+                    </td>
+                    <td>{{ manager.estate_name }}</td>
+                    <td>{{ manager.user.email }}</td>
+                    <td>
+                        {% if manager.user.is_active %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge badge-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'system_admin_toggle_user' manager.user.id %}" class="btn btn-secondary btn-sm">
+                            {% if manager.user.is_active %}Deactivate{% else %}Activate{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">
+                        No property managers created yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

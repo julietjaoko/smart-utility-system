@@ -1,0 +1,31 @@
+{% extends 'core/base.html' %}
+{% block title %}New Maintenance Request{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 760px;">
+    <div class="card-header">
+        <h1 class="card-title"><i data-lucide="plus-circle"></i> New Maintenance Request</h1>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <small style="color: var(--error);">{{ field.errors.0 }}</small>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="send" width="16"></i> Submit Request
+            </button>
+            <a href="{% url 'tenant_maintenance_requests' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

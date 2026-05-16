@@ -61,4 +61,20 @@ urlpatterns = [
     path('mpesa/webhook/<int:invoice_id>/', views.mpesa_webhook, name='mpesa_webhook'),
     path('security/change-password/', views.change_password, name='change_password'),
     path('payments/<int:payment_id>/delete/', views.delete_payment, name='delete_payment'),
+    path("tenant/maintenance/", views.tenant_maintenance_requests, name="tenant_maintenance_requests"),
+    path("tenant/maintenance/new/", views.tenant_new_maintenance_request, name="tenant_new_maintenance_request"),
+    path("tenant/maintenance/<int:request_id>/", views.tenant_maintenance_detail, name="tenant_maintenance_detail"),
+
+    path("manager/maintenance/", views.manager_maintenance_requests, name="manager_maintenance_requests"),
+    path("manager/maintenance/<int:request_id>/", views.manager_maintenance_detail, name="manager_maintenance_detail"),
+
+    path("system-admin/", views.system_admin_dashboard, name="system_admin_dashboard"),
+    path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
+    path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),
+    path("system-admin/users/<int:user_id>/toggle/", views.system_admin_toggle_user, name="system_admin_toggle_user"),
+    path("system-admin/", views.system_admin_dashboard, name="system_admin_dashboard"),
+    path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
+    path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),
+    path("system-admin/users/<int:user_id>/toggle/", views.system_admin_toggle_user, name="system_admin_toggle_user"),
+
 ]

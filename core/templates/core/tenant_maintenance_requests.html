@@ -1,0 +1,43 @@
+{% extends 'core/base.html' %}
+{% block title %}Maintenance Requests{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title"><i data-lucide="message-square-warning"></i> Maintenance Requests</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Report issues and follow replies from your property manager.</p>
+        </div>
+        <a href="{% url 'tenant_new_maintenance_request' %}" class="btn btn-primary">
+            <i data-lucide="plus" width="16"></i> New Request
+        </a>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Issue</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in requests %}
+                <tr>
+                    <td><strong>{{ item.subject }}</strong><br><span style="color: var(--text-secondary);">Unit {{ item.unit.unit_number }}</span></td>
+                    <td>{{ item.get_category_display }}</td>
+                    <td><span class="badge badge-info">{{ item.get_status_display }}</span></td>
+                    <td>{{ item.updated_at|date:"M d, Y H:i" }}</td>
+                    <td><a href="{% url 'tenant_maintenance_detail' item.id %}" class="btn btn-secondary btn-sm">Open</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">No maintenance requests yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

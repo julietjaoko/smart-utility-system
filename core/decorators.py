@@ -30,3 +30,17 @@ def tenant_required(view_func):
             
         return view_func(request, *args, **kwargs)
     return _wrapped_view
+
+def system_admin_required(view_func):
+    """Allow the custom system admin role and Django superusers."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+
+        if not (request.user.is_superuser or request.user.role == 'SYSTEM_ADMIN'):
+            messages.error(request, 'Access denied: System Admin privileges required.')
+            return redirect('login')
+
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view

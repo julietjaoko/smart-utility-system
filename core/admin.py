@@ -5,7 +5,8 @@ from django import forms
 from .models import (
     User, PropertyManager, Unit, Tenant,
     Meter, MeterReading, ElectricityToken, TenantPreferences,
-    RateConfig, FixedCharge, Invoice, Payment, AccountBalance
+    RateConfig, FixedCharge, Invoice, Payment, AccountBalance,
+    MaintenanceRequest, MaintenanceMessage
 )
 
 
@@ -140,3 +141,15 @@ class TenantPreferencesAdmin(admin.ModelAdmin):
     list_filter = ['enable_token_logging', 'enable_sms_notifications', 'enable_email_notifications']
     search_fields = ['tenant__user__username', 'tenant__user__email']
     readonly_fields = ['updated_at']
+
+@admin.register(MaintenanceRequest)
+class MaintenanceRequestAdmin(admin.ModelAdmin):
+    list_display = ["subject", "tenant", "unit", "manager", "category", "status", "created_at"]
+    list_filter = ["status", "category", "created_at"]
+    search_fields = ["subject", "description", "tenant__user__username", "unit__unit_number"]
+
+
+@admin.register(MaintenanceMessage)
+class MaintenanceMessageAdmin(admin.ModelAdmin):
+    list_display = ["request", "sender", "created_at"]
+    search_fields = ["message", "sender__username", "request__subject"]

@@ -9,9 +9,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
     <style>
         :root {
             --background: #F8FAFC;
@@ -373,10 +370,18 @@
             </div>
 
             <nav class="sidebar-nav">
-                {% if request.user.role == 'PROPERTY_MANAGER' %}
+                    {% if request.user.is_superuser or request.user.role == 'SYSTEM_ADMIN' %}
+                        <a href="{% url 'system_admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'system_admin_dashboard' %}active{% endif %}">
+                            <i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span>
+                        </a>
+                        <a href="{% url 'system_admin_managers' %}" class="nav-item {% if 'system_admin_manager' in request.resolver_match.url_name %}active{% endif %}">
+                            <i data-lucide="briefcase-business" width="20"></i><span class="sidebar-label">Managers</span>
+                        </a>
+                    {% elif request.user.role == 'PROPERTY_MANAGER' %}
                     <a href="{% url 'manager_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span></a>
                     <a href="{% url 'manage_units' %}" class="nav-item {% if 'unit' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="home" width="20"></i><span class="sidebar-label">Units</span></a>
                     <a href="{% url 'manage_tenants' %}" class="nav-item {% if 'tenant' in request.resolver_match.url_name and 'dashboard' not in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="users" width="20"></i><span class="sidebar-label">Tenants</span></a>
+                    <a href="{% url 'manager_maintenance_requests' %}" class="nav-item {% if 'maintenance' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="message-square-warning" width="20"></i><span class="sidebar-label">Maintenance</span></a>
                     <a href="{% url 'meter_reading_list' %}" class="nav-item {% if 'meter_reading' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="gauge" width="20"></i><span class="sidebar-label">Meter Readings</span></a>
                     <a href="{% url 'invoice_list' %}" class="nav-item {% if 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="file-text" width="20"></i><span class="sidebar-label">Invoices</span></a>
                     <a href="{% url 'payment_list' %}" class="nav-item {% if 'payment' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="credit-card" width="20"></i><span class="sidebar-label">Payments</span></a>
@@ -384,6 +389,7 @@
                     <a href="{% url 'advanced_analytics' %}" class="nav-item {% if 'analytic' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="bar-chart-2" width="20"></i><span class="sidebar-label">Analytics</span></a>
                 {% else %}
                     <a href="{% url 'tenant_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'tenant_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span></a>
+                    <a href="{% url 'tenant_maintenance_requests' %}" class="nav-item {% if 'maintenance' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="message-square-warning" width="20"></i><span class="sidebar-label">Maintenance</span></a>
                     <a href="{% url 'tenant_invoices' %}" class="nav-item {% if 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="file-text" width="20"></i><span class="sidebar-label">My Invoices</span></a>
                     <a href="{% url 'tenant_consumption_history' %}" class="nav-item {% if 'consumption' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="activity" width="20"></i><span class="sidebar-label">Consumption</span></a>
                     <a href="{% url 'electricity_tokens' %}" class="nav-item {% if 'token' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="zap" width="20"></i><span class="sidebar-label">Electricity Tokens</span></a>
@@ -441,6 +447,8 @@
         </main>
     </div>
     {% endif %}
+
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <script>
         lucide.createIcons();
@@ -726,5 +734,10 @@
             }
         });
     </script>
+    {% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    {% endblock %}
+
+
 </body>
 </html>

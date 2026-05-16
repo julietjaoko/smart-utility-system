@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import Meter, MeterReading, Payment, Tenant, Unit
+from .models import Meter, MeterReading, Payment, Tenant, Unit, MaintenanceRequest, MaintenanceMessage, PropertyManager
 
 User = get_user_model()
 
@@ -177,3 +177,62 @@ class TenantUpdateForm(forms.Form):
                 )
 
         return unit
+    
+class MaintenanceRequestForm(forms.ModelForm):
+    class Meta:
+        model = MaintenanceRequest
+        fields = ["category", "subject", "description", "photo"]
+        widgets = {
+            "category": forms.Select(attrs={"class": "form-control"}),
+            "subject": forms.TextInput(attrs={"placeholder": "Briefly describe the issue", "class": "form-control"}),
+            "description": forms.Textarea(attrs={"rows": 5, "placeholder": "Explain what is happening...", "class": "form-control"}),
+            "photo": forms.FileInput(attrs={"class": "form-control"}),
+        }
+
+
+class MaintenanceMessageForm(forms.ModelForm):
+    class Meta:
+        model = MaintenanceMessage
+        fields = ["message"]
+        widgets = {
+            "message": forms.Textarea(attrs={"rows": 3, "placeholder": "Write a reply...", "class": "form-control"}),
+        }
+
+class PropertyManagerCreationForm(forms.Form):
+    first_name = forms.CharField(max_length=150)
+    last_name = forms.CharField(max_length=150)
+    username = forms.CharField(max_length=150)
+    email = forms.EmailField()
+    phone_number = forms.CharField(max_length=15, required=False)
+    estate_name = forms.CharField(max_length=100)
+    password = forms.CharField(widget=forms.PasswordInput)
+
+    def clean_username(self):
+        username = self.cleaned_data["username"]
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError("A user with this username already exists.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("A user with this email already exists.")
+        return email
+
+    def save(self):
+        user = User.objects.create_user(
+            username=self.cleaned_data["username"],
+            email=self.cleaned_data["email"],
+            password=self.cleaned_data["password"],
+            first_name=self.cleaned_data["first_name"],
+            last_name=self.cleaned_data["last_name"],
+            phone_number=self.cleaned_data["phone_number"],
+            role="PROPERTY_MANAGER",
+        )
+
+        PropertyManager.objects.create(
+            user=user,
+            estate_name=self.cleaned_data["estate_name"],
+        )
+
+        return user

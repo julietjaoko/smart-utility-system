@@ -7,9 +7,11 @@ from decimal import Decimal
 # Custom User Model
 class User(AbstractUser):
     ROLE_CHOICES = [
+        ('SYSTEM_ADMIN', 'System Admin'),
         ('PROPERTY_MANAGER', 'Property Manager'),
         ('TENANT', 'Tenant'),
     ]
+
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     phone_number = models.CharField(max_length=15, blank=True)
     
@@ -684,6 +686,54 @@ class TenantPreferences(models.Model):
     def __str__(self):
         return f"Preferences for {self.tenant.user.get_full_name()}"
     
+class MaintenanceRequest(models.Model):
+    STATUS_CHOICES = [
+        ("OPEN", "Open"),
+        ("IN_PROGRESS", "In Progress"),
+        ("RESOLVED", "Resolved"),
+        ("CLOSED", "Closed"),
+    ]
+
+    CATEGORY_CHOICES = [
+        ("WATER", "Water"),
+        ("ELECTRICITY", "Electricity"),
+        ("PLUMBING", "Plumbing"),
+        ("BILLING", "Billing"),
+        ("SECURITY", "Security"),
+        ("OTHER", "Other"),
+    ]
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="maintenance_requests")
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE, related_name="maintenance_requests")
+    manager = models.ForeignKey(PropertyManager, on_delete=models.CASCADE, related_name="maintenance_requests")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    subject = models.CharField(max_length=150)
+    description = models.TextField()
+    photo = models.ImageField(upload_to="maintenance/", blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="OPEN")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-created_at"]
+
+    def __str__(self):
+        return f"{self.subject} - {self.tenant.user.get_full_name() or self.tenant.user.username}"
+
+
+class MaintenanceMessage(models.Model):
+    request = models.ForeignKey(MaintenanceRequest, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Message from {self.sender.username} on {self.request.subject}"
+
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 

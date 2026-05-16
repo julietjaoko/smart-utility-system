@@ -1,11 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate, get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from .decorators import manager_required, tenant_required
+from .decorators import manager_required, tenant_required, system_admin_required
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.urls import reverse
-from .models import Unit, Tenant, PropertyManager, Meter, MeterReading, Invoice, Payment, AccountBalance, RateConfig, FixedCharge, ElectricityToken, TenantPreferences
+from .models import Unit, Tenant, PropertyManager, Meter, MeterReading, Invoice, Payment, AccountBalance, RateConfig, FixedCharge, ElectricityToken, TenantPreferences, MaintenanceRequest, MaintenanceMessage
 from django.http import JsonResponse, FileResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.db.models import Sum, Avg, Count, Max, Q, F
@@ -17,8 +17,7 @@ from django.conf import settings
 from django.db import transaction
 from .sms_utils import InvoiceSMS, PaymentSMS, TokenSMS
 from .email_utils import InvoiceNotification, PaymentNotification
-from .forms import TenantUpdateForm, UnitForm, MeterReadingForm, PaymentForm, TenantCreationForm
-from .email_utils import InvoiceNotification
+from .forms import TenantUpdateForm, UnitForm, MeterReadingForm, PaymentForm, TenantCreationForm, MaintenanceRequestForm, MaintenanceMessageForm, PropertyManagerCreationForm
 from django.utils.dateparse import parse_date
 from .pdf_generator import InvoicePDF, PaymentReceiptPDF
 import os
@@ -33,6 +32,9 @@ logger = logging.getLogger(__name__)
 
 def login_view(request):
     if request.user.is_authenticated:
+        if request.user.is_superuser or request.user.role == "SYSTEM_ADMIN":
+            return redirect("system_admin_dashboard")
+
         if request.user.role == "PROPERTY_MANAGER":
             if PropertyManager.objects.filter(user=request.user).exists():
                 return redirect("manager_dashboard")
@@ -58,6 +60,11 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
+            login(request, user)
+
+            if user.is_superuser or user.role == "SYSTEM_ADMIN":
+                return redirect("system_admin_dashboard")
+
             if user.role == "PROPERTY_MANAGER" and not PropertyManager.objects.filter(user=user).exists():
                 messages.error(request, "Property Manager profile not found. Please contact admin.")
                 return render(request, "core/login.html")
@@ -65,8 +72,6 @@ def login_view(request):
             if user.role == "TENANT" and not Tenant.objects.filter(user=user).exists():
                 messages.error(request, "Tenant profile not found. Please contact admin.")
                 return render(request, "core/login.html")
-
-            login(request, user)
 
             if user.role == "PROPERTY_MANAGER":
                 return redirect("manager_dashboard")
@@ -2851,3 +2856,200 @@ def delete_payment(request, payment_id):
         return redirect('invoice_detail', invoice_id=invoice.id)
         
     return redirect('payment_list')
+
+@login_required
+def tenant_maintenance_requests(request):
+    if request.user.role != "TENANT":
+        messages.error(request, "Access denied")
+        return redirect("manager_dashboard")
+
+    tenant = get_object_or_404(Tenant.objects.select_related("unit__manager"), user=request.user)
+    requests_qs = MaintenanceRequest.objects.filter(tenant=tenant).select_related("unit", "manager")
+
+    return render(request, "core/tenant_maintenance_requests.html", {"requests": requests_qs, "tenant": tenant})
+
+
+@login_required
+def tenant_new_maintenance_request(request):
+    if request.user.role != "TENANT":
+        messages.error(request, "Access denied")
+        return redirect("manager_dashboard")
+
+    tenant = get_object_or_404(Tenant.objects.select_related("unit__manager"), user=request.user)
+
+    if not tenant.unit:
+        messages.error(request, "You need an assigned unit before logging a maintenance request.")
+        return redirect("tenant_dashboard")
+
+    if request.method == "POST":
+        form = MaintenanceRequestForm(request.POST, request.FILES)
+        if form.is_valid():
+            maintenance_request = form.save(commit=False)
+            maintenance_request.tenant = tenant
+            maintenance_request.unit = tenant.unit
+            maintenance_request.manager = tenant.unit.manager
+            maintenance_request.save()
+
+            MaintenanceMessage.objects.create(
+                request=maintenance_request,
+                sender=request.user,
+                message=maintenance_request.description,
+            )
+
+            messages.success(request, "Maintenance request submitted successfully.")
+            return redirect("tenant_maintenance_detail", request_id=maintenance_request.id)
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = MaintenanceRequestForm()
+
+    return render(request, "core/tenant_new_maintenance_request.html", {"form": form})
+
+
+@login_required
+def tenant_maintenance_detail(request, request_id):
+    if request.user.role != "TENANT":
+        messages.error(request, "Access denied")
+        return redirect("manager_dashboard")
+
+    tenant = get_object_or_404(Tenant, user=request.user)
+    maintenance_request = get_object_or_404(
+        MaintenanceRequest.objects.select_related("tenant__user", "unit", "manager"),
+        id=request_id,
+        tenant=tenant,
+    )
+
+    if request.method == "POST":
+        form = MaintenanceMessageForm(request.POST)
+        if form.is_valid():
+            reply = form.save(commit=False)
+            reply.request = maintenance_request
+            reply.sender = request.user
+            reply.save()
+            maintenance_request.save()
+            messages.success(request, "Reply sent.")
+            return redirect("tenant_maintenance_detail", request_id=request_id)
+    else:
+        form = MaintenanceMessageForm()
+
+    return render(request, "core/maintenance_detail.html", {
+        "maintenance_request": maintenance_request,
+        "reply_form": form,
+        "is_manager": False,
+    })
+
+
+@login_required
+def manager_maintenance_requests(request):
+    if request.user.role != "PROPERTY_MANAGER":
+        messages.error(request, "Access denied")
+        return redirect("tenant_dashboard")
+
+    manager = get_object_or_404(PropertyManager, user=request.user)
+    requests_qs = MaintenanceRequest.objects.filter(manager=manager).select_related("tenant__user", "unit")
+
+    status_filter = request.GET.get("status", "").strip().upper()
+    if status_filter:
+        requests_qs = requests_qs.filter(status=status_filter)
+
+    return render(request, "core/manager_maintenance_requests.html", {
+        "requests": requests_qs,
+        "current_status": status_filter,
+        "statuses": MaintenanceRequest.STATUS_CHOICES,
+    })
+
+
+@login_required
+def manager_maintenance_detail(request, request_id):
+    if request.user.role != "PROPERTY_MANAGER":
+        messages.error(request, "Access denied")
+        return redirect("tenant_dashboard")
+
+    manager = get_object_or_404(PropertyManager, user=request.user)
+    maintenance_request = get_object_or_404(
+        MaintenanceRequest.objects.select_related("tenant__user", "unit", "manager"),
+        id=request_id,
+        manager=manager,
+    )
+
+    if request.method == "POST":
+        if "status" in request.POST:
+            new_status = request.POST.get("status")
+            valid_statuses = dict(MaintenanceRequest.STATUS_CHOICES)
+            if new_status in valid_statuses:
+                maintenance_request.status = new_status
+                maintenance_request.save()
+                messages.success(request, "Status updated.")
+                return redirect("manager_maintenance_detail", request_id=request_id)
+
+        form = MaintenanceMessageForm(request.POST)
+        if form.is_valid():
+            reply = form.save(commit=False)
+            reply.request = maintenance_request
+            reply.sender = request.user
+            reply.save()
+            maintenance_request.save()
+            messages.success(request, "Reply sent.")
+            return redirect("manager_maintenance_detail", request_id=request_id)
+    else:
+        form = MaintenanceMessageForm()
+
+    return render(request, "core/maintenance_detail.html", {
+        "maintenance_request": maintenance_request,
+        "reply_form": form,
+        "is_manager": True,
+        "statuses": MaintenanceRequest.STATUS_CHOICES,
+    })
+
+
+@system_admin_required
+def system_admin_dashboard(request):
+    total_managers = PropertyManager.objects.count()
+    total_tenants = Tenant.objects.count()
+    total_units = Unit.objects.count()
+    total_invoices = Invoice.objects.count()
+
+    context = {
+        "total_managers": total_managers,
+        "total_tenants": total_tenants,
+        "total_units": total_units,
+        "total_invoices": total_invoices,
+    }
+
+    return render(request, "core/system_admin_dashboard.html", context)
+
+
+@system_admin_required
+def system_admin_managers(request):
+    managers = PropertyManager.objects.select_related("user").order_by("estate_name")
+    return render(request, "core/system_admin_managers.html", {"managers": managers})
+
+
+@system_admin_required
+def system_admin_create_manager(request):
+    if request.method == "POST":
+        form = PropertyManagerCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f"Property manager {user.get_full_name() or user.username} created successfully.")
+            return redirect("system_admin_managers")
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = PropertyManagerCreationForm()
+
+    return render(request, "core/system_admin_create_manager.html", {"form": form})
+
+
+@system_admin_required
+def system_admin_toggle_user(request, user_id):
+    user = get_object_or_404(get_user_model(), id=user_id)
+
+    if user.role == "SYSTEM_ADMIN" and user == request.user:
+        messages.error(request, "You cannot deactivate your own system admin account.")
+        return redirect("system_admin_managers")
+
+    user.is_active = not user.is_active
+    user.save(update_fields=["is_active"])
+
+    status = "activated" if user.is_active else "deactivated"
+    messages.success(request, f"{user.username} has been {status}.")
+    return redirect("system_admin_managers")

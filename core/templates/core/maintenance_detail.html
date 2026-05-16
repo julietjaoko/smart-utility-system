@@ -1,0 +1,59 @@
+{% extends 'core/base.html' %}
+{% block title %}Maintenance Detail{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title"><i data-lucide="messages-square"></i> {{ maintenance_request.subject }}</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Unit {{ maintenance_request.unit.unit_number }} · {{ maintenance_request.get_category_display }} · {{ maintenance_request.get_status_display }}
+            </p>
+        </div>
+        {% if is_manager %}
+        <form method="POST" style="display: flex; gap: var(--spacing-sm);">
+            {% csrf_token %}
+            <select name="status">
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if maintenance_request.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary">Update</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if maintenance_request.photo %}
+        <img src="{{ maintenance_request.photo.url }}" alt="Maintenance photo" style="max-width: 360px; width: 100%; border-radius: var(--radius); margin-bottom: var(--spacing-lg);">
+    {% endif %}
+
+    <div style="display: flex; flex-direction: column; gap: var(--spacing-md); margin-bottom: var(--spacing-xl);">
+        {% for message in maintenance_request.messages.all %}
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-md); background: {% if message.sender == request.user %}rgba(5, 150, 105, 0.08){% else %}var(--background){% endif %};">
+                <div style="display: flex; justify-content: space-between; gap: var(--spacing-md); margin-bottom: 0.5rem;">
+                    <strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong>
+                    <span style="color: var(--text-secondary); font-size: 0.8rem;">{{ message.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+                <p style="margin: 0; white-space: pre-wrap;">{{ message.message }}</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if maintenance_request.status != "CLOSED" %}
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            {{ reply_form.message }}
+            {% if reply_form.message.errors %}
+                <small style="color: var(--error);">{{ reply_form.message.errors.0 }}</small>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i data-lucide="send" width="16"></i> Send Reply
+        </button>
+    </form>
+    {% else %}
+        <div class="alert alert-info">This request is closed.</div>
+    {% endif %}
+</div>
+{% endblock %}
