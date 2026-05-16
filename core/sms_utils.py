@@ -3,8 +3,32 @@ SMS notification utilities using Africa's Talking API.
 Handles sending SMS for invoices, payments, and alerts.
 """
 
-import africastalking
+import requests
+import urllib3
 from django.conf import settings
+
+# -------------------------------------------------------
+# SSL patch for Windows dev environment
+# The AT SDK uses bare requests.get/post (no session),
+# so we must monkey-patch requests at the module level.
+# TODO: Remove this entire block before production deployment
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+_original_get = requests.get
+_original_post = requests.post
+
+def _patched_get(*args, **kwargs):
+    kwargs['verify'] = False
+    return _original_get(*args, **kwargs)
+
+def _patched_post(*args, **kwargs):
+    kwargs['verify'] = False
+    return _original_post(*args, **kwargs)
+
+requests.get = _patched_get
+requests.post = _patched_post
+# -------------------------------------------------------
+
+import africastalking  # import AFTER the patch
 
 
 class AfricasTalkingSMS:
@@ -13,9 +37,6 @@ class AfricasTalkingSMS:
     """
     
     def __init__(self):
-        """
-        Initialize Africa's Talking with credentials.
-        """
         self.username = settings.AFRICASTALKING_USERNAME
         self.api_key = settings.AFRICASTALKING_API_KEY
         self.sender_id = settings.AFRICASTALKING_SENDER_ID
@@ -23,7 +44,7 @@ class AfricasTalkingSMS:
         # Initialize SDK
         africastalking.initialize(self.username, self.api_key)
         self.sms = africastalking.SMS
-    
+        
     def send_sms(self, phone_number, message):
         """
         Send SMS to a phone number.

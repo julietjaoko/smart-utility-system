@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,10 +21,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l@hu40qn4p1b^tnk%#jt)&7rr#j-ly_vl^im9)+1-#rvao*6c^'
+SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = ["*"]
 
@@ -78,18 +79,19 @@ WSGI_APPLICATION = 'utility_system.wsgi.application'
 # DATABASE CONFIGURATION (Aiven Cloud & Local)
 # ==========================================
 
-DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_HOST = config('DB_HOST', default='localhost')
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'utility_management'),
-        'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'Juliet@2005'), 
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
+        'NAME': config('DB_NAME', default='utility_management'),
+        'USER': config('DB_USER', default='root'),
+        'PASSWORD': config('DB_PASSWORD', default=''), 
+        'HOST': DB_HOST,
+        'PORT': config('DB_PORT', default='3306'),
     }
 }
+
 # Apply different SSL rules depending on where the app is running
 if DB_HOST == 'localhost' or DB_HOST == '127.0.0.1':
     # Local development: Ignore strict SSL verification
@@ -138,7 +140,7 @@ USE_TZ = False
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 AUTH_USER_MODEL = 'core.User'
@@ -148,45 +150,40 @@ AUTH_USER_MODEL = 'core.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# M-Pesa Daraja Sandbox Configuration
 # ==========================================
 # M-PESA CONFIGURATION (Vercel & Local)
 # ==========================================
-MPESA_CONSUMER_KEY = os.environ.get('MPESA_CONSUMER_KEY', 'NJDK1YqtCR9mh0RHIZAI2Axr7QtozBxnyWMEmSBGZPswZihH')
-MPESA_CONSUMER_SECRET = os.environ.get('MPESA_CONSUMER_SECRET', 'gCfGqL3pdGETEzZDGrcYWAsvfdLhdLdEnlxMwPGMbwZhBX39zsZWdHfhyx9BTJUM')
-MPESA_SHORTCODE = os.environ.get('MPESA_SHORTCODE', '174379') # Sandbox default
-MPESA_PASSKEY = os.environ.get('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')
-MPESA_CALLBACK_URL = os.environ.get('MPESA_CALLBACK_URL', 'https://miguelina-interdestructive-soothingly.ngrok-free.dev') 
+# Notice how we removed the hardcoded passwords from the fallback!
+MPESA_CONSUMER_KEY = config('MPESA_CONSUMER_KEY')
+MPESA_CONSUMER_SECRET = config('MPESA_CONSUMER_SECRET')
+# It is okay to leave default fallbacks for non-sensitive data like the shortcode
+MPESA_SHORTCODE = config('MPESA_SHORTCODE', default='174379')
+MPESA_PASSKEY = config('MPESA_PASSKEY')
+MPESA_CALLBACK_URL = config('MPESA_CALLBACK_URL') 
 
 LOGIN_URL = '/'
-
 LOGIN_REDIRECT_URL = 'manager_dashboard'
 
-# Email Configuration
-# For development, we'll use console backend (prints emails to terminal)
-# For production, configure with actual SMTP settings
-
+# ==========================================
+# EMAIL CONFIGURATION
+# ==========================================
+# Switch this to 'smtp' when you move to production
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# For production with Gmail (example):
+# For production with Gmail (uncomment these when ready):
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST = 'smtp.gmail.com'
 # EMAIL_PORT = 587
 # EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'your-email@gmail.com'
-# EMAIL_HOST_PASSWORD = 'your-app-password'
-# DEFAULT_FROM_EMAIL = 'SUMS <your-email@gmail.com>'
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+# DEFAULT_FROM_EMAIL = f"SUMS <{config('EMAIL_HOST_USER', default='noreply@sums.com')}>"
 
-# For now, console backend (emails print to console)
 DEFAULT_FROM_EMAIL = 'SUMS <noreply@sums.com>'
 
-# Africa's Talking SMS Configuration
-# Get credentials from https://account.africastalking.com/
-
-AFRICASTALKING_USERNAME = 'sandbox'  # Use 'sandbox' for testing, your username for production
-AFRICASTALKING_API_KEY = 'atsk_39c8554a992c0fe5d7795db16e16f26806772d199ae5fe90c9e4df34e8e0d3bb8d8ac04a'  # Get from Africa's Talking dashboard
-AFRICASTALKING_SENDER_ID = 'SUMS'  # Short code or sender name (max 11 characters)
-
-# For production:
-# AFRICASTALKING_USERNAME = 'your_username'
-# AFRICASTALKING_API_KEY = 'your_production_api_key'
+# ==========================================
+# AFRICA'S TALKING SMS CONFIGURATION
+# ==========================================
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY')
+AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default='')
