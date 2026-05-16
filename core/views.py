@@ -17,7 +17,16 @@ from django.conf import settings
 from django.db import transaction
 from .sms_utils import InvoiceSMS, PaymentSMS, TokenSMS
 from .email_utils import InvoiceNotification, PaymentNotification
-from .forms import TenantUpdateForm, UnitForm, MeterReadingForm, PaymentForm, TenantCreationForm, MaintenanceRequestForm, MaintenanceMessageForm, PropertyManagerCreationForm
+from .forms import (
+    TenantUpdateForm,
+    UnitForm,
+    MeterReadingForm,
+    PaymentForm,
+    TenantCreationForm,
+    MaintenanceRequestForm,
+    MaintenanceMessageForm,
+    PropertyManagerCreationForm,
+)
 from django.utils.dateparse import parse_date
 from .pdf_generator import InvoicePDF, PaymentReceiptPDF
 import os
@@ -1687,8 +1696,8 @@ def export_consumption_excel(request):
 def advanced_analytics(request):
     """
     Advanced analytics dashboard with comprehensive metrics.
+    Now upgraded with dynamic Top-X filtering for Property Managers!
     """
-    # Security check
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
@@ -1696,11 +1705,14 @@ def advanced_analytics(request):
     try:
         manager = PropertyManager.objects.get(user=request.user)
         
-        # Date filters
+        # --- DYNAMIC FILTERS ---
         year = request.GET.get('year', datetime.now().year)
         year = int(year)
         
-        # Get available years
+        top_x_param = request.GET.get('top_x', '5')
+        top_x_limit = int(top_x_param) if top_x_param.isdigit() else None
+        # -----------------------
+        
         available_years = MeterReading.objects.filter(
             meter__unit__manager=manager
         ).dates('reading_date', 'year', order='DESC')
@@ -1711,22 +1723,15 @@ def advanced_analytics(request):
             invoice_date__year=year
         )
         
-        total_billed = invoices_this_year.aggregate(
-            total=Sum('total_due')
-        )['total'] or Decimal('0.00')
+        total_billed = invoices_this_year.aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
         
         payments_this_year = Payment.objects.filter(
             invoice__unit__manager=manager,
             payment_date__year=year
         )
         
-        total_collected = payments_this_year.aggregate(
-            total=Sum('amount_paid')
-        )['total'] or Decimal('0.00')
-        
+        total_collected = payments_this_year.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
         collection_rate = (float(total_collected) / float(total_billed) * 100) if total_billed > 0 else 0
-        
-        # Outstanding amount
         outstanding = total_billed - total_collected
         
         # Monthly revenue trend
@@ -1737,10 +1742,7 @@ def advanced_analytics(request):
             paid=Sum('payments__amount_paid')
         ).order_by('month')
         
-        revenue_labels = []
-        billed_data = []
-        collected_data = []
-        
+        revenue_labels, billed_data, collected_data = [], [], []
         for item in monthly_revenue:
             revenue_labels.append(item['month'].strftime('%B'))
             billed_data.append(float(item['billed'] or 0))
@@ -1750,35 +1752,21 @@ def advanced_analytics(request):
         consumption_this_year = MeterReading.objects.filter(
             meter__unit__manager=manager,
             reading_date__year=year
-        )
+        ).exclude(verification_status='REJECTED')
         
-        # Water vs Electricity breakdown
-        water_consumption = consumption_this_year.filter(
-            meter__meter_type='WATER'
-        ).aggregate(total=Sum('consumption'))['total'] or 0
+        water_consumption = consumption_this_year.filter(meter__meter_type='WATER').aggregate(total=Sum('consumption'))['total'] or 0
+        electricity_consumption = consumption_this_year.filter(meter__meter_type='ELECTRICITY').aggregate(total=Sum('consumption'))['total'] or 0
         
-        electricity_consumption = consumption_this_year.filter(
-            meter__meter_type='ELECTRICITY'
-        ).aggregate(total=Sum('consumption'))['total'] or 0
-        
-        # Monthly consumption trend
         monthly_consumption = consumption_this_year.annotate(
             month=TruncMonth('reading_date')
-        ).values('month', 'meter__meter_type').annotate(
-            total=Sum('consumption')
-        ).order_by('month')
+        ).values('month', 'meter__meter_type').annotate(total=Sum('consumption')).order_by('month')
         
-        consumption_labels = []
-        water_monthly = []
-        electricity_monthly = []
-        
-        # Organize by month
+        consumption_labels, water_monthly, electricity_monthly = [], [], []
         months_dict = {}
         for item in monthly_consumption:
             month_name = item['month'].strftime('%B')
             if month_name not in months_dict:
                 months_dict[month_name] = {'water': 0, 'electricity': 0}
-            
             if item['meter__meter_type'] == 'WATER':
                 months_dict[month_name]['water'] = float(item['total'])
             else:
@@ -1790,68 +1778,45 @@ def advanced_analytics(request):
             electricity_monthly.append(values['electricity'])
         
         # Invoice Status Distribution
-        status_distribution = invoices_this_year.values('status').annotate(
-            count=Count('id')
-        )
-        
-        status_labels = []
-        status_counts = []
-        
+        status_distribution = invoices_this_year.values('status').annotate(count=Count('id'))
+        status_labels, status_counts = [], []
         for item in status_distribution:
             status_labels.append(Invoice._meta.get_field('status').choices[
                 [choice[0] for choice in Invoice._meta.get_field('status').choices].index(item['status'])
             ][1])
             status_counts.append(item['count'])
         
-        # Top consuming units
-        top_units = consumption_this_year.values(
+        # --- DYNAMIC TOP CONSUMERS ---
+        top_units_query = consumption_this_year.values(
             'meter__unit__unit_number',
             'meter__unit__id'
         ).annotate(
             total_consumption=Sum('consumption')
-        ).order_by('-total_consumption')[:5]
+        ).order_by('-total_consumption')
+        
+        # Apply the user's chosen limit (or show all)
+        top_units = top_units_query[:top_x_limit] if top_x_limit else top_units_query
         
         # Anomaly statistics
         total_readings = consumption_this_year.count()
         anomaly_readings = consumption_this_year.filter(is_anomaly=True).count()
         anomaly_rate = (anomaly_readings / total_readings * 100) if total_readings > 0 else 0
-        
-        # Anomaly breakdown (Changed from 'anomaly_type' to 'verification_status')
-        anomaly_breakdown = consumption_this_year.filter(
-            is_anomaly=True
-        ).values('verification_status').annotate(count=Count('id'))
+        anomaly_breakdown = consumption_this_year.filter(is_anomaly=True).values('verification_status').annotate(count=Count('id'))
         
         # Year-over-year comparison
         previous_year = year - 1
-        previous_year_invoices = Invoice.objects.filter(
-            unit__manager=manager,
-            invoice_date__year=previous_year
-        )
+        previous_year_invoices = Invoice.objects.filter(unit__manager=manager, invoice_date__year=previous_year)
+        previous_year_billed = previous_year_invoices.aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
+        yoy_growth = ((float(total_billed) - float(previous_year_billed)) / float(previous_year_billed) * 100) if previous_year_billed > 0 else 0
         
-        previous_year_billed = previous_year_invoices.aggregate(
-            total=Sum('total_due')
-        )['total'] or Decimal('0.00')
-        
-        yoy_growth = 0
-        if previous_year_billed > 0:
-            yoy_growth = ((float(total_billed) - float(previous_year_billed)) / float(previous_year_billed) * 100)
-        
-        # Average invoice value
-        avg_invoice = invoices_this_year.aggregate(
-            avg=Avg('total_due')
-        )['avg'] or Decimal('0.00')
-        
-        # Payment method distribution
-        payment_methods = payments_this_year.values('payment_method').annotate(
-            count=Count('id'),
-            amount=Sum('amount_paid')
-        )
+        avg_invoice = invoices_this_year.aggregate(avg=Avg('total_due'))['avg'] or Decimal('0.00')
+        payment_methods = payments_this_year.values('payment_method').annotate(count=Count('id'), amount=Sum('amount_paid'))
         
         context = {
             'year': year,
             'available_years': available_years,
+            'top_x': top_x_param, # Pass back to template for the dropdown
             
-            # Revenue metrics
             'total_billed': total_billed,
             'total_collected': total_collected,
             'outstanding': outstanding,
@@ -1859,35 +1824,26 @@ def advanced_analytics(request):
             'avg_invoice': avg_invoice,
             'yoy_growth': round(yoy_growth, 1),
             
-            # Revenue charts
             'revenue_labels': json.dumps(revenue_labels),
             'billed_data': json.dumps(billed_data),
             'collected_data': json.dumps(collected_data),
             
-            # Consumption metrics
             'water_consumption': water_consumption,
             'electricity_consumption': electricity_consumption,
             'total_consumption': water_consumption + electricity_consumption,
             
-            # Consumption charts
             'consumption_labels': json.dumps(consumption_labels),
             'water_monthly': json.dumps(water_monthly),
             'electricity_monthly': json.dumps(electricity_monthly),
             
-            # Invoice status
             'status_labels': json.dumps(status_labels),
             'status_counts': json.dumps(status_counts),
             
-            # Top units
             'top_units': top_units,
-            
-            # Anomalies
             'total_readings': total_readings,
             'anomaly_readings': anomaly_readings,
             'anomaly_rate': round(anomaly_rate, 1),
             'anomaly_breakdown': anomaly_breakdown,
-            
-            # Payment methods
             'payment_methods': payment_methods,
         }
         
@@ -3003,16 +2959,54 @@ def manager_maintenance_detail(request, request_id):
 
 @system_admin_required
 def system_admin_dashboard(request):
+    """Global God-Mode Dashboard for the System Admin."""
+    
+    # 1. Ecosystem Growth Metrics
     total_managers = PropertyManager.objects.count()
     total_tenants = Tenant.objects.count()
     total_units = Unit.objects.count()
-    total_invoices = Invoice.objects.count()
+
+    # 2. Global Financials (Across ALL Properties)
+    total_billed = Invoice.objects.aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
+    total_collected = Payment.objects.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+    total_outstanding = total_billed - total_collected
+    collection_rate = (float(total_collected) / float(total_billed) * 100) if total_billed > 0 else 0
+
+    # 3. Property Manager Leaderboard
+    managers = PropertyManager.objects.select_related('user').all()
+    leaderboard = []
+    
+    for manager in managers:
+        m_billed = Invoice.objects.filter(unit__manager=manager).aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
+        m_collected = Payment.objects.filter(invoice__unit__manager=manager).aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+        m_rate = (float(m_collected) / float(m_billed) * 100) if m_billed > 0 else 0
+        
+        leaderboard.append({
+            'manager': manager,
+            'billed': m_billed,
+            'collected': m_collected,
+            'rate': round(m_rate, 1)
+        })
+    
+    # Sort leaderboard by highest collected amount
+    leaderboard.sort(key=lambda x: x['collected'], reverse=True)
+
+    # 4. Global Recent Activity (Latest 5 payments across the whole system)
+    recent_payments = Payment.objects.select_related(
+        'invoice__unit__manager', 
+        'invoice__tenant__user'
+    ).order_by('-payment_date', '-created_at')[:5]
 
     context = {
-        "total_managers": total_managers,
-        "total_tenants": total_tenants,
-        "total_units": total_units,
-        "total_invoices": total_invoices,
+        'total_managers': total_managers,
+        'total_tenants': total_tenants,
+        'total_units': total_units,
+        'total_billed': total_billed,
+        'total_collected': total_collected,
+        'total_outstanding': total_outstanding,
+        'collection_rate': round(collection_rate, 1),
+        'leaderboard': leaderboard,
+        'recent_payments': recent_payments,
     }
 
     return render(request, "core/system_admin_dashboard.html", context)
@@ -3053,3 +3047,220 @@ def system_admin_toggle_user(request, user_id):
     status = "activated" if user.is_active else "deactivated"
     messages.success(request, f"{user.username} has been {status}.")
     return redirect("system_admin_managers")
+
+
+from .forms import SystemAdminUnitForm, SystemAdminRateForm, SystemAdminFixedChargeForm
+
+@system_admin_required
+def system_admin_manage_units(request):
+    """System Admin view to see all units and add new ones via modal."""
+    units = Unit.objects.select_related('manager__user').order_by('manager__estate_name', 'unit_number')
+    
+    # Pass the empty form for the Add Unit modal
+    add_form = SystemAdminUnitForm()
+    
+    return render(request, 'core/system_admin_manage_units.html', {
+        'units': units,
+        'add_form': add_form
+    })
+
+@system_admin_required
+def system_admin_manage_rates(request):
+    """System Admin view to see all rates and add new ones via modals."""
+    rates = RateConfig.objects.select_related('manager__user').order_by('manager__estate_name', '-effective_from')
+    fixed_charges = FixedCharge.objects.select_related('manager__user').filter(is_active=True).order_by('manager__estate_name', 'charge_name')
+
+    # Pass the empty forms for the two modals
+    rate_form = SystemAdminRateForm()
+    charge_form = SystemAdminFixedChargeForm()
+
+    context = {
+        'rates': rates,
+        'fixed_charges': fixed_charges,
+        'rate_form': rate_form,
+        'charge_form': charge_form,
+    }
+    return render(request, 'core/system_admin_manage_rates.html', context)
+
+
+@system_admin_required
+def system_admin_add_unit(request):
+    """System Admin view to create a unit and assign it to a PM."""
+    if request.method == 'POST':
+        form = SystemAdminUnitForm(request.POST)
+        if form.is_valid():
+            unit = form.save()
+            messages.success(
+                request, 
+                f'✓ Unit {unit.unit_number} created and assigned to Manager {unit.manager.user.get_full_name()}.'
+            )
+            return redirect('system_admin_manage_units')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = SystemAdminUnitForm()
+        
+    return render(request, 'core/system_admin_add_unit.html', {'form': form})
+
+
+@system_admin_required
+def system_admin_edit_unit(request, unit_id):
+    """System Admin view to edit or reassign a unit."""
+    unit = get_object_or_404(Unit, id=unit_id)
+    
+    if request.method == 'POST':
+        form = SystemAdminUnitForm(request.POST, instance=unit)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'✓ Unit {unit.unit_number} updated successfully.')
+            return redirect('system_admin_manage_units')
+    else:
+        form = SystemAdminUnitForm(instance=unit)
+        
+    return render(request, 'core/system_admin_edit_unit.html', {'form': form, 'unit': unit})
+
+
+@system_admin_required
+def system_admin_add_rate(request):
+    """System Admin view to set utility rates for a specific PM."""
+    if request.method == 'POST':
+        form = SystemAdminRateForm(request.POST)
+        if form.is_valid():
+            rate = form.save(commit=False)
+            rate.is_active = True
+            
+            # Deactivate previous rates for this PM and utility type
+            RateConfig.objects.filter(
+                manager=rate.manager,
+                utility_type=rate.utility_type
+            ).update(is_active=False)
+            
+            rate.save()
+            messages.success(request, f'✓ {rate.get_utility_type_display()} rate set for {rate.manager.estate_name}')
+            return redirect('system_admin_manage_rates')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = SystemAdminRateForm(initial={'effective_from': timezone.now().date()})
+        
+    return render(request, 'core/system_admin_add_rate.html', {'form': form})
+
+
+@system_admin_required
+def system_admin_add_fixed_charge(request):
+    """System Admin view to add a fixed charge for a specific PM."""
+    if request.method == 'POST':
+        form = SystemAdminFixedChargeForm(request.POST)
+        if form.is_valid():
+            charge = form.save(commit=False)
+            charge.is_active = True
+            charge.save()
+            messages.success(request, f'✓ Fixed charge "{charge.charge_name}" added for {charge.manager.estate_name}')
+            return redirect('system_admin_manage_rates')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = SystemAdminFixedChargeForm(initial={'effective_from': timezone.now().date()})
+        
+    return render(request, 'core/system_admin_add_fixed_charge.html', {'form': form})
+
+
+@system_admin_required
+def system_admin_delete_fixed_charge(request, charge_id):
+    if request.method != 'POST':
+        return redirect('system_admin_manage_rates')
+
+    charge = get_object_or_404(FixedCharge, id=charge_id)
+    charge.is_active = False
+    charge.save(update_fields=['is_active'])
+
+    messages.success(request, f'Charge "{charge.charge_name}" deactivated for {charge.manager.estate_name}')
+    return redirect('system_admin_manage_rates')
+
+@system_admin_required
+def system_admin_analytics(request):
+    """Global Ecosystem Analytics for the System Admin."""
+    year = request.GET.get('year', datetime.now().year)
+    year = int(year)
+    
+    # Get all available years across the whole system
+    available_years = MeterReading.objects.dates('reading_date', 'year', order='DESC')
+    
+    # Global Revenue Analytics
+    invoices_this_year = Invoice.objects.filter(invoice_date__year=year)
+    total_billed = invoices_this_year.aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
+    
+    payments_this_year = Payment.objects.filter(payment_date__year=year)
+    total_collected = payments_this_year.aggregate(total=Sum('amount_paid'))['total'] or Decimal('0.00')
+    
+    collection_rate = (float(total_collected) / float(total_billed) * 100) if total_billed > 0 else 0
+    outstanding = total_billed - total_collected
+    
+    # Monthly revenue trend (Global)
+    monthly_revenue = invoices_this_year.annotate(
+        month=TruncMonth('invoice_date')
+    ).values('month').annotate(
+        billed=Sum('total_due'),
+        paid=Sum('payments__amount_paid')
+    ).order_by('month')
+    
+    revenue_labels, billed_data, collected_data = [], [], []
+    for item in monthly_revenue:
+        revenue_labels.append(item['month'].strftime('%B'))
+        billed_data.append(float(item['billed'] or 0))
+        collected_data.append(float(item['paid'] or 0))
+        
+    # Global Consumption Analytics
+    consumption_this_year = MeterReading.objects.filter(reading_date__year=year).exclude(verification_status='REJECTED')
+    
+    monthly_consumption = consumption_this_year.annotate(
+        month=TruncMonth('reading_date')
+    ).values('month', 'meter__meter_type').annotate(
+        total=Sum('consumption')
+    ).order_by('month')
+    
+    consumption_labels, water_monthly, electricity_monthly = [], [], []
+    months_dict = {}
+    for item in monthly_consumption:
+        month_name = item['month'].strftime('%B')
+        if month_name not in months_dict:
+            months_dict[month_name] = {'water': 0, 'electricity': 0}
+            
+        if item['meter__meter_type'] == 'WATER':
+            months_dict[month_name]['water'] = float(item['total'])
+        else:
+            months_dict[month_name]['electricity'] = float(item['total'])
+            
+    for month, values in months_dict.items():
+        consumption_labels.append(month)
+        water_monthly.append(values['water'])
+        electricity_monthly.append(values['electricity'])
+
+    # Global Invoice Status Distribution
+    status_distribution = invoices_this_year.values('status').annotate(count=Count('id'))
+    status_labels, status_counts = [], []
+    for item in status_distribution:
+        status_labels.append(item['status'].replace('_', ' ').title())
+        status_counts.append(item['count'])
+
+    context = {
+        'year': year,
+        'available_years': available_years,
+        'total_billed': total_billed,
+        'total_collected': total_collected,
+        'outstanding': outstanding,
+        'collection_rate': round(collection_rate, 1),
+        
+        'revenue_labels': json.dumps(revenue_labels),
+        'billed_data': json.dumps(billed_data),
+        'collected_data': json.dumps(collected_data),
+        
+        'consumption_labels': json.dumps(consumption_labels),
+        'water_monthly': json.dumps(water_monthly),
+        'electricity_monthly': json.dumps(electricity_monthly),
+        
+        'status_labels': json.dumps(status_labels),
+        'status_counts': json.dumps(status_counts),
+    }
+    
+    return render(request, 'core/system_admin_analytics.html', context)

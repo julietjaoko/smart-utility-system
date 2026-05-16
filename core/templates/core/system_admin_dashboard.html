@@ -1,29 +1,168 @@
 {% extends 'core/base.html' %}
-{% block title %}System Admin{% endblock %}
+
+{% block title %}System Admin - Global Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom Grid Layout strictly matching base.html standards */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: var(--spacing-xl);
+        margin-bottom: var(--spacing-xl);
+    }
+    .section-title {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-md);
+        margin-top: var(--spacing-xl);
+    }
+    .dashboard-table {
+        min-width: 100% !important; /* Prevents overflow */
+    }
+    .dashboard-table td, .dashboard-table th {
+        white-space: normal !important;
+        word-wrap: break-word;
+    }
+    .activity-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    .activity-item {
+        padding: var(--spacing-md);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+    @media (max-width: 1024px) {
+        .dashboard-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <div>
-            <h1 class="card-title">
-                <i data-lucide="shield-check"></i>
-                System Admin
-            </h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
-                Manage property managers and platform-wide records.
-            </p>
-        </div>
-        <a href="{% url 'system_admin_create_manager' %}" class="btn btn-primary">
-            <i data-lucide="user-plus" width="16"></i>
-            New Manager
-        </a>
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+    <h2><i data-lucide="globe" width="28" height="28" style="color: var(--primary); margin-right: 8px;"></i> Overview</h2>
+</div>
 
-    <div class="stats-grid">
-        <div class="stat-card"><div class="stat-label">Property Managers</div><div class="stat-value">{{ total_managers }}</div></div>
-        <div class="stat-card"><div class="stat-label">Tenants</div><div class="stat-value">{{ total_tenants }}</div></div>
-        <div class="stat-card"><div class="stat-label">Units</div><div class="stat-value">{{ total_units }}</div></div>
-        <div class="stat-card"><div class="stat-label">Invoices</div><div class="stat-value">{{ total_invoices }}</div></div>
+<h4 class="section-title">Global Financial Health</h4>
+<div class="stats-grid mb-4">
+    <div class="stat-card" style="border-left: 4px solid var(--primary);">
+        <div class="stat-icon"><i data-lucide="banknote"></i></div>
+        <div class="stat-label">Total Revenue Collected</div>
+        <div class="stat-value" style="color: var(--primary);">KES {{ total_collected|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid #D97706;">
+        <div class="stat-icon" style="color: #D97706; background: #FEF3C7;"><i data-lucide="alert-circle"></i></div>
+        <div class="stat-label">Arrears (Unpaid)</div>
+        <div class="stat-value" style="color: #D97706;">KES {{ total_outstanding|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--info);">
+        <div class="stat-icon" style="color: var(--info); background: #DBEAFE;"><i data-lucide="percent"></i></div>
+        <div class="stat-label">Collection Rate</div>
+        <div class="stat-value">{{ collection_rate }}%</div>
+    </div>
+</div>
+
+<h4 class="section-title">Scale</h4>
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--text-secondary); background: var(--border);"><i data-lucide="briefcase-business"></i></div>
+        <div class="stat-label">Active Property Managers</div>
+        <div class="stat-value">{{ total_managers }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--text-secondary); background: var(--border);"><i data-lucide="home"></i></div>
+        <div class="stat-label">Total Units System-wide</div>
+        <div class="stat-value">{{ total_units }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--text-secondary); background: var(--border);"><i data-lucide="users"></i></div>
+        <div class="stat-label">Total Tenants</div>
+        <div class="stat-value">{{ total_tenants }}</div>
+    </div>
+</div>
+
+<h4 class="section-title">System Performance</h4>
+<div class="dashboard-layout">
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0"><i data-lucide="award" width="20" class="me-2" style="color: #D97706;"></i> Property Manager Leaderboard</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <div class="table-container" style="border: none; border-radius: 0;">
+                <table class="table dashboard-table" style="margin: 0;">
+                    <thead style="background: var(--background);">
+                        <tr>
+                            <th>Manager / Estate</th>
+                            <th>Total Billed</th>
+                            <th>Collected</th>
+                            <th>Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in leaderboard %}
+                        <tr>
+                            <td style="padding: 12px 16px;">
+                                <strong style="color: var(--text-primary);">{{ record.manager.user.get_full_name }}</strong><br>
+                                <small style="color: var(--text-secondary);">{{ record.manager.estate_name }}</small>
+                            </td>
+                            <td style="padding: 12px 16px;">KES {{ record.billed|floatformat:2 }}</td>
+                            <td style="color: var(--primary); font-weight: 600; padding: 12px 16px;">KES {{ record.collected|floatformat:2 }}</td>
+                            <td style="padding: 12px 16px;">
+                                {% if record.rate >= 90 %}
+                                    <span class="badge badge-success">{{ record.rate }}%</span>
+                                {% elif record.rate >= 70 %}
+                                    <span class="badge badge-warning">{{ record.rate }}%</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{{ record.rate }}%</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center" style="padding: 20px;">No financial data available yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0"><i data-lucide="activity" width="20" class="me-2" style="color: var(--info);"></i> Recent Ecosystem Payments</h3>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            <ul class="activity-list">
+                {% for payment in recent_payments %}
+                <li class="activity-item">
+                    <div>
+                        <strong style="display: block; color: var(--text-primary);">KES {{ payment.amount_paid|floatformat:2 }}</strong>
+                        <small style="color: var(--text-secondary);">Unit {{ payment.invoice.unit.unit_number }} ({{ payment.invoice.tenant.user.get_full_name }})</small><br>
+                        <small style="color: var(--text-tertiary);">Manager: {{ payment.invoice.unit.manager.estate_name }}</small>
+                    </div>
+                    <span class="badge" style="background: var(--background); color: var(--text-secondary); font-weight: 500;">
+                        {{ payment.payment_method }}
+                    </span>
+                </li>
+                {% empty %}
+                <li class="activity-item" style="justify-content: center; color: var(--text-secondary); padding: 20px;">
+                    No payments recorded yet.
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
 </div>
 {% endblock %}

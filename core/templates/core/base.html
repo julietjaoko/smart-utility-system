@@ -377,6 +377,15 @@
                         <a href="{% url 'system_admin_managers' %}" class="nav-item {% if 'system_admin_manager' in request.resolver_match.url_name %}active{% endif %}">
                             <i data-lucide="briefcase-business" width="20"></i><span class="sidebar-label">Managers</span>
                         </a>
+                        <a href="{% url 'system_admin_manage_units' %}" class="nav-item {% if 'unit' in request.resolver_match.url_name %}active{% endif %}">
+                            <i data-lucide="home" width="20"></i><span class="sidebar-label">Units</span>
+                        </a>
+                        <a href="{% url 'system_admin_manage_rates' %}" class="nav-item {% if 'rate' in request.resolver_match.url_name or 'charge' in request.resolver_match.url_name %}active{% endif %}">
+                            <i data-lucide="settings" width="20"></i><span class="sidebar-label">Rates & Charges</span>
+                        </a>
+                        <a href="{% url 'system_admin_analytics' %}" class="nav-item {% if 'analytic' in request.resolver_match.url_name %}active{% endif %}">
+                            <i data-lucide="pie-chart" width="20"></i><span class="sidebar-label">Global Analytics</span>
+                        </a>
                     {% elif request.user.role == 'PROPERTY_MANAGER' %}
                     <a href="{% url 'manager_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span></a>
                     <a href="{% url 'manage_units' %}" class="nav-item {% if 'unit' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="home" width="20"></i><span class="sidebar-label">Units</span></a>

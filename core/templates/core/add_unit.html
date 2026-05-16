@@ -36,17 +36,12 @@
     <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
     <a href="{% url 'manage_units' %}">Units</a>
     <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
-    <span class="current">Add Unit</span>
 </nav>
 {% endblock %}
 
 {% block content %}
 <div class="card unit-form-card">
     <div class="card-header">
-        <h1 class="card-title">
-            <i data-lucide="plus-circle" width="28" height="28"></i>
-            Add New Unit
-        </h1>
         <div class="header-actions">
             <a href="{% url 'manage_units' %}" class="btn btn-secondary">
                 <i data-lucide="arrow-left" width="16" height="16"></i>

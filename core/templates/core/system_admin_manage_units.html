@@ -1,0 +1,70 @@
+{% extends 'core/base.html' %}
+{% block title %}System Admin - Manage Units{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="building" width="28" height="28"></i>
+                Real Estate Units
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Manage units across all property managers.
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <button onclick="openModal('{% url 'system_admin_add_unit' %}', 'Add New Unit')" class="btn btn-primary">
+                <i data-lucide="plus" width="16"></i>
+                Add New Unit
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Unit</th>
+                    <th>Estate</th>
+                    <th>Manager</th>
+                    <th>Meters</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for unit in units %}
+                <tr>
+                    <td><strong>Unit {{ unit.unit_number }}</strong></td>
+                    <td>{{ unit.estate_name }}</td>
+                    <td>
+                        <strong>{{ unit.manager.user.get_full_name|default:unit.manager.user.username }}</strong>
+                        <div style="color: var(--text-secondary); font-size: 0.8rem;">{{ unit.manager.estate_name }}</div>
+                    </td>
+                    <td>
+                        {% if unit.has_water_meter %}<span class="badge badge-info">Water</span>{% endif %}
+                        {% if unit.has_electricity_meter %}<span class="badge badge-warning">Electricity</span>{% endif %}
+                        {% if not unit.has_water_meter and not unit.has_electricity_meter %}
+                            <span style="color: var(--text-tertiary);">None</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button onclick="openModal('{% url 'system_admin_edit_unit' unit.id %}', 'Edit Unit')" class="btn btn-secondary btn-sm">
+                            <i data-lucide="edit" width="14"></i>
+                            Edit
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">
+                        No units exist yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

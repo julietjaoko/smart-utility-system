@@ -1,0 +1,35 @@
+<form method="POST" action="{% url 'system_admin_add_rate' %}" class="charge-form">
+    {% csrf_token %}
+
+    {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <small style="color: var(--error);">{{ field.errors.0 }}</small>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <div class="info-panel">
+        <div class="info-panel__inner">
+            <i data-lucide="alert-triangle" width="20" style="color: #D97706; flex-shrink: 0;"></i>
+            <div>
+                <strong style="display: block;">Important Note</strong>
+                <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0;">
+                    A new active rate will deactivate the previous active rate for the same manager and utility type.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+            <i data-lucide="check" width="16"></i>
+            Apply Rate
+        </button>
+        <button type="button" onclick="if(window.closeModal) { closeModal(); } else { window.location.href='{% url 'system_admin_manage_rates' %}'; }" class="btn btn-secondary">
+            Cancel
+        </button>
+    </div>
+</form>

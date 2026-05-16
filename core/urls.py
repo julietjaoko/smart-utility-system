@@ -7,7 +7,6 @@ urlpatterns = [
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
     path('tenant/dashboard/', views.tenant_dashboard, name='tenant_dashboard'),
     path('manager/units/', views.manage_units, name='manage_units'),
-    path('manager/units/add/', views.add_unit, name='add_unit'),
     path('manager/tenants/', views.manage_tenants, name='manage_tenants'),
     path('manager/tenants/add/', views.add_tenant, name='add_tenant'),
     path('manager/readings/enter/', views.enter_meter_reading, name='enter_meter_reading'),
@@ -18,14 +17,10 @@ urlpatterns = [
     path('api/unit/<int:unit_id>/meters/', views.get_unit_meters, name='get_unit_meters'),  # AJAX endpoint
     path('manager/analytics/', views.consumption_analytics, name='consumption_analytics'),
     path('manager/rates/', views.manage_rates, name='manage_rates'),
-    path('manager/rates/add/', views.add_rate, name='add_rate'),
-    path('manager/charges/add/', views.add_fixed_charge, name='add_fixed_charge'),
-    path('manager/charges/<int:charge_id>/delete/', views.delete_fixed_charge, name='delete_fixed_charge'),
     path('manager/invoices/wizard/step-1/', views.billing_wizard_start, name='billing_wizard_start'),
     path('manager/invoices/wizard/step-2/', views.billing_wizard_rates, name='billing_wizard_rates'),
     path('manager/invoices/wizard/step-3/', views.billing_wizard_preview, name='billing_wizard_preview'),
     path('manager/invoices/', views.invoice_list, name='invoice_list'),
-    path('manager/units/<int:unit_id>/edit/', views.edit_unit, name='edit_unit'),
     path('manager/tenants/<int:tenant_id>/deactivate/', views.deactivate_tenant, name='deactivate_tenant'),
     path('manager/tenants/<int:tenant_id>/edit/', views.edit_tenant, name='edit_tenant'),
     path('manager/tenants/<int:tenant_id>/final-invoice/', views.generate_final_invoice, name='generate_final_invoice'),
@@ -72,9 +67,16 @@ urlpatterns = [
     path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
     path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),
     path("system-admin/users/<int:user_id>/toggle/", views.system_admin_toggle_user, name="system_admin_toggle_user"),
-    path("system-admin/", views.system_admin_dashboard, name="system_admin_dashboard"),
-    path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
-    path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),
-    path("system-admin/users/<int:user_id>/toggle/", views.system_admin_toggle_user, name="system_admin_toggle_user"),
 
+    # System Admin - Unit Management
+    path('system-admin/units/', views.system_admin_manage_units, name='system_admin_manage_units'),
+    path('system-admin/units/add/', views.system_admin_add_unit, name='system_admin_add_unit'),
+    path('system-admin/units/<int:unit_id>/edit/', views.system_admin_edit_unit, name='system_admin_edit_unit'),
+
+    # System Admin - Rates & Charges Management
+    path('system-admin/rates/', views.system_admin_manage_rates, name='system_admin_manage_rates'),
+    path('system-admin/rates/add/', views.system_admin_add_rate, name='system_admin_add_rate'),
+    path('system-admin/charges/add/', views.system_admin_add_fixed_charge, name='system_admin_add_fixed_charge'),
+    path('system-admin/charges/<int:charge_id>/delete/', views.system_admin_delete_fixed_charge, name='system_admin_delete_fixed_charge'),
+    path('system-admin/analytics/', views.system_admin_analytics, name='system_admin_analytics'),
 ]

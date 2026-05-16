@@ -1,0 +1,154 @@
+{% extends 'core/base.html' %}
+
+{% block title %}System Admin - Global Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-md); align-items: end; }
+    .dashboard-layout { display: grid; grid-template-columns: 2fr 1fr; gap: var(--spacing-xl); margin-bottom: var(--spacing-xl); }
+    .section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: var(--spacing-md); margin-top: var(--spacing-xl); }
+    @media (max-width: 1024px) { .dashboard-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'system_admin_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Global Analytics</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+    <h2><i data-lucide="pie-chart" width="28" height="28" style="color: var(--primary); margin-right: 8px;"></i> Global Analytics</h2>
+</div>
+
+<div class="card mb-4" style="background-color: var(--surface);">
+    <div class="card-body py-3">
+        <form method="GET" class="filter-grid" style="max-width: 500px;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="year">Reporting Year</label>
+                <select name="year" id="year">
+                    {% for dt in available_years %}
+                        <option value="{{ dt.year }}" {% if dt.year == year %}selected{% endif %}>{{ dt.year }}</option>
+                    {% empty %}
+                        <option value="{{ year }}">{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; height: 42px; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="filter" width="18" height="18"></i> Generate Global Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<h4 class="section-title">Revenue ({{ year }})</h4>
+<div class="dashboard-layout">
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0">Global Revenue & Collection Trend</h3>
+        </div>
+        <div class="card-body" style="flex: 1; padding-top: var(--spacing-md); min-height: 300px;">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0">System-wide Invoice Status</h3>
+        </div>
+        <div class="card-body" style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 250px;">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<h4 class="section-title">Utility Consumption</h4>
+<div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+    <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+        <h3 class="mb-0">Global Utility Consumption Trend</h3>
+    </div>
+    <div class="card-body" style="flex: 1; padding-top: var(--spacing-md); min-height: 350px;">
+        <canvas id="consumptionChart"></canvas>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Revenue Chart
+    const revCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revCtx, {
+        type: 'bar',
+        data: {
+            labels: JSON.parse('{{ revenue_labels|safe }}'),
+            datasets: [
+                {
+                    label: 'Total Ecosystem Billed (KES)',
+                    data: JSON.parse('{{ billed_data|safe }}'),
+                    backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Total Ecosystem Collected (KES)',
+                    data: JSON.parse('{{ collected_data|safe }}'),
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+    });
+
+    // 2. Invoice Status Pie Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: JSON.parse('{{ status_labels|safe }}'),
+            datasets: [{
+                data: JSON.parse('{{ status_counts|safe }}'),
+                backgroundColor: ['#FCA5A5', '#FDE68A', '#A7F3D0', '#E2E8F0'],
+                borderWidth: 1
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 3. Consumption Chart
+    const consCtx = document.getElementById('consumptionChart').getContext('2d');
+    new Chart(consCtx, {
+        type: 'line',
+        data: {
+            labels: JSON.parse('{{ consumption_labels|safe }}'),
+            datasets: [
+                {
+                    label: 'Global Water Consumption (m³)',
+                    data: JSON.parse('{{ water_monthly|safe }}'),
+                    borderColor: '#0284C7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Global Electricity Consumption (kWh)',
+                    data: JSON.parse('{{ electricity_monthly|safe }}'),
+                    borderColor: '#D97706',
+                    backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
+});
+</script>
+{% endblock %}

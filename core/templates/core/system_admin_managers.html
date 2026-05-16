@@ -13,10 +13,11 @@
                 Create and manage manager accounts.
             </p>
         </div>
-        <a href="{% url 'system_admin_create_manager' %}" class="btn btn-primary">
+        <button onclick="openModal('{% url 'system_admin_create_manager' %}', 'Create Property Manager')" class="btn btn-primary">
+
             <i data-lucide="user-plus" width="16"></i>
             New Manager
-        </a>
+        </button>
     </div>
 
     <div class="table-container">
@@ -47,9 +48,12 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'system_admin_toggle_user' manager.user.id %}" class="btn btn-secondary btn-sm">
-                            {% if manager.user.is_active %}Deactivate{% else %}Activate{% endif %}
-                        </a>
+                        <form method="POST" action="{% url 'system_admin_toggle_user' manager.user.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-secondary btn-sm">
+                                {% if manager.user.is_active %}Deactivate{% else %}Activate{% endif %}
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% empty %}

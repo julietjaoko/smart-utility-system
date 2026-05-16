@@ -236,3 +236,73 @@ class PropertyManagerCreationForm(forms.Form):
         )
 
         return user
+
+
+from .models import Unit, PropertyManager
+from django import forms
+
+class SystemAdminUnitForm(forms.ModelForm):
+    """Form for System Admins to create units and assign them to managers."""
+    class Meta:
+        model = Unit
+        fields = ['unit_number', 'estate_name', 'manager', 'has_water_meter', 'has_electricity_meter']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populate the dropdown with all available property managers
+        self.fields['manager'].queryset = PropertyManager.objects.all().select_related('user')
+        self.fields['manager'].empty_label = "--- Select Property Manager ---"
+
+from .models import RateConfig, FixedCharge
+
+class SystemAdminRateForm(forms.ModelForm):
+    class Meta:
+        model = RateConfig
+        fields = ['manager', 'utility_type', 'rate_per_unit', 'effective_from']
+        widgets = {
+            'manager': forms.Select(attrs={'class': 'form-control'}),
+            'utility_type': forms.Select(attrs={'class': 'form-control'}),
+            'rate_per_unit': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'placeholder': 'e.g., 150.00',
+            }),
+            'effective_from': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['manager'].queryset = PropertyManager.objects.all().select_related('user')
+        self.fields['manager'].empty_label = "--- Select Property Manager ---"
+
+
+class SystemAdminFixedChargeForm(forms.ModelForm):
+    class Meta:
+        model = FixedCharge
+        fields = ['manager', 'charge_name', 'amount', 'effective_from']
+        widgets = {
+            'manager': forms.Select(attrs={'class': 'form-control'}),
+            'charge_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., Garbage Collection',
+            }),
+            'amount': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0',
+                'placeholder': 'e.g., 500.00',
+            }),
+            'effective_from': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['manager'].queryset = PropertyManager.objects.all().select_related('user')
+        self.fields['manager'].empty_label = "--- Select Property Manager ---"

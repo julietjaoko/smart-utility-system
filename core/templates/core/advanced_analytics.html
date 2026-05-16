@@ -2,384 +2,272 @@
 
 {% block title %}Advanced Analytics{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Custom Grid for the Filter Panel */
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--spacing-md);
+        align-items: end;
+    }
+    
+    /* Custom Layout for Chart + Side Panel */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr; /* 2/3 for Chart, 1/3 for Side Panel */
+        gap: var(--spacing-xl);
+        margin-bottom: var(--spacing-xl);
+    }
+
+    .dashboard-header-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .section-title {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-md);
+        margin-top: var(--spacing-xl);
+    }
+
+    @media (max-width: 1024px) {
+        .dashboard-layout {
+            grid-template-columns: 1fr; /* Stacks vertically on smaller screens */
+        }
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Advanced Analytics</span>
+</nav>
+{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h1 class="card-title">
-            <i data-lucide="bar-chart-4" width="28" height="28"></i>
-            Advanced Analytics
-        </h1>
-        <div style="display: flex; gap: var(--spacing-sm);">
-            <form method="GET" style="margin: 0;">
-                <select name="year" onchange="this.form.submit()" style="padding: 0.5rem;">
-                    {% for year_date in available_years %}
-                    <option value="{{ year_date.year }}" {% if year_date.year == year %}selected{% endif %}>
-                        {{ year_date.year }}
-                    </option>
+<div class="dashboard-header-flex">
+    <h2><i data-lucide="bar-chart-2" width="28" height="28" style="color: var(--primary); margin-right: 8px;"></i> Advanced Analytics Dashboard</h2>
+</div>
+
+<div class="card mb-4" style="background-color: var(--surface);">
+    <div class="card-body py-3">
+        <form method="GET" class="filter-grid">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="year">Reporting Year</label>
+                <select name="year" id="year">
+                    {% for dt in available_years %}
+                        <option value="{{ dt.year }}" {% if dt.year == year %}selected{% endif %}>{{ dt.year }}</option>
+                    {% empty %}
+                        <option value="{{ year }}">{{ year }}</option>
                     {% endfor %}
                 </select>
-            </form>
-            <a href="{% url 'manager_dashboard' %}" class="btn btn-secondary">
-                <i data-lucide="arrow-left" width="16" height="16"></i>
-                Dashboard
-            </a>
-        </div>
-    </div>
-    
-    <!-- Key Performance Indicators -->
-    <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-        Key Performance Indicators - {{ year }}
-    </h2>
-    
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-lucide="file-text" width="20" height="20"></i>
-            </div>
-            <div class="stat-label">Total Billed</div>
-            <div class="stat-value" style="font-size: 1.5rem;">KES {{ total_billed|floatformat:2 }}</div>
-            <small style="color: {% if yoy_growth >= 0 %}var(--success){% else %}var(--error){% endif %};">
-                {% if yoy_growth >= 0 %}↑{% else %}↓{% endif %} {{ yoy_growth|floatformat:1 }}% YoY
-            </small>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-lucide="dollar-sign" width="20" height="20"></i>
-            </div>
-            <div class="stat-label">Total Collected</div>
-            <div class="stat-value" style="font-size: 1.5rem; color: var(--success);">KES {{ total_collected|floatformat:2 }}</div>
-            <small style="color: var(--text-secondary);">{{ collection_rate }}% collection rate</small>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-lucide="alert-circle" width="20" height="20"></i>
-            </div>
-            <div class="stat-label">Outstanding</div>
-            <div class="stat-value" style="font-size: 1.5rem; color: var(--error);">KES {{ outstanding|floatformat:2 }}</div>
-            <small style="color: var(--text-secondary);">{{ total_billed|floatformat:2 |add:"-"|add:total_collected|floatformat:2 }} uncollected</small>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-lucide="receipt" width="20" height="20"></i>
-            </div>
-            <div class="stat-label">Avg Invoice Value</div>
-            <div class="stat-value" style="font-size: 1.5rem;">KES {{ avg_invoice|floatformat:2 }}</div>
-        </div>
-    </div>
-    
-    <!-- Revenue Trend Chart -->
-    <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-            Revenue Trend
-        </h2>
-        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
-            <div style="height: 350px;">
-                <canvas id="revenueChart"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Consumption Analytics -->
-    <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-            Consumption Overview
-        </h2>
-        
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i data-lucide="droplet" width="20" height="20"></i>
-                </div>
-                <div class="stat-label">Water Consumption</div>
-                <div class="stat-value">{{ water_consumption|floatformat:0 }}</div>
-                <small style="color: var(--text-secondary);">m³ this year</small>
             </div>
             
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i data-lucide="zap" width="20" height="20"></i>
-                </div>
-                <div class="stat-label">Electricity Consumption</div>
-                <div class="stat-value">{{ electricity_consumption|floatformat:0 }}</div>
-                <small style="color: var(--text-secondary);">kWh this year</small>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="top_x">Top Consumers Limit</label>
+                <select name="top_x" id="top_x">
+                    <option value="5" {% if top_x == '5' %}selected{% endif %}>Top 5 Units</option>
+                    <option value="10" {% if top_x == '10' %}selected{% endif %}>Top 10 Units</option>
+                    <option value="20" {% if top_x == '20' %}selected{% endif %}>Top 20 Units</option>
+                    <option value="ALL" {% if top_x == 'ALL' %}selected{% endif %}>Show All Units</option>
+                </select>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i data-lucide="alert-triangle" width="20" height="20"></i>
-                </div>
-                <div class="stat-label">Anomaly Rate</div>
-                <div class="stat-value" style="color: var(--warning);">{{ anomaly_rate }}%</div>
-                <small style="color: var(--text-secondary);">{{ anomaly_readings }} of {{ total_readings }} readings</small>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; height: 42px; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="filter" width="18" height="18"></i> Generate Report
+                </button>
             </div>
+        </form>
+    </div>
+</div>
+
+<h4 class="section-title">Financial Health ({{ year }})</h4>
+<div class="stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-icon"><i data-lucide="banknote"></i></div>
+        <div class="stat-label">Total Billed</div>
+        <div class="stat-value">KES {{ total_billed|floatformat:2 }}</div>
+        <small class="text-secondary mt-1" style="display: flex; align-items: center; gap: 4px;">
+            {% if yoy_growth > 0 %}
+                <span style="color: var(--success); font-weight: 600;"><i data-lucide="trending-up" width="14"></i> +{{ yoy_growth }}%</span> vs last year
+            {% else %}
+                <span style="color: var(--error); font-weight: 600;"><i data-lucide="trending-down" width="14"></i> {{ yoy_growth }}%</span> vs last year
+            {% endif %}
+        </small>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--success); background: #D1FAE5;"><i data-lucide="wallet"></i></div>
+        <div class="stat-label">Total Collected</div>
+        <div class="stat-value" style="color: var(--success);">KES {{ total_collected|floatformat:2 }}</div>
+        <div style="height: 6px; background: #E2E8F0; border-radius: 3px; overflow: hidden; margin-top: 8px;">
+            <div style="width: {{ collection_rate }}%; background: var(--success); height: 100%;"></div>
         </div>
-        
-        <div style="margin-top: var(--spacing-xl); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
-            <div style="height: 350px;">
-                <canvas id="consumptionChart"></canvas>
-            </div>
+        <small class="text-secondary mt-1">{{ collection_rate }}% Collection Rate</small>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--error); background: #FEE2E2;"><i data-lucide="alert-circle"></i></div>
+        <div class="stat-label">Outstanding Arrears</div>
+        <div class="stat-value" style="color: var(--error);">KES {{ outstanding|floatformat:2 }}</div>
+        <small class="text-secondary mt-1">Avg Invoice: KES {{ avg_invoice|floatformat:2 }}</small>
+    </div>
+</div>
+
+<div class="dashboard-layout">
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0">Revenue & Collection Trend</h3>
+        </div>
+        <div class="card-body" style="flex: 1; padding-top: var(--spacing-md); min-height: 300px;">
+            <canvas id="revenueChart"></canvas>
         </div>
     </div>
     
-    <!-- Invoice Status Distribution -->
-    <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-            Invoice Status Distribution
-        </h2>
-        
-        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
-            <div style="height: 300px; max-width: 500px; margin: 0 auto;">
-                <canvas id="statusChart"></canvas>
-            </div>
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0">Invoice Status</h3>
         </div>
-    </div>
-    
-    <!-- Top Consuming Units -->
-    <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-            Top 5 Consuming Units
-        </h2>
-        
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Unit</th>
-                        <th>Total Consumption</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for unit in top_units %}
-                    <tr>
-                        <td style="font-weight: 700; color: var(--primary);">#{{ forloop.counter }}</td>
-                        <td style="font-weight: 600;">{{ unit.meter__unit__unit_number }}</td>
-                        <td style="font-weight: 600; color: var(--text-primary);">{{ unit.total_consumption|floatformat:2 }} units</td>
-                        <td>
-                            <a href="{% url 'unit_performance' unit.meter__unit__id %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
-                                View Details
-                                <i data-lucide="arrow-right" width="14" height="14"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    
-    <!-- Payment Methods -->
-    <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-            Payment Method Distribution
-        </h2>
-        
-        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-            {% for method in payment_methods %}
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i data-lucide="{% if method.payment_method == 'MPESA' %}smartphone{% elif method.payment_method == 'CASH' %}wallet{% else %}building{% endif %}" width="20" height="20"></i>
-                </div>
-                <div class="stat-label">{{ method.get_payment_method_display }}</div>
-                <div class="stat-value">{{ method.count }}</div>
-                <small style="color: var(--text-secondary);">KES {{ method.amount|floatformat:2 }}</small>
-            </div>
-            {% endfor %}
+        <div class="card-body" style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 250px;">
+            <canvas id="statusChart"></canvas>
         </div>
     </div>
 </div>
 
+<h4 class="section-title">Utility Consumption & Top Users</h4>
+<div class="dashboard-layout">
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0">Utility Consumption Trend</h3>
+        </div>
+        <div class="card-body" style="flex: 1; padding-top: var(--spacing-md); min-height: 300px;">
+            <canvas id="consumptionChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header" style="margin-bottom: 0; padding-bottom: var(--spacing-md);">
+            <h3 class="mb-0">Highest Consumers</h3>
+        </div>
+        <div class="card-body scrollable-card-body" style="padding: 0;">
+            <div class="table-container" style="border: none; border-radius: 0;">
+                <table class="table dashboard-table" style="margin: 0;">
+                    <thead style="background: var(--background); position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th>Unit</th>
+                            <th style="text-align: right;">Total Units Used</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for unit in top_units %}
+                        <tr>
+                            <td style="padding: 12px 16px;">
+                                <strong style="color: var(--text-primary);">{{ unit.meter__unit__unit_number }}</strong>
+                            </td>
+                            <td style="text-align: right; color: var(--primary); font-weight: 600; padding: 12px 16px;">
+                                {{ unit.total_consumption|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center" style="padding: 20px;">No consumption data found for this year.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
 <script>
-// Revenue Trend Chart
-const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-const revenueGradient1 = revenueCtx.createLinearGradient(0, 0, 0, 350);
-revenueGradient1.addColorStop(0, 'rgba(5, 150, 105, 0.3)');
-revenueGradient1.addColorStop(1, 'rgba(5, 150, 105, 0)');
-
-const revenueGradient2 = revenueCtx.createLinearGradient(0, 0, 0, 350);
-revenueGradient2.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
-revenueGradient2.addColorStop(1, 'rgba(59, 130, 246, 0)');
-
-new Chart(revenueCtx, {
-    type: 'line',
-    data: {
-        labels: {{ revenue_labels|safe }},
-        datasets: [
-            {
-                label: 'Billed',
-                data: {{ billed_data|safe }},
-                backgroundColor: revenueGradient1,
-                borderColor: '#059669',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            },
-            {
-                label: 'Collected',
-                data: {{ collected_data|safe }},
-                backgroundColor: revenueGradient2,
-                borderColor: '#3B82F6',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: true, position: 'top' },
-            tooltip: {
-                backgroundColor: '#0F172A',
-                padding: 12,
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': KES ' + context.parsed.y.toLocaleString();
-                    }
-                }
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                border: { display: false },
-                grid: { color: '#E2E8F0' },
-                ticks: {
-                    font: { size: 11, family: 'Inter' },
-                    color: '#64748B',
-                    callback: function(value) {
-                        return 'KES ' + value.toLocaleString();
-                    }
-                }
-            },
-            x: {
-                border: { display: false },
-                grid: { display: false },
-                ticks: {
-                    font: { size: 11, family: 'Inter' },
-                    color: '#64748B'
-                }
-            }
-        }
-    }
-});
-
-// Consumption Chart
-const consumptionCtx = document.getElementById('consumptionChart').getContext('2d');
-const waterGradient = consumptionCtx.createLinearGradient(0, 0, 0, 350);
-waterGradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
-waterGradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
-
-const elecGradient = consumptionCtx.createLinearGradient(0, 0, 0, 350);
-elecGradient.addColorStop(0, 'rgba(245, 158, 11, 0.3)');
-elecGradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
-
-new Chart(consumptionCtx, {
-    type: 'line',
-    data: {
-        labels: {{ consumption_labels|safe }},
-        datasets: [
-            {
-                label: 'Water (m³)',
-                data: {{ water_monthly|safe }},
-                backgroundColor: waterGradient,
-                borderColor: '#3B82F6',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            },
-            {
-                label: 'Electricity (kWh)',
-                data: {{ electricity_monthly|safe }},
-                backgroundColor: elecGradient,
-                borderColor: '#F59E0B',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: true, position: 'top' },
-            tooltip: {
-                backgroundColor: '#0F172A',
-                padding: 12
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                border: { display: false },
-                grid: { color: '#E2E8F0' },
-                ticks: {
-                    font: { size: 11, family: 'Inter' },
-                    color: '#64748B'
-                }
-            },
-            x: {
-                border: { display: false },
-                grid: { display: false },
-                ticks: {
-                    font: { size: 11, family: 'Inter' },
-                    color: '#64748B'
-                }
-            }
-        }
-    }
-});
-
-// Status Distribution Chart (Doughnut)
-const statusCtx = document.getElementById('statusChart').getContext('2d');
-new Chart(statusCtx, {
-    type: 'doughnut',
-    data: {
-        labels: {{ status_labels|safe }},
-        datasets: [{
-            data: {{ status_counts|safe }},
-            backgroundColor: [
-                '#EF4444',  // Unpaid
-                '#10B981',  // Paid
-                '#F59E0B',  // Partially Paid
-                '#7F1D1D'   // Overdue
-            ],
-            borderWidth: 2,
-            borderColor: '#FFFFFF'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'bottom' },
-            tooltip: {
-                backgroundColor: '#0F172A',
-                padding: 12
-            }
-        }
-    }
-});
-
 document.addEventListener('DOMContentLoaded', function() {
-    lucide.createIcons();
+    // 1. Revenue Chart
+    const revCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revCtx, {
+        type: 'bar',
+        data: {
+            labels: JSON.parse('{{ revenue_labels|safe }}'),
+            datasets: [
+                {
+                    label: 'Billed (KES)',
+                    data: JSON.parse('{{ billed_data|safe }}'),
+                    backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Collected (KES)',
+                    data: JSON.parse('{{ collected_data|safe }}'),
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // 2. Invoice Status Pie Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: JSON.parse('{{ status_labels|safe }}'),
+            datasets: [{
+                data: JSON.parse('{{ status_counts|safe }}'),
+                backgroundColor: ['#FCA5A5', '#FDE68A', '#A7F3D0', '#E2E8F0'],
+                borderWidth: 1
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 3. Consumption Chart
+    const consCtx = document.getElementById('consumptionChart').getContext('2d');
+    new Chart(consCtx, {
+        type: 'line',
+        data: {
+            labels: JSON.parse('{{ consumption_labels|safe }}'),
+            datasets: [
+                {
+                    label: 'Water (m³)',
+                    data: JSON.parse('{{ water_monthly|safe }}'),
+                    borderColor: '#0284C7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Electricity (kWh)',
+                    data: JSON.parse('{{ electricity_monthly|safe }}'),
+                    borderColor: '#D97706',
+                    backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
 });
 </script>
-{% endblock %}
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% endblock %}

@@ -1,0 +1,112 @@
+{% extends 'core/base.html' %}
+
+{% block title %}System Admin - Add Fixed Charge{% endblock %}
+
+{% block extra_css %}
+<style>
+.charge-form-card {
+    max-width: 760px;
+}
+
+.charge-form {
+    max-width: 620px;
+}
+
+.info-panel {
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.info-panel__inner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.form-actions {
+    display: flex !important;
+    gap: var(--spacing-md) !important;
+    margin-top: var(--spacing-xl) !important;
+}
+
+@media (max-width: 768px) {
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'system_admin_dashboard' %}">
+        <i data-lucide="home" width="16" height="16"></i> Home
+    </a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'system_admin_manage_rates' %}">Rates & Charges</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Add Fixed Charge</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card charge-form-card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="plus-circle" width="28" height="28"></i>
+            Add Fixed Charge
+        </h1>
+    </div>
+
+    <form method="POST" action="{% url 'system_admin_add_fixed_charge' %}" class="charge-form">
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <small style="color: var(--error);">{{ field.errors.0 }}</small>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="info-panel">
+            <div class="info-panel__inner">
+                <i data-lucide="info" width="20" height="20" style="color: var(--info); flex-shrink: 0;"></i>
+                <div>
+                    <strong style="display: block; color: var(--text-primary);">Examples of Fixed Charges</strong>
+                    <ul style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); padding-left: 1.25rem; margin-bottom: 0;">
+                        <li>Garbage Collection: KES 500/month</li>
+                        <li>Security Fee: KES 1,000/month</li>
+                        <li>Estate Maintenance: KES 800/month</li>
+                        <li>Water Service Charge: KES 300/month</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="check" width="16" height="16"></i>
+                Add Charge
+            </button>
+
+            <button
+                type="button"
+                onclick="if(window.closeModal) { closeModal(); } else { window.location.href='{% url 'system_admin_manage_rates' %}'; }"
+                class="btn btn-secondary">
+                Cancel
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

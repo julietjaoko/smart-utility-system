@@ -110,11 +110,6 @@
                     <p style="color: var(--text-secondary); margin-top: var(--spacing-md);">Not configured</p>
                     {% endif %}
                 </div>
-                <div class="rate-card__action">
-                    <button onclick="openModal('{% url 'add_rate' %}?type=water', 'Set Water Rate')" class="btn btn-primary" style="padding: 0.5rem 1rem;">
-                        {% if water_rate %}Update{% else %}Set Rate{% endif %}
-                    </button>
-                </div>
             </div>
         </div>
         
@@ -135,11 +130,6 @@
                     <p style="color: var(--text-secondary); margin-top: var(--spacing-md);">Not configured</p>
                     {% endif %}
                 </div>
-                <div class="rate-card__action">
-                    <button onclick="openModal('{% url 'add_rate' %}?type=electricity', 'Set Electricity Rate')" class="btn btn-primary" style="padding: 0.5rem 1rem;">
-                        {% if electricity_rate %}Update{% else %}Set Rate{% endif %}
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -147,10 +137,6 @@
     <div style="margin-top: var(--spacing-2xl);">
         <div class="section-header">
             <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">Fixed Monthly Charges</h2>
-            <button onclick="openModal('{% url 'add_fixed_charge' %}', 'Add Fixed Charge')" class="btn btn-primary">
-                <i data-lucide="plus" width="16" height="16"></i>
-                Add Charge
-            </button>
         </div>
         
         {% if fixed_charges %}
@@ -161,7 +147,6 @@
                         <th>Charge Name</th>
                         <th>Amount</th>
                         <th>Effective From</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -170,13 +155,6 @@
                         <td style="font-weight: 600;">{{ charge.charge_name }}</td>
                         <td style="color: var(--primary); font-weight: 700;">KES {{ charge.amount }}</td>
                         <td>{{ charge.effective_from|date:"M d, Y" }}</td>
-                        <td>
-                            <a href="{% url 'delete_fixed_charge' charge.id %}" 
-                               style="color: var(--error); text-decoration: none; font-weight: 600;"
-                               onclick="return confirm('Are you sure you want to deactivate this charge?')">
-                                Deactivate
-                            </a>
-                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -186,7 +164,6 @@
         <div style="text-align: center; padding: var(--spacing-2xl); background: var(--background); border-radius: var(--radius);">
             <i data-lucide="inbox" width="48" height="48" style="color: var(--text-tertiary); margin-bottom: var(--spacing-md);"></i>
             <p style="color: var(--text-secondary); margin-bottom: var(--spacing-md);">No fixed charges configured</p>
-            <button onclick="openModal('{% url 'add_fixed_charge' %}', 'Add Fixed Charge')" class="btn btn-primary">Add First Charge</button>
         </div>
         {% endif %}
     </div>

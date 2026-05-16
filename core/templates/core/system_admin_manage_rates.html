@@ -1,0 +1,100 @@
+{% extends 'core/base.html' %}
+{% block title %}System Admin - Rates & Charges{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 class="card-title">
+                <i data-lucide="settings" width="28"></i>
+                Utility Rates & Charges
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                Configure billing rules across all property managers.
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <button onclick="openModal('{% url 'system_admin_add_rate' %}', 'Set Utility Rate')" class="btn btn-primary">
+                <i data-lucide="plus" width="16"></i>
+                Set Utility Rate
+            </button>
+            <button onclick="openModal('{% url 'system_admin_add_fixed_charge' %}', 'Add Fixed Charge')" class="btn btn-secondary">
+                <i data-lucide="plus" width="16"></i>
+                Add Fixed Charge
+            </button>
+        </div>
+    </div>
+
+    <h2 style="font-size: 1rem; font-weight: 700; margin-bottom: var(--spacing-md);">Active Utility Rates</h2>
+    <div class="table-container" style="margin-bottom: var(--spacing-xl);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Estate</th>
+                    <th>Manager</th>
+                    <th>Utility</th>
+                    <th>Rate</th>
+                    <th>Effective From</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rate in rates %}
+                <tr>
+                    <td><strong>{{ rate.manager.estate_name }}</strong></td>
+                    <td>{{ rate.manager.user.get_full_name|default:rate.manager.user.username }}</td>
+                    <td><span class="badge badge-info">{{ rate.get_utility_type_display }}</span></td>
+                    <td><strong>KES {{ rate.rate_per_unit }}</strong></td>
+                    <td>{{ rate.effective_from|date:"M d, Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">
+                        No active utility rates configured.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h2 style="font-size: 1rem; font-weight: 700; margin-bottom: var(--spacing-md);">Active Fixed Charges</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Estate</th>
+                    <th>Manager</th>
+                    <th>Charge</th>
+                    <th>Amount</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for charge in fixed_charges %}
+                <tr>
+                    <td><strong>{{ charge.manager.estate_name }}</strong></td>
+                    <td>{{ charge.manager.user.get_full_name|default:charge.manager.user.username }}</td>
+                    <td>{{ charge.charge_name }}</td>
+                    <td><strong>KES {{ charge.amount }}</strong></td>
+                    <td>
+                        <form method="POST" action="{% url 'system_admin_delete_fixed_charge' charge.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Deactivate this charge?');">
+                                Deactivate
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: var(--spacing-xl); color: var(--text-secondary);">
+                        No active fixed charges configured.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
