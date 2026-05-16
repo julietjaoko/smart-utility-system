@@ -121,6 +121,14 @@
             <div class="stat-value tenant-stat-row">
                 {% if tenant %}
                     <span>{{ tenant.user.get_full_name|default:tenant.user.username }}</span>
+
+                    <form method="POST" action="{% url 'generate_final_invoice' tenant.id %}" style="display:inline;" onsubmit="return confirm('Generate a final prorated invoice for move-out? Make sure final readings are entered!');">
+                        {% csrf_token %}
+                        <button type="submit" class="badge" style="background-color: #FEF3C7; color: #D97706; border: none; cursor: pointer; margin-right: 4px; margin-left: 8px;">
+                            Final Invoice
+                        </button>
+                    </form>
+
                     <form method="POST" action="{% url 'deactivate_tenant' tenant.id %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to deactivate this tenant? This will revoke their login access and vacate the unit.');">
                         {% csrf_token %}
                         <button type="submit" class="badge badge-danger" style="border: none; cursor: pointer;">

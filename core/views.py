@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate, get_user_model
+from django.contrib.auth import login, logout, authenticate, get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from .decorators import manager_required, tenant_required
 from django.views.decorators.csrf import csrf_exempt
@@ -24,8 +24,9 @@ from .pdf_generator import InvoicePDF, PaymentReceiptPDF
 import os
 from .excel_exporter import InvoiceExporter, PaymentExporter, ConsumptionExporter
 from django.db.models.functions import TruncMonth, TruncYear
-from calendar import month_name
+from calendar import month_name, monthrange
 from .mpesa import process_mpesa_callback
+from django.contrib.auth.forms import PasswordChangeForm
 
 import logging
 logger = logging.getLogger(__name__)
@@ -134,7 +135,6 @@ def tenant_dashboard(request):
         return redirect('login')
 
 
-
 @manager_required
 def manage_units(request):
     manager = PropertyManager.objects.get(user=request.user)
@@ -229,39 +229,6 @@ def enter_meter_reading(request):
     
     return render(request, 'core/enter_meter_reading.html', {'form': form})
 
-@login_required
-def get_unit_meters(request, unit_id):
-    """
-    AJAX endpoint to get meters for a specific unit.
-    Returns JSON with available meters and their last readings.
-    """
-    if request.user.role != 'PROPERTY_MANAGER':
-        return JsonResponse({'error': 'Access denied'}, status=403)
-    
-    try:
-        manager = PropertyManager.objects.get(user=request.user)
-        unit = Unit.objects.get(id=unit_id, manager=manager)
-        
-        # Get meters for this unit
-        meters = Meter.objects.filter(unit=unit, is_active=True)
-        
-        meters_data = []
-        for meter in meters:
-            # Get last reading for this meter
-            last_reading = MeterReading.objects.filter(meter=meter).order_by('-reading_date').first()
-            
-            meters_data.append({
-                'meter_type': meter.meter_type,
-                'meter_type_display': meter.get_meter_type_display(),
-                'meter_number': meter.meter_number,
-                'last_reading': float(last_reading.reading_value) if last_reading else 0,
-                'last_reading_date': last_reading.reading_date.strftime('%Y-%m-%d') if last_reading else None,
-            })
-        
-        return JsonResponse({'meters': meters_data})
-    
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
 def meter_reading_list(request):
@@ -427,6 +394,8 @@ def consumption_analytics(request):
             meter__unit__in=units,
             meter__meter_type=meter_type,
             reading_date__gte=six_months_ago
+        ).exclude(
+            verification_status='REJECTED'  # Add this line!
         ).order_by('reading_date')
         
         # Prepare data for line chart (monthly consumption)
@@ -642,7 +611,6 @@ def delete_fixed_charge(request, charge_id):
     return redirect('manage_rates')
 
 
-
 @login_required
 def billing_wizard_start(request):
     """Step 1: Select Billing Month & Enforce Anomaly Review"""
@@ -676,6 +644,7 @@ def billing_wizard_start(request):
     current_month = timezone.now().strftime('%Y-%m')
     return render(request, 'core/wizard_step1_start.html', {'current_month': current_month})
 
+
 @login_required
 def billing_wizard_rates(request):
     """Step 2: Transparent Rate Confirmation"""
@@ -702,6 +671,7 @@ def billing_wizard_rates(request):
         'fixed_charges': fixed_charges
     }
     return render(request, 'core/wizard_step2_rates.html', context)
+
 
 @login_required
 def billing_wizard_preview(request):
@@ -878,6 +848,7 @@ def billing_wizard_preview(request):
     }
     return render(request, 'core/wizard_step3_preview.html', context)
 
+
 @login_required
 def invoice_list(request):
     """
@@ -956,6 +927,7 @@ def invoice_list(request):
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
 
+
 @login_required
 def invoice_detail(request, invoice_id):
     """
@@ -996,6 +968,7 @@ def invoice_detail(request, invoice_id):
     }
     
     return render(request, 'core/invoice_detail.html', context)
+
 
 @manager_required
 def record_payment(request, invoice_id):
@@ -1081,6 +1054,7 @@ def record_payment(request, invoice_id):
     }
     
     return render(request, 'core/record_payment.html', context)
+
 
 @login_required
 def payment_list(request):
@@ -1246,7 +1220,6 @@ def initiate_mpesa_payment(request, invoice_id):
         })
 
 
-
 @csrf_exempt
 def mpesa_callback(request):
     """
@@ -1305,6 +1278,7 @@ def mpesa_callback(request):
             return JsonResponse({'ResultCode': 0, 'ResultDesc': 'Success'})
     
     return JsonResponse({'ResultCode': 1, 'ResultDesc': 'Invalid request'}, status=400)
+
 
 @login_required
 def tenant_invoices(request):
@@ -1380,6 +1354,8 @@ def tenant_consumption_history(request):
         readings = MeterReading.objects.filter(
             meter__unit=unit,
             meter__meter_type=meter_type
+        ).exclude(
+            verification_status='REJECTED'
         ).order_by('-reading_date')[:12]  # Last 12 readings
         
         # Prepare chart data
@@ -1427,6 +1403,8 @@ def get_unit_meters(request, unit_id):
             # Get previous reading for this meter
             previous_reading = MeterReading.objects.filter(
                 meter=meter
+            ).exclude(
+                verification_status='REJECTED'
             ).order_by('-reading_date').first()
             
             meter_info = {
@@ -1679,8 +1657,6 @@ def export_consumption_excel(request):
         messages.error(request, 'Property Manager profile not found')
         return redirect('manager_dashboard')
     
-
-
 
 @login_required
 def advanced_analytics(request):
@@ -2274,7 +2250,6 @@ def bulk_send_invoices(request):
     return redirect('invoice_list')
 
 
-
 @login_required
 def tenant_preferences(request):
     """
@@ -2460,6 +2435,7 @@ def delete_electricity_token(request, token_id):
         messages.error(request, 'Tenant profile not found')
         return redirect('login')
 
+
 @manager_required
 def send_invoice_reminder(request, invoice_id):
     """
@@ -2501,7 +2477,6 @@ def send_invoice_reminder(request, invoice_id):
         messages.warning(request, '⚠️ Could not send reminder. Tenant may not have a valid email or phone number on file.')
         
     return redirect('invoice_detail', invoice_id=invoice.id)
-
 
 
 @csrf_exempt
@@ -2629,8 +2604,6 @@ def add_tenant(request):
         
     return render(request, 'core/add_tenant.html', {'form': form})
 
-from django.contrib.auth.forms import PasswordChangeForm
-from django.contrib.auth import update_session_auth_hash
 
 @login_required
 def change_password(request):
@@ -2714,3 +2687,147 @@ def edit_tenant(request, tenant_id):
         form = TenantUpdateForm(manager=manager, tenant=tenant, initial=initial_data)
         
     return render(request, 'core/edit_tenant.html', {'form': form, 'tenant': tenant})
+
+
+@login_required
+def generate_final_invoice(request, tenant_id):
+    """
+    Generates a prorated final invoice for a tenant moving out mid-month.
+    """
+    if request.user.role != 'PROPERTY_MANAGER':
+        messages.error(request, 'Access denied')
+        return redirect('tenant_dashboard')
+        
+    manager = PropertyManager.objects.get(user=request.user)
+    tenant = get_object_or_404(Tenant, id=tenant_id, unit__manager=manager, is_active=True)
+    unit = tenant.unit
+
+    if request.method == 'POST':
+        today = timezone.now().date()
+        billing_period = f"Final - {today.strftime('%B %Y')}"
+        
+        # Prevent double generation
+        if Invoice.objects.filter(tenant=tenant, billing_period=billing_period).exists():
+            messages.error(request, 'A final invoice has already been generated for this tenant this month.')
+            return redirect('unit_detail', unit_id=unit.id)
+
+        # 1. Get active rates and charges
+        water_rate_config = RateConfig.objects.filter(manager=manager, utility_type='WATER', is_active=True).first()
+        elec_rate_config = RateConfig.objects.filter(manager=manager, utility_type='ELECTRICITY', is_active=True).first()
+        fixed_charges = FixedCharge.objects.filter(manager=manager, is_active=True)
+
+        # 2. Prorate fixed charges based on the day of the month
+        _, days_in_month = monthrange(today.year, today.month)
+        proration_factor = Decimal(today.day) / Decimal(days_in_month)
+        
+        total_fixed_charges = Decimal('0.00')
+        fixed_charges_breakdown = {}
+        for charge in fixed_charges:
+            prorated_amount = round(charge.amount * proration_factor, 2)
+            total_fixed_charges += prorated_amount
+            fixed_charges_breakdown[f"{charge.charge_name} (Prorated)"] = str(prorated_amount)
+
+        # 3. Get Final Consumption
+        water_units = Decimal('0.00')
+        electricity_units = Decimal('0.00')
+
+        if unit.has_water_meter:
+            water_meter = Meter.objects.filter(unit=unit, meter_type='WATER', is_active=True).first()
+            if water_meter:
+                latest_reading = MeterReading.objects.filter(
+                    meter=water_meter, verification_status='VERIFIED'
+                ).order_by('-reading_date').first()
+                if latest_reading:
+                    water_units = latest_reading.consumption
+
+        if unit.has_electricity_meter:
+            elec_meter = Meter.objects.filter(unit=unit, meter_type='ELECTRICITY', is_active=True).first()
+            if elec_meter:
+                latest_reading = MeterReading.objects.filter(
+                    meter=elec_meter, verification_status='VERIFIED'
+                ).order_by('-reading_date').first()
+                if latest_reading:
+                    electricity_units = latest_reading.consumption
+
+        # 4. Get Previous Balance
+        account_balance = AccountBalance.objects.filter(tenant=tenant).first()
+        prev_balance = account_balance.current_balance if account_balance else Decimal('0.00')
+
+        try:
+            with transaction.atomic():
+                # Generate unique Final Invoice Number
+                last_invoice = Invoice.objects.filter(
+                    invoice_number__startswith=f"INV-FIN-{today.strftime('%Y-%m')}"
+                ).order_by('-invoice_number').first()
+                new_seq = int(last_invoice.invoice_number.split('-')[-1]) + 1 if last_invoice else 1
+                invoice_number = f"INV-FIN-{today.strftime('%Y-%m')}-{new_seq:03d}"
+
+                invoice = Invoice.objects.create(
+                    unit=unit,
+                    tenant=tenant,
+                    invoice_number=invoice_number,
+                    invoice_date=today,
+                    due_date=today + timedelta(days=3), # Short due date for move-outs
+                    billing_period=billing_period,
+                    water_units=water_units,
+                    water_rate=water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'),
+                    electricity_units=electricity_units,
+                    electricity_rate=elec_rate_config.rate_per_unit if elec_rate_config else Decimal('0.00'),
+                    total_fixed_charges=total_fixed_charges,
+                    fixed_charges_breakdown=fixed_charges_breakdown,
+                    previous_balance=prev_balance,
+                    generated_by=request.user
+                )
+                invoice.calculate_totals()
+                invoice.save()
+
+                # Update Account Balance
+                acc, _ = AccountBalance.objects.get_or_create(tenant=tenant)
+                acc.current_balance = invoice.total_due
+                acc.save()
+
+            messages.success(request, f'✓ Final Invoice {invoice_number} generated successfully! Please collect payment before deactivating.')
+            return redirect('invoice_detail', invoice_id=invoice.id)
+
+        except Exception as e:
+            messages.error(request, f'Error generating final invoice: {str(e)}')
+            return redirect('unit_detail', unit_id=unit.id)
+
+    # Note: For a quick implementation, you don't even need a separate HTML page.
+    # We can just redirect back to the unit detail if it's not a POST request.
+    return redirect('unit_detail', unit_id=unit.id)
+
+@manager_required
+def delete_payment(request, payment_id):
+    """
+    Safely deletes a mistakenly entered payment and reverses the 
+    tenant's account balance.
+    """
+    manager = PropertyManager.objects.get(user=request.user)
+    # Ensure this payment belongs to a unit managed by this manager
+    payment = get_object_or_404(Payment, id=payment_id, invoice__unit__manager=manager)
+    invoice = payment.invoice
+    tenant = invoice.tenant
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # 1. Reverse the account balance (add the money back to their debt)
+                account_balance = AccountBalance.objects.select_for_update().get(tenant=tenant)
+                account_balance.current_balance += payment.amount_paid
+                account_balance.save()
+                
+                # 2. Delete the payment
+                amount_deleted = payment.amount_paid
+                payment.delete()
+                
+                # 3. Re-calculate the invoice status (e.g., changing it from PAID back to UNPAID)
+                invoice.update_status()
+                
+            messages.success(request, f'✓ Payment of KES {amount_deleted} safely reversed. Account balance updated.')
+        except Exception as e:
+            messages.error(request, f'Error reversing payment: {str(e)}')
+            
+        return redirect('invoice_detail', invoice_id=invoice.id)
+        
+    return redirect('payment_list')

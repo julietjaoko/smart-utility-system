@@ -28,6 +28,7 @@ urlpatterns = [
     path('manager/units/<int:unit_id>/edit/', views.edit_unit, name='edit_unit'),
     path('manager/tenants/<int:tenant_id>/deactivate/', views.deactivate_tenant, name='deactivate_tenant'),
     path('manager/tenants/<int:tenant_id>/edit/', views.edit_tenant, name='edit_tenant'),
+    path('manager/tenants/<int:tenant_id>/final-invoice/', views.generate_final_invoice, name='generate_final_invoice'),
     path('invoices/<int:invoice_id>/', views.invoice_detail, name='invoice_detail'),
     path('invoices/<int:invoice_id>/pay/', views.record_payment, name='record_payment'),
     path('manager/payments/', views.payment_list, name='payment_list'),
@@ -56,6 +57,8 @@ urlpatterns = [
     path('tenant/electricity-tokens/add/', views.add_electricity_token, name='add_electricity_token'),
     path('tenant/electricity-tokens/<int:token_id>/delete/', views.delete_electricity_token, name='delete_electricity_token'),
     path('invoice/<int:invoice_id>/send-reminder/', views.send_invoice_reminder, name='send_invoice_reminder'),
+    
     path('mpesa/webhook/<int:invoice_id>/', views.mpesa_webhook, name='mpesa_webhook'),
     path('security/change-password/', views.change_password, name='change_password'),
+    path('payments/<int:payment_id>/delete/', views.delete_payment, name='delete_payment'),
 ]

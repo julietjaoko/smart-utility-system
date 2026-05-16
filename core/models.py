@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Sum
+from django.utils import timezone
+from decimal import Decimal
 
 # Custom User Model
 class User(AbstractUser):
@@ -91,8 +93,6 @@ class Meter(models.Model):
     def __str__(self):
         return f"{self.get_meter_type_display()} - {self.unit.unit_number}"
     
-from django.utils import timezone
-from decimal import Decimal
 
 # Meter Reading Model
 class MeterReading(models.Model):
@@ -156,53 +156,68 @@ class MeterReading(models.Model):
         return f"{self.meter.unit.unit_number} - {self.meter.get_meter_type_display()} - {self.reading_value}"
     
     def save(self, *args, **kwargs):
-        """
-        Override save to automatically calculate consumption and detect anomalies.
-        This runs every time a reading is saved.
-        """
-        # Only compare against readings taken before this one, so backdated imports
-        # and corrections do not accidentally use a newer reading as "previous".
+        from decimal import Decimal
+        
+        # 1. Get the previous reading, excluding rejected ones
         previous_reading = MeterReading.objects.filter(
             meter=self.meter,
             reading_date__lt=self.reading_date
         ).exclude(
+            verification_status='REJECTED'
+        ).exclude(
             pk=self.pk if self.pk else None
         ).order_by('-reading_date').first()
 
-        recent_readings = MeterReading.objects.filter(
+        if previous_reading:
+            # Standard calculation for existing meters
+            self.consumption = self.reading_value - previous_reading.reading_value
+        else:
+            # FIX FOR NEW UNITS: 
+            # If this is the first ever reading for this meter, 
+            # assume the meter started at 0. The reading IS the consumption.
+            self.consumption = self.reading_value
+
+        # --- ANOMALY DETECTION LOGIC ---
+        # Scope anomalies to the CURRENT tenant only
+        current_tenant = self.meter.unit.tenants.filter(is_active=True).first()
+        
+        recent_query = MeterReading.objects.filter(
             meter=self.meter,
             reading_date__lt=self.reading_date
         ).exclude(
+            verification_status='REJECTED'
+        ).exclude(
             pk=self.pk if self.pk else None
-        ).order_by('-reading_date')[:3]
-
-        if previous_reading:
-            # Calculate consumption: current - previous
-            self.consumption = self.reading_value - previous_reading.reading_value
-            
-            # Anomaly Detection: Check for unusual patterns
-            # Get average consumption from last 3 readings
-            recent_readings = MeterReading.objects.filter(
-                meter=self.meter,
-                reading_date__lt=self.reading_date
-            ).exclude(pk=self.pk if self.pk else None).order_by('-reading_date')[:3]
-            
-            if recent_readings.count() >= 2:
-                avg_consumption = sum(r.consumption for r in recent_readings) / recent_readings.count()
-                
-                # Flag as anomaly if:
-                # 1. Consumption is zero
-                # 2. Consumption is negative (meter reading went backwards)
-                # 3. Consumption is more than 3x average
-                if (self.consumption == 0 or 
-                    self.consumption < 0 or 
-                    self.consumption > (avg_consumption * 3)):
-                    self.is_anomaly = True
-                    # Auto-set to PENDING only upon initial creation if it's an anomaly
-                    if self._state.adding:
-                        self.verification_status = 'PENDING'
+        )
         
-        super().save(*args, **kwargs)
+        # Only look at history since this specific tenant moved in
+        if current_tenant and current_tenant.move_in_date:
+            recent_query = recent_query.filter(reading_date__gte=current_tenant.move_in_date)
+            
+        recent_readings = recent_query.order_by('-reading_date')[:3]
+
+        # Only run anomaly check if we have established a baseline for THIS tenant
+        if recent_readings.count() >= 2:
+            avg_consumption = sum(r.consumption for r in recent_readings) / Decimal(recent_readings.count())
+            
+            # +/- 30% Anomaly Logic
+            lower_bound = avg_consumption * Decimal('0.70')
+            upper_bound = avg_consumption * Decimal('1.30')
+            
+            if (self.consumption <= 0 or 
+                self.consumption < lower_bound or 
+                self.consumption > upper_bound):
+                self.is_anomaly = True
+                
+                if self._state.adding:
+                    self.verification_status = 'PENDING'
+        else:
+            # Not enough data for this specific tenant to determine an anomaly
+            self.is_anomaly = False
+        
+        # Note: We must call the base models.Model save() method, not super() 
+        # to avoid infinite recursion issues in some Django setups.
+        super(MeterReading, self).save(*args, **kwargs)
 
 # Rate Configuration Model
 class RateConfig(models.Model):
