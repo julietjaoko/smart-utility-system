@@ -1,0 +1,67 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Edit Manager: {{ manager.estate_name }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'system_admin_dashboard' %}"><i data-lucide="home" width="16"></i> Home</a>
+    <span class="separator">/</span>
+    <a href="{% url 'system_admin_managers' %}">Property Managers</a>
+    <span class="separator">/</span>
+    <a href="{% url 'system_admin_manager_detail' manager.id %}">{{ manager.estate_name }}</a>
+    <span class="separator">/</span>
+    <span class="current">Edit</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header">
+        <h2 class="card-title"><i data-lucide="edit"></i> Edit Property Manager</h2>
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+            <div class="form-group">
+                <label for="{{ form.first_name.id_for_label }}">First Name</label>
+                {{ form.first_name }}
+                {{ form.first_name.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.last_name.id_for_label }}">Last Name</label>
+                {{ form.last_name }}
+                {{ form.last_name.errors }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">Email Address (Username)</label>
+            {{ form.email }}
+            {{ form.email.errors }}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
+            {{ form.phone_number }}
+            {{ form.phone_number.errors }}
+        </div>
+
+        <div style="margin: var(--spacing-lg) 0; border-top: 1px solid var(--border); padding-top: var(--spacing-lg);">
+            <div class="form-group">
+                <label for="{{ form.estate_name.id_for_label }}">Estate/Property Name</label>
+                {{ form.estate_name }}
+                {{ form.estate_name.errors }}
+            </div>
+        </div>
+
+        <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-xl);">
+            <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center;">
+                <i data-lucide="save" width="18"></i> Save Changes
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

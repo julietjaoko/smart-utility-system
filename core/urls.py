@@ -76,5 +76,9 @@ urlpatterns = [
     path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
     path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),
     path("system-admin/users/<int:user_id>/toggle/", views.system_admin_toggle_user, name="system_admin_toggle_user"),
+    path('system-admin/manager/<int:manager_id>/', views.system_admin_manager_detail, name='system_admin_manager_detail'),
+    path('system-admin/tenant/<int:tenant_id>/toggle/', views.system_admin_toggle_tenant, name='system_admin_toggle_tenant'),
+    path('system-admin/manager/<int:manager_id>/edit/', views.system_admin_edit_manager, name='system_admin_edit_manager'),
+    path('system-admin/tenant/<int:tenant_id>/edit/', views.system_admin_edit_tenant, name='system_admin_edit_tenant'),
 
 ]

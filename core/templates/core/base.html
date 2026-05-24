@@ -145,7 +145,7 @@
         table { width: 100%; border-collapse: collapse; background: var(--surface); min-width: 600px; }
         thead { background-color: var(--background); }
         th { padding: 0.875rem var(--spacing-md); text-align: left; font-weight: 700; font-size: 0.6875rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
-        td { padding: 0.875rem var(--spacing-md); border-top: 1px solid var(--border); font-size: 0.8125rem; color: var(--text-primary); white-space: nowrap; vertical-align: middle; }
+        td { padding: 0.875rem var(--spacing-md); border-top: 1px solid var(--border); font-size: 0.8125rem; color: var(--text-primary); vertical-align: middle; }
         tbody tr:hover { background-color: var(--background); }
 
         /* --- FORMS --- */
@@ -187,6 +187,7 @@
         }
 
         @media (max-width: 768px) {
+            input, select, textarea { font-size: 16px !important; }
             .sidebar { transform: translateX(-100%); width: min(85vw, 320px); }
             .sidebar.active { transform: translateX(0); box-shadow: var(--shadow-lg); }
             .sidebar-backdrop.active { display: block; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 45; }
@@ -197,7 +198,15 @@
             .card-header { flex-direction: column; align-items: flex-start; gap: var(--spacing-md); }
             .header-actions, .header-actions .btn { width: 100%; justify-content: center; }
             .toast-container { top: 16px; right: 16px; left: 16px; }
-            .toast { width: 100%; padding: 14px 16px; }
+            .toast { width: calc(100vw - 32px); padding: 14px 16px; box-sizing: border-box; }
+            td { 
+                white-space: normal; 
+                word-wrap: break-word; 
+                min-width: 120px; /* Prevents columns from getting too squished */
+            }
+            td .btn, td .badge {
+                white-space: nowrap;
+            }
         }
 
         /* Profile Dropdown & Sidebar Headers */
@@ -370,14 +379,20 @@
             </div>
 
             <nav class="sidebar-nav">
-                    {% if request.user.is_superuser or request.user.role == 'SYSTEM_ADMIN' %}
-                        <a href="{% url 'system_admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'system_admin_dashboard' %}active{% endif %}">
-                            <i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span>
-                        </a>
-                        <a href="{% url 'system_admin_managers' %}" class="nav-item {% if 'system_admin_manager' in request.resolver_match.url_name %}active{% endif %}">
-                            <i data-lucide="briefcase-business" width="20"></i><span class="sidebar-label">Managers</span>
-                        </a>
-                    {% elif request.user.role == 'PROPERTY_MANAGER' %}
+                {% if request.user.is_superuser or request.user.role == 'SYSTEM_ADMIN' %}
+                    <a href="{% url 'system_admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'system_admin_dashboard' %}active{% endif %}">
+                        <i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Global Dashboard</span>
+                    </a>
+                    
+                    <div class="sidebar-label section-kicker" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">Management</div>
+                    
+                    <a href="{% url 'system_admin_managers' %}" class="nav-item {% if 'system_admin_manager' in request.resolver_match.url_name and 'create' not in request.resolver_match.url_name %}active{% endif %}">
+                        <i data-lucide="briefcase-business" width="20"></i><span class="sidebar-label">Property Managers</span>
+                    </a>
+                    <a href="{% url 'system_admin_create_manager' %}" class="nav-item {% if request.resolver_match.url_name == 'system_admin_create_manager' %}active{% endif %}">
+                        <i data-lucide="user-plus" width="20"></i><span class="sidebar-label">Add New Manager</span>
+                    </a>
+                {% elif request.user.role == 'PROPERTY_MANAGER' %}
                     <a href="{% url 'manager_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span></a>
                     <a href="{% url 'manage_units' %}" class="nav-item {% if 'unit' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="home" width="20"></i><span class="sidebar-label">Units</span></a>
                     <a href="{% url 'manage_tenants' %}" class="nav-item {% if 'tenant' in request.resolver_match.url_name and 'dashboard' not in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="users" width="20"></i><span class="sidebar-label">Tenants</span></a>
@@ -679,6 +694,16 @@
                     });
                     
                     if (response.redirected) {
+                        closeModal(); // Hide the modal immediately
+                        
+                        // Show your existing global loading overlay
+                        const loader = document.getElementById('loading-overlay');
+                        if (loader) {
+                            loader.querySelector('p').textContent = 'Saving changes...';
+                            loader.style.display = 'flex';
+                        }
+                        
+                        // Proceed with the redirect behind the loading screen
                         window.location.href = response.url; 
                         return;
                     }

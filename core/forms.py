@@ -236,3 +236,43 @@ class PropertyManagerCreationForm(forms.Form):
         )
 
         return user
+
+
+from django import forms
+from .models import PropertyManager
+
+class PropertyManagerUpdateForm(forms.ModelForm):
+    first_name = forms.CharField(max_length=150, required=True)
+    last_name = forms.CharField(max_length=150, required=True)
+    email = forms.EmailField(required=True)
+    phone_number = forms.CharField(max_length=15, required=False)
+
+    class Meta:
+        model = PropertyManager
+        fields = ['estate_name']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-fill user data
+        if self.instance and self.instance.user:
+            self.fields['first_name'].initial = self.instance.user.first_name
+            self.fields['last_name'].initial = self.instance.user.last_name
+            self.fields['email'].initial = self.instance.user.email
+            self.fields['phone_number'].initial = self.instance.user.phone_number
+
+    def save(self, commit=True):
+        manager = super().save(commit=False)
+        user = manager.user
+        
+        # Update User model fields
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        user.email = self.cleaned_data['email']
+        user.username = self.cleaned_data['email']  # Keep username synced with email
+        user.phone_number = self.cleaned_data['phone_number']
+        
+        if commit:
+            user.save()
+            manager.save()
+            
+        return manager

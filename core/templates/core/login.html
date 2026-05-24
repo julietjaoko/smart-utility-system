@@ -5,35 +5,37 @@
 {% block extra_css %}
 <style>
 .auth-shell {
-    min-height: 100vh;
+    min-height: 100dvh; 
     display: grid;
     place-items: center;
-    padding: var(--spacing-xl);
+    padding: var(--spacing-md);
     background:
         radial-gradient(circle at top left, rgba(5, 150, 105, 0.10), transparent 30%),
         linear-gradient(180deg, #F8FAFC 0%, #EEF6F2 100%);
 }
 
 .auth-card {
-    max-width: 460px;
+    max-width: 420px;
     width: 100%;
     margin: 0;
+    padding: var(--spacing-2xl);
 }
 
 .auth-brand-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 68px;
-    height: 68px;
+    width: 60px;
+    height: 60px;
     background: rgba(5, 150, 105, 0.12);
-    border-radius: 18px;
+    border-radius: 16px;
     margin-bottom: var(--spacing-md);
 }
 
 .auth-subtitle {
     color: var(--text-secondary);
     font-size: 0.95rem;
+    line-height: 1.5;
 }
 
 .auth-footer-note {
@@ -45,14 +47,13 @@
     color: var(--text-secondary);
 }
 
-/* Alert styling for failed logins */
 .alert-error {
-    background-color: #FEE2E2;
-    color: #DC2626;
-    border: 1px solid #F87171;
+    background-color: #FEF2F2;
+    color: #991B1B;
+    border: 1px solid #FECACA;
     padding: 12px 16px;
-    border-radius: 6px;
-    margin-bottom: var(--spacing-md);
+    border-radius: 8px;
+    margin-bottom: var(--spacing-lg);
     font-size: 0.9rem;
     display: flex;
     align-items: center;
@@ -61,15 +62,18 @@
 
 @media (max-width: 768px) {
     .auth-shell {
-        padding: var(--spacing-md);
+        padding: var(--spacing-sm);
     }
 
     .auth-card {
-        padding: var(--spacing-lg);
+        padding: var(--spacing-xl) var(--spacing-lg);
+        border-radius: 20px; /* Softer, app-like corners on mobile */
     }
 
-    .auth-footer-note {
-        text-align: left;
+    /* CRITICAL FIX: Prevent iOS Safari auto-zoom on inputs */
+    .auth-card input {
+        font-size: 16px !important;
+        padding: 0.875rem 1rem; /* Taller inputs for easier tapping */
     }
 }
 </style>
@@ -90,10 +94,12 @@
 
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }}">
+                {% if message.tags == 'error' %}
+                <div class="alert alert-error">
                     <i data-lucide="alert-circle" width="18" height="18"></i>
                     <span>{{ message }}</span>
                 </div>
+                {% endif %}
             {% endfor %}
         {% endif %}
 
@@ -122,7 +128,8 @@
                         required
                         autocomplete="current-password"
                         placeholder="Enter your password"
-                        style="width: 100%; padding-right: 40px;"> <button type="button" id="togglePassword" tabindex="-1" style="position: absolute; right: 12px; background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0; display: flex; align-items: center;">
+                        style="width: 100%; padding-right: 48px;"> 
+                    <button type="button" id="togglePassword" tabindex="-1" style="position: absolute; right: 4px; height: calc(100% - 8px); width: 44px; background: none; border: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
                         <i data-lucide="eye" id="eyeIcon" width="20" height="20"></i>
                     </button>
                 </div>
@@ -135,7 +142,13 @@
         </form>
 
         <div class="auth-footer-note">
-            Use the username and password created for your account by the admin or property manager.
+            <div style="margin-bottom: var(--spacing-sm);">
+                <a href="mailto:admin@yourdomain.com" style="color: var(--primary); text-decoration: none; font-weight: 500; font-size: 0.95rem;">
+                    Forgot your password?
+                </a>
+            </div>
+            Use the username and password provided by your property manager. 
+            If you cannot log in or need a reset, please contact your administrator.
         </div>
     </div>
 </div>

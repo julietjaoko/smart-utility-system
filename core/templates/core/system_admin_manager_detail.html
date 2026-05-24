@@ -1,0 +1,203 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Admin: {{ manager.estate_name }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'system_admin_dashboard' %}"><i data-lucide="home" width="16"></i> Home</a>
+    <span class="separator">/</span>
+    <a href="{% url 'system_admin_managers' %}">Property Managers</a>
+    <span class="separator">/</span>
+    <span class="current">{{ manager.estate_name }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card-header" style="margin-bottom: var(--spacing-md); border-bottom: none;">
+    <div>
+        <h1 class="card-title">{{ manager.estate_name }}</h1>
+        <p style="color: var(--text-secondary); margin-top: 4px;">
+            Managed by: {{ manager.user.get_full_name|default:manager.user.username }} | {{ manager.user.email }}
+        </p>
+    </div>
+    <div class="header-actions">
+        <button onclick="openModal('{% url 'system_admin_edit_manager' manager.id %}', 'Edit Property Manager')" class="btn btn-secondary">
+            <i data-lucide="edit" width="16"></i> Edit
+        </button>
+        <form method="POST" action="{% url 'system_admin_toggle_user' manager.user.id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn {% if manager.user.is_active %}btn-danger{% else %}btn-success{% endif %}">
+                <i data-lucide="power" width="16"></i> 
+                {% if manager.user.is_active %}Deactivate{% else %}Activate{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background-color: rgba(59, 130, 246, 0.1); color: #3B82F6;">
+            <i data-lucide="building" width="20"></i>
+        </div>
+        <div class="stat-label">Total Units</div>
+        <div class="stat-value">{{ total_units }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background-color: rgba(16, 185, 129, 0.1); color: #10B981;">
+            <i class="lucide" data-lucide="users" width="20"></i>
+        </div>
+        <div class="stat-label">Active Tenants</div>
+        <div class="stat-value">{{ active_tenants }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.1); color: #F59E0B;">
+            <i data-lucide="banknote" width="20"></i>
+        </div>
+        <div class="stat-label">Total Billed (All Time)</div>
+        <div class="stat-value">KES {{ total_billed|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background-color: rgba(16, 185, 129, 0.1); color: #10B981;">
+            <i data-lucide="wallet" width="20"></i>
+        </div>
+        <div class="stat-label">Revenue Collected</div>
+        <div class="stat-value">KES {{ total_collected|floatformat:2 }}</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-xl);">
+    <div class="card" style="margin-bottom: 0;">
+        <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="settings-2" width="18" style="color: var(--text-secondary);"></i> Active Rates & Configurations
+        </h3>
+        <table style="min-width: 100%;">
+            <tbody>
+                <tr>
+                    <td style="font-weight: 600; width: 40%;">Water Rate</td>
+                    <td>{% if water_rate %}KES {{ water_rate.rate_per_unit }} / unit{% else %}<span style="color: var(--text-tertiary);">Not Set</span>{% endif %}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">Electricity Rate</td>
+                    <td>{% if elec_rate %}KES {{ elec_rate.rate_per_unit }} / unit{% else %}<span style="color: var(--text-tertiary);">Not Set</span>{% endif %}</td>
+                </tr>
+                {% for charge in fixed_charges %}
+                <tr>
+                    <td style="font-weight: 600;">Fixed: {{ charge.charge_name }}</td>
+                    <td>KES {{ charge.amount }} / month</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" style="color: var(--text-tertiary);">No fixed charges configured.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--spacing-lg);">
+        
+        <div class="card" style="margin-bottom: 0;">
+            <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="file-clock" width="18" style="color: var(--text-secondary);"></i> Recent Invoices Generated
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for invoice in recent_invoices %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--background); border-radius: var(--radius); border: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.875rem;">{{ invoice.invoice_number }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Unit {{ invoice.unit.unit_number }} • {{ invoice.billing_period }}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 600;">KES {{ invoice.total_due }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary);">Generated: {{ invoice.created_at|date:"M d, Y - h:i A" }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-tertiary); font-size: 0.875rem;">No invoices have been generated yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 0;">
+            <h3 style="font-size: 1.1rem; margin-bottom: var(--spacing-md); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="activity" width="18" style="color: var(--text-secondary);"></i> Recent Payments Received
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for payment in recent_payments %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--background); border-radius: var(--radius); border: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.875rem;">Payment Received</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Unit {{ payment.invoice.unit.unit_number }} • {{ payment.payment_method }}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: var(--success); font-weight: 700;">+ KES {{ payment.amount_paid }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary);">{{ payment.payment_date|date:"M d, Y" }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-tertiary); font-size: 0.875rem;">No recent payments recorded.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header" style="margin-bottom: var(--spacing-md); padding-bottom: 0; border-bottom: none;">
+        <h3 style="font-size: 1.25rem; font-weight: 600;">Tenant Oversight</h3>
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Tenant Name</th>
+                    <th>Unit</th>
+                    <th>Contact</th>
+                    <th>Move In Date</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">System Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tenant in tenants %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600;">{{ tenant.user.get_full_name|default:tenant.user.username }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">{{ tenant.user.email }}</div>
+                    </td>
+                    <td><span class="badge badge-info">{{ tenant.unit.unit_number|default:"Unassigned" }}</span></td>
+                    <td>{{ tenant.phone_number|default:"N/A" }}</td>
+                    <td>{{ tenant.move_in_date|date:"M d, Y" }}</td>
+                    <td>
+                        {% if tenant.is_active %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge badge-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; display: flex; gap: 8px; justify-content: flex-end;">
+                        <button type="button" onclick="openModal('{% url 'system_admin_edit_tenant' tenant.id %}', 'Edit Tenant')" class="btn btn-sm btn-secondary">
+                            <i data-lucide="edit" width="14"></i> Edit
+                        </button>
+
+                        <form method="POST" action="{% url 'system_admin_toggle_tenant' tenant.id %}" style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm {% if tenant.is_active %}btn-danger{% else %}btn-success{% endif %}" onclick="return confirm('Are you sure you want to change this tenant\'s access?');">
+                                <i data-lucide="power" width="14"></i> {% if tenant.is_active %}Revoke Access{% else %}Restore Access{% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
+                        No tenants are currently managed by this property manager.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -40,6 +40,14 @@
                     <td>{{ manager.estate_name }}</td>
                     <td>{{ manager.user.email }}</td>
                     <td>
+                        <a href="{% url 'system_admin_manager_detail' manager.id %}" class="btn btn-secondary btn-sm">
+                            View Details
+                        </a>
+                        <a onclick="openModal('{% url 'system_admin_edit_manager' manager.id %}', 'Edit Property Manager')" class="btn btn-sm btn-secondary">
+                            Edit Manager
+                        </a>
+                    </td>
+                    <td>
                         {% if manager.user.is_active %}
                             <span class="badge badge-success">Active</span>
                         {% else %}
