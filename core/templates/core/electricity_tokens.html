@@ -80,12 +80,13 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'delete_electricity_token' token.id %}" 
-                           style="color: var(--error); text-decoration: none; font-weight: 600;"
-                           onclick="return confirm('Delete this token?')">
-                            <i data-lucide="trash-2" width="14" height="14"></i>
-                            Delete
-                        </a>
+                        <form method="POST" action="{% url 'delete_electricity_token' token.id %}" style="margin: 0;" onsubmit="return confirm('Delete this token?')">
+                            {% csrf_token %}
+                            <button type="submit" style="color: var(--error); background: transparent; border: 0; padding: 0; cursor: pointer; font-weight: 600;">
+                                <i data-lucide="trash-2" width="14" height="14"></i>
+                                Delete
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% if token.notes %}

@@ -8,11 +8,11 @@
     <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
     <a href="{% url 'invoice_detail' invoice.id %}">{{ invoice.invoice_number }}</a>
     <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
-    <span class="current">Record Payment</span>
+    <span class="current">{% if is_edit %}Edit Payment{% else %}Record Payment{% endif %}</span>
 </nav>
 {% endblock %}
 
-{% block title %}Record Payment{% endblock %}
+{% block title %}{% if is_edit %}Edit Payment{% else %}Record Payment{% endif %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -84,7 +84,7 @@
     <div class="card-header">
         <h1 class="card-title">
             <i data-lucide="credit-card" width="28" height="28"></i>
-            Record Payment
+            {% if is_edit %}Edit Payment{% else %}Record Payment{% endif %}
         </h1>
         <div class="header-actions">
             <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-secondary">
@@ -195,7 +195,7 @@
         <div class="form-actions">
             <button type="submit" class="btn btn-success">
                 <i data-lucide="check" width="16" height="16"></i>
-                Record Payment
+                {% if is_edit %}Update Payment{% else %}Record Payment{% endif %}
             </button>
             <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-secondary">Cancel</a>
         </div>

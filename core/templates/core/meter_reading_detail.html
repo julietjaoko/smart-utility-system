@@ -9,10 +9,16 @@
             <i data-lucide="file-text" width="28" height="28"></i>
             Reading Details
         </h1>
-        <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">
-            <i data-lucide="arrow-left" width="16" height="16"></i>
-            Back to List
-        </a>
+        <div class="header-actions">
+            <a href="{% url 'edit_meter_reading' reading.id %}" class="btn btn-primary">
+                <i data-lucide="pencil" width="16" height="16"></i>
+                Edit
+            </a>
+            <a href="{% url 'meter_reading_list' %}" class="btn btn-secondary">
+                <i data-lucide="arrow-left" width="16" height="16"></i>
+                Back to List
+            </a>
+        </div>
     </div>
     
     <!-- Main Info -->
@@ -26,7 +32,7 @@
         <div>
             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--spacing-xs);">Meter Type</div>
             <span class="badge {% if reading.meter.meter_type == 'WATER' %}badge-info{% else %}badge-warning{% endif %}" style="font-size: 0.875rem; padding: 0.5rem 1rem;">
-                {{ reading.get_meter_type_display }}
+                {{ reading.meter.get_meter_type_display }}
             </span>
         </div>
         

@@ -1,0 +1,36 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Electricity Tokens Unavailable{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="zap-off" width="28" height="28"></i>
+            Electricity Token Logging
+        </h1>
+        <a href="{% url 'tenant_dashboard' %}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Dashboard
+        </a>
+    </div>
+
+    <div style="background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-xl);">
+        {% if token_logging_available %}
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-sm);">Token logging is turned off</h2>
+        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+            Your unit can use optional prepaid electricity token logging, but it is currently disabled in your preferences.
+        </p>
+        <a href="{% url 'tenant_preferences' %}" class="btn btn-primary">
+            <i data-lucide="settings" width="16" height="16"></i>
+            Open Preferences
+        </a>
+        {% else %}
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-sm);">Token logging is not available for this unit</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 0;">
+            Your electricity is already tracked through the property's managed electricity meter, so prepaid token logging is not shown for this unit.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

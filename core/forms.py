@@ -51,6 +51,13 @@ class MeterReadingForm(forms.ModelForm):
 
         self.fields['meter'].queryset = Meter.objects.none()
 
+        if self.instance and self.instance.pk:
+            self.fields['unit'].initial = self.instance.meter.unit
+            self.fields['meter'].queryset = Meter.objects.filter(
+                unit=self.instance.meter.unit,
+                is_active=True
+            )
+
         if 'unit' in self.data:
             try:
                 unit_id = int(self.data.get('unit'))
@@ -249,7 +256,11 @@ class PropertyManagerUpdateForm(forms.ModelForm):
 
     class Meta:
         model = PropertyManager
-        fields = ['estate_name']
+        fields = ['estate_name', 'water_anomaly_threshold', 'electricity_anomaly_threshold']
+        widgets = {
+            'water_anomaly_threshold': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01'}),
+            'electricity_anomaly_threshold': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01'}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -179,12 +179,18 @@
                             </td>
                             <td>
                                 <div class="triage-actions">
-                                    <a href="{% url 'resolve_anomaly' reading.id 'verify' %}" class="btn btn-success" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
-                                        <i data-lucide="check" width="14" height="14"></i> Verify
-                                    </a>
-                                    <a href="{% url 'resolve_anomaly' reading.id 'reject' %}" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;" onclick="return confirm('Reject this reading? You will need to enter a new one.')">
-                                        <i data-lucide="x" width="14" height="14"></i> Reject
-                                    </a>
+                                    <form method="POST" action="{% url 'resolve_anomaly' reading.id 'verify' %}" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-success" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
+                                            <i data-lucide="check" width="14" height="14"></i> Verify
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{% url 'resolve_anomaly' reading.id 'reject' %}" style="margin: 0;" onsubmit="return confirm('Reject this reading? You will need to enter a new one.')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
+                                            <i data-lucide="x" width="14" height="14"></i> Reject
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
@@ -205,6 +211,12 @@
         <form method="GET" class="reading-filter-form">
             <div>
                 <input type="text" name="search" placeholder="Search unit or notes..." value="{{ current_filters.search|default:'' }}">
+            </div>
+            <div>
+                <input type="date" name="start_date" value="{{ current_filters.start_date|default:'' }}">
+            </div>
+            <div>
+                <input type="date" name="end_date" value="{{ current_filters.end_date|default:'' }}">
             </div>
             <div>
                 <select name="unit">
@@ -272,6 +284,9 @@
                             <a href="{% url 'meter_reading_detail' reading.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 View
                             </a>
+                            <a href="{% url 'edit_meter_reading' reading.id %}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                Edit
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
@@ -288,7 +303,7 @@
         {% if page_obj.has_other_pages %}
         <div class="reading-pagination">
             {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary">&laquo; Prev</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.unit %}&unit={{ current_filters.unit }}{% endif %}{% if current_filters.meter_type %}&meter_type={{ current_filters.meter_type }}{% endif %}{% if current_filters.anomalies %}&anomalies={{ current_filters.anomalies }}{% endif %}{% if current_filters.start_date %}&start_date={{ current_filters.start_date }}{% endif %}{% if current_filters.end_date %}&end_date={{ current_filters.end_date }}{% endif %}" class="btn btn-secondary">&laquo; Prev</a>
             {% endif %}
             
             <span class="reading-pagination-current">
@@ -296,7 +311,7 @@
             </span>
             
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary">Next &raquo;</a>
+                <a href="?page={{ page_obj.next_page_number }}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}{% if current_filters.unit %}&unit={{ current_filters.unit }}{% endif %}{% if current_filters.meter_type %}&meter_type={{ current_filters.meter_type }}{% endif %}{% if current_filters.anomalies %}&anomalies={{ current_filters.anomalies }}{% endif %}{% if current_filters.start_date %}&start_date={{ current_filters.start_date }}{% endif %}{% if current_filters.end_date %}&end_date={{ current_filters.end_date }}{% endif %}" class="btn btn-secondary">Next &raquo;</a>
             {% endif %}
         </div>
         {% endif %}

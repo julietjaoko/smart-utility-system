@@ -105,6 +105,7 @@
                     <th>Method</th>
                     <th>Reference</th>
                     <th>Recorded By</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -128,6 +129,9 @@
                         {% endif %}
                     </td>
                     <td style="font-size: 0.875rem; color: var(--text-secondary);">{{ payment.recorded_by.username|default:"System" }}</td>
+                    <td>
+                        <a href="{% url 'edit_payment' payment.id %}" class="btn btn-sm btn-secondary">Edit</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
