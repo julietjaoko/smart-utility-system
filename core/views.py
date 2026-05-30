@@ -30,6 +30,26 @@ from django.contrib.auth.forms import PasswordChangeForm
 import logging
 logger = logging.getLogger(__name__)
 
+def refresh_invoice_statuses(invoices):
+    for invoice in invoices.filter(status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE']):
+        invoice.update_status()
+
+
+def tenant_can_log_tokens(tenant):
+    if not tenant.unit:
+        return False
+    return not Meter.objects.filter(
+        unit=tenant.unit,
+        meter_type='ELECTRICITY',
+        is_active=True
+    ).exists()
+
+
+def recalculate_meter_readings(meter):
+    for reading in MeterReading.objects.filter(meter=meter).order_by('reading_date', 'id'):
+        reading.save()
+
+
 def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_superuser or request.user.role == "SYSTEM_ADMIN":
@@ -150,8 +170,36 @@ def tenant_dashboard(request):
     
     try:
         tenant = Tenant.objects.get(user=request.user)
-        # Add any specific tenant context here later
-        context = {'tenant': tenant}
+        invoices = Invoice.objects.filter(tenant=tenant)
+        refresh_invoice_statuses(invoices)
+
+        latest_invoice = invoices.order_by('-invoice_date').first()
+        unpaid_invoices = invoices.filter(status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE'])
+        overdue_count = unpaid_invoices.filter(status='OVERDUE').count()
+        account_balance = AccountBalance.objects.filter(tenant=tenant).first()
+        current_balance = account_balance.current_balance if account_balance else Decimal('0.00')
+        recent_payments = Payment.objects.filter(invoice__tenant=tenant).order_by('-payment_date')[:3]
+        recent_readings = MeterReading.objects.filter(
+            meter__unit=tenant.unit
+        ).exclude(
+            verification_status='REJECTED'
+        ).select_related('meter').order_by('-reading_date')[:4] if tenant.unit else []
+        preferences, _ = TenantPreferences.objects.get_or_create(tenant=tenant)
+        token_logging_available = tenant_can_log_tokens(tenant)
+
+        context = {
+            'tenant': tenant,
+            'latest_invoice': latest_invoice,
+            'open_invoice_count': unpaid_invoices.count(),
+            'overdue_count': overdue_count,
+            'account_balance': account_balance,
+            'current_balance': current_balance,
+            'abs_balance': abs(current_balance),
+            'recent_payments': recent_payments,
+            'recent_readings': recent_readings,
+            'preferences': preferences,
+            'token_logging_available': token_logging_available,
+        }
         return render(request, 'core/tenant_dashboard.html', context)
         
     except Tenant.DoesNotExist:
@@ -254,6 +302,45 @@ def enter_meter_reading(request):
     return render(request, 'core/enter_meter_reading.html', {'form': form})
 
 
+@manager_required
+def edit_meter_reading(request, reading_id):
+    manager = PropertyManager.objects.get(user=request.user)
+    reading = get_object_or_404(MeterReading, id=reading_id, meter__unit__manager=manager)
+    original_meter = reading.meter
+
+    if request.method == 'POST':
+        form = MeterReadingForm(request.POST, request.FILES, instance=reading, manager=manager)
+        if form.is_valid():
+            updated_reading = form.save(commit=False)
+            updated_reading.recorded_by = request.user
+            updated_reading.save()
+            if updated_reading.is_anomaly and updated_reading.verification_status != 'PENDING':
+                updated_reading.verification_status = 'PENDING'
+                updated_reading.save()
+            elif not updated_reading.is_anomaly and updated_reading.verification_status != 'VERIFIED':
+                updated_reading.verification_status = 'VERIFIED'
+                updated_reading.save()
+            recalculate_meter_readings(original_meter)
+            if updated_reading.meter_id != original_meter.id:
+                recalculate_meter_readings(updated_reading.meter)
+
+            if updated_reading.is_anomaly:
+                messages.warning(request, 'Reading updated and flagged for review.')
+            else:
+                messages.success(request, 'Reading updated successfully.')
+            return redirect('meter_reading_detail', reading_id=updated_reading.id)
+        messages.error(request, 'Please correct the errors below.')
+    else:
+        form = MeterReadingForm(instance=reading, manager=manager)
+        form.initial['reading_date'] = reading.reading_date.date()
+
+    return render(request, 'core/enter_meter_reading.html', {
+        'form': form,
+        'reading': reading,
+        'is_edit': True,
+    })
+
+
 @login_required
 def meter_reading_list(request):
     """
@@ -300,6 +387,13 @@ def meter_reading_list(request):
                 Q(meter__unit__unit_number__icontains=search_query) |
                 Q(notes__icontains=search_query)
             )
+
+        start_date = request.GET.get('start_date', '').strip()
+        end_date = request.GET.get('end_date', '').strip()
+        if start_date:
+            readings = readings.filter(reading_date__date__gte=start_date)
+        if end_date:
+            readings = readings.filter(reading_date__date__lte=end_date)
         
         # Pagination: 15 readings per page
         paginator = Paginator(readings, 15)
@@ -332,6 +426,8 @@ def meter_reading_list(request):
                 'meter_type': meter_type_filter,
                 'anomalies': show_anomalies,
                 'search': search_query,
+                'start_date': start_date,
+                'end_date': end_date,
             }
         }
         
@@ -492,6 +588,23 @@ def manage_rates(request):
     
     try:
         manager = PropertyManager.objects.get(user=request.user)
+
+        if request.method == 'POST':
+            water_threshold = request.POST.get('water_anomaly_threshold')
+            electricity_threshold = request.POST.get('electricity_anomaly_threshold')
+            try:
+                water_threshold = Decimal(water_threshold)
+                electricity_threshold = Decimal(electricity_threshold)
+                if water_threshold <= 0 or electricity_threshold <= 0:
+                    raise ValueError
+
+                manager.water_anomaly_threshold = water_threshold
+                manager.electricity_anomaly_threshold = electricity_threshold
+                manager.save(update_fields=['water_anomaly_threshold', 'electricity_anomaly_threshold'])
+                messages.success(request, 'Anomaly thresholds updated successfully.')
+                return redirect('manage_rates')
+            except (TypeError, ValueError):
+                messages.error(request, 'Thresholds must be positive numbers.')
         
         # Get active rates
         water_rate = RateConfig.objects.filter(
@@ -516,6 +629,7 @@ def manage_rates(request):
             'water_rate': water_rate,
             'electricity_rate': electricity_rate,
             'fixed_charges': fixed_charges,
+            'manager': manager,
         }
         
         return render(request, 'core/manage_rates.html', context)
@@ -889,14 +1003,16 @@ def invoice_list(request):
         
         # 1. BASE QUERYSET (We use this for the top stats so they don't break when filtering)
         base_invoices = Invoice.objects.filter(unit__manager=manager)
+        refresh_invoice_statuses(base_invoices)
         
         # Calculate summary statistics BEFORE filtering
         total_invoices = base_invoices.count()
         unpaid_invoices = base_invoices.filter(status='UNPAID').count()
         overdue_invoices = base_invoices.filter(status='OVERDUE').count()
-        total_outstanding = base_invoices.filter(
+        open_invoices = base_invoices.filter(
             status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE']
-        ).aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
+        ).prefetch_related('payments')
+        total_outstanding = sum((invoice.balance_due for invoice in open_invoices), Decimal('0.00'))
         
         # 2. TABLE QUERYSET (We apply the actual filters to this one)
         invoices = base_invoices.select_related('unit', 'tenant__user').order_by('-invoice_date')
@@ -973,6 +1089,7 @@ def invoice_detail(request, invoice_id):
             id=invoice_id,
             tenant=tenant
         )
+    invoice.update_status()
     
     # Get payment history for this invoice
     payments = Payment.objects.filter(invoice=invoice).order_by('-payment_date')
@@ -1077,6 +1194,57 @@ def record_payment(request, invoice_id):
         'remaining_balance': remaining_balance,
     }
     
+    return render(request, 'core/record_payment.html', context)
+
+
+@manager_required
+def edit_payment(request, payment_id):
+    manager = PropertyManager.objects.get(user=request.user)
+    payment = get_object_or_404(Payment, id=payment_id, invoice__unit__manager=manager)
+    invoice = payment.invoice
+    old_amount = payment.amount_paid
+    total_paid = Payment.objects.filter(invoice=invoice).aggregate(
+        total=Sum('amount_paid')
+    )['total'] or Decimal('0.00')
+    remaining_balance = invoice.total_due - total_paid
+
+    if request.method == 'POST':
+        form = PaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    updated_payment = form.save(commit=False)
+                    if updated_payment.payment_method != 'MPESA':
+                        updated_payment.mpesa_reference = None
+                        updated_payment.mpesa_phone = None
+                    updated_payment.save()
+
+                    delta = updated_payment.amount_paid - old_amount
+                    account_balance, _ = AccountBalance.objects.select_for_update().get_or_create(
+                        tenant=invoice.tenant,
+                        defaults={'current_balance': Decimal('0.00')}
+                    )
+                    account_balance.current_balance -= delta
+                    account_balance.save()
+                    invoice.update_status()
+
+                messages.success(request, 'Payment updated successfully.')
+                return redirect('invoice_detail', invoice_id=invoice.id)
+            except Exception as e:
+                messages.error(request, f'Database error updating payment: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors in the form below.')
+    else:
+        form = PaymentForm(instance=payment)
+
+    context = {
+        'form': form,
+        'invoice': invoice,
+        'payment': payment,
+        'total_paid': total_paid,
+        'remaining_balance': remaining_balance,
+        'is_edit': True,
+    }
     return render(request, 'core/record_payment.html', context)
 
 
@@ -1320,9 +1488,10 @@ def tenant_invoices(request):
         
         # Get all invoices for this tenant
         invoices = Invoice.objects.filter(tenant=tenant).order_by('-invoice_date')
+        refresh_invoice_statuses(invoices)
         
         # Filter by status if specified
-        status_filter = request.GET.get('status')
+        status_filter = request.GET.get('status', '').strip().upper()
         if status_filter:
             invoices = invoices.filter(status=status_filter)
         
@@ -1656,6 +1825,13 @@ def export_consumption_excel(request):
         anomalies_only = request.GET.get('anomalies')
         if anomalies_only == 'true':
             readings = readings.filter(is_anomaly=True)
+
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if start_date:
+            readings = readings.filter(reading_date__date__gte=start_date)
+        if end_date:
+            readings = readings.filter(reading_date__date__lte=end_date)
         
         # Generate Excel
         exporter = ConsumptionExporter()
@@ -1709,6 +1885,7 @@ def advanced_analytics(request):
             unit__manager=manager,
             invoice_date__year=year
         )
+        refresh_invoice_statuses(invoices_this_year)
         
         total_billed = invoices_this_year.aggregate(
             total=Sum('total_due')
@@ -1898,6 +2075,58 @@ def advanced_analytics(request):
 
 
 @login_required
+def all_unit_performance(request):
+    if request.user.role != 'PROPERTY_MANAGER':
+        messages.error(request, 'Access denied')
+        return redirect('tenant_dashboard')
+
+    manager = PropertyManager.objects.get(user=request.user)
+    year = int(request.GET.get('year', datetime.now().year))
+    utility_type = request.GET.get('utility_type', '').strip().upper()
+    search_query = request.GET.get('search', '').strip()
+
+    readings = MeterReading.objects.filter(
+        meter__unit__manager=manager,
+        reading_date__year=year
+    ).exclude(verification_status='REJECTED')
+
+    if utility_type in ['WATER', 'ELECTRICITY']:
+        readings = readings.filter(meter__meter_type=utility_type)
+
+    unit_totals = readings.values(
+        'meter__unit__id',
+        'meter__unit__unit_number',
+        'meter__unit__estate_name'
+    ).annotate(
+        total_consumption=Sum('consumption'),
+        reading_count=Count('id'),
+        anomaly_count=Count('id', filter=Q(is_anomaly=True))
+    ).order_by('-total_consumption')
+
+    if search_query:
+        unit_totals = unit_totals.filter(
+            Q(meter__unit__unit_number__icontains=search_query) |
+            Q(meter__unit__estate_name__icontains=search_query)
+        )
+
+    paginator = Paginator(unit_totals, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    available_years = MeterReading.objects.filter(
+        meter__unit__manager=manager
+    ).dates('reading_date', 'year', order='DESC')
+
+    return render(request, 'core/all_unit_performance.html', {
+        'page_obj': page_obj,
+        'year': year,
+        'available_years': available_years,
+        'current_filters': {
+            'utility_type': utility_type,
+            'search': search_query,
+        }
+    })
+
+
+@login_required
 def unit_performance(request, unit_id):
     """
     Detailed performance analytics for a specific unit.
@@ -1997,6 +2226,10 @@ def resolve_anomaly(request, reading_id, action):
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method.')
+        return redirect('meter_reading_list')
         
     try:
         manager = PropertyManager.objects.get(user=request.user)
@@ -2297,10 +2530,16 @@ def tenant_preferences(request):
                 'show_consumption_alerts': True
             }
         )
+        token_logging_available = tenant_can_log_tokens(tenant)
+        if not token_logging_available and preferences.enable_token_logging:
+            preferences.enable_token_logging = False
+            preferences.save(update_fields=['enable_token_logging', 'updated_at'])
         
         if request.method == 'POST':
             # Update preferences
-            preferences.enable_token_logging = request.POST.get('enable_token_logging') == 'on'
+            preferences.enable_token_logging = (
+                token_logging_available and request.POST.get('enable_token_logging') == 'on'
+            )
             preferences.enable_sms_notifications = request.POST.get('enable_sms_notifications') == 'on'
             preferences.enable_email_notifications = request.POST.get('enable_email_notifications') == 'on'
             preferences.show_consumption_alerts = request.POST.get('show_consumption_alerts') == 'on'
@@ -2319,6 +2558,7 @@ def tenant_preferences(request):
         context = {
             'tenant': tenant,
             'preferences': preferences,
+            'token_logging_available': token_logging_available,
         }
         
         return render(request, 'core/tenant_preferences.html', context)
@@ -2343,9 +2583,13 @@ def electricity_tokens(request):
         
         # Check if feature is enabled
         preferences = TenantPreferences.objects.filter(tenant=tenant).first()
-        if not preferences or not preferences.enable_token_logging:
-            messages.warning(request, 'Electricity token logging is disabled. Enable it in your preferences.')
-            return redirect('tenant_preferences')
+        token_logging_available = tenant_can_log_tokens(tenant)
+        if not token_logging_available or not preferences or not preferences.enable_token_logging:
+            return render(request, 'core/electricity_tokens_disabled.html', {
+                'tenant': tenant,
+                'token_logging_available': token_logging_available,
+                'preferences': preferences,
+            })
         
         # Get all tokens
         tokens = ElectricityToken.objects.filter(tenant=tenant).order_by('-purchase_date')
@@ -2390,9 +2634,9 @@ def add_electricity_token(request):
         
         # Check if feature is enabled
         preferences = TenantPreferences.objects.filter(tenant=tenant).first()
-        if not preferences or not preferences.enable_token_logging:
+        if not tenant_can_log_tokens(tenant) or not preferences or not preferences.enable_token_logging:
             messages.warning(request, 'Please enable token logging in your preferences first')
-            return redirect('tenant_preferences')
+            return redirect('electricity_tokens')
         
         if request.method == 'POST':
             token_number = request.POST.get('token_number').strip()
@@ -2449,10 +2693,10 @@ def delete_electricity_token(request, token_id):
         tenant = Tenant.objects.get(user=request.user)
         token = get_object_or_404(ElectricityToken, id=token_id, tenant=tenant)
         
-        token_number = token.token_number
-        token.delete()
-        
-        messages.success(request, f'✓ Token {token_number} deleted')
+        if request.method == 'POST':
+            token_number = token.token_number
+            token.delete()
+            messages.success(request, f'✓ Token {token_number} deleted')
         return redirect('electricity_tokens')
     
     except Tenant.DoesNotExist:
@@ -2837,7 +3081,10 @@ def delete_payment(request, payment_id):
         try:
             with transaction.atomic():
                 # 1. Reverse the account balance (add the money back to their debt)
-                account_balance = AccountBalance.objects.select_for_update().get(tenant=tenant)
+                account_balance, _ = AccountBalance.objects.select_for_update().get_or_create(
+                    tenant=tenant,
+                    defaults={'current_balance': Decimal('0.00')}
+                )
                 account_balance.current_balance += payment.amount_paid
                 account_balance.save()
                 

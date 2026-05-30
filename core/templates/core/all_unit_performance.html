@@ -1,0 +1,87 @@
+{% extends 'core/base.html' %}
+
+{% block title %}All Unit Performance{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="list" width="28" height="28"></i>
+            All Unit Performance
+        </h1>
+        <a href="{% url 'advanced_analytics' %}?year={{ year }}" class="btn btn-secondary">
+            <i data-lucide="arrow-left" width="16" height="16"></i>
+            Analytics
+        </a>
+    </div>
+
+    <form method="GET" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--spacing-md); background: var(--background); padding: var(--spacing-md); border-radius: var(--radius); margin-bottom: var(--spacing-lg);">
+        <select name="year">
+            {% for year_date in available_years %}
+            <option value="{{ year_date.year }}" {% if year_date.year == year %}selected{% endif %}>{{ year_date.year }}</option>
+            {% endfor %}
+        </select>
+        <select name="utility_type">
+            <option value="" {% if not current_filters.utility_type %}selected{% endif %}>All Utilities</option>
+            <option value="WATER" {% if current_filters.utility_type == 'WATER' %}selected{% endif %}>Water</option>
+            <option value="ELECTRICITY" {% if current_filters.utility_type == 'ELECTRICITY' %}selected{% endif %}>Electricity</option>
+        </select>
+        <input type="text" name="search" placeholder="Search unit or estate..." value="{{ current_filters.search }}">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a href="{% url 'all_unit_performance' %}" class="btn btn-secondary">Clear</a>
+    </form>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Unit</th>
+                    <th>Estate</th>
+                    <th>Total Consumption</th>
+                    <th>Readings</th>
+                    <th>Anomalies</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for unit in page_obj %}
+                <tr>
+                    <td style="font-weight: 700; color: var(--primary);">#{{ forloop.counter0|add:page_obj.start_index }}</td>
+                    <td style="font-weight: 600;">{{ unit.meter__unit__unit_number }}</td>
+                    <td>{{ unit.meter__unit__estate_name }}</td>
+                    <td style="font-weight: 700;">{{ unit.total_consumption|floatformat:2 }}</td>
+                    <td>{{ unit.reading_count }}</td>
+                    <td>
+                        {% if unit.anomaly_count > 0 %}
+                        <span class="badge badge-warning">{{ unit.anomaly_count }}</span>
+                        {% else %}
+                        <span class="badge badge-success">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'unit_performance' unit.meter__unit__id %}" class="btn btn-sm btn-secondary">View</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: var(--spacing-lg);">No unit data found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&year={{ year }}{% if current_filters.utility_type %}&utility_type={{ current_filters.utility_type }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">Previous</a>
+        {% endif %}
+        <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&year={{ year }}{% if current_filters.utility_type %}&utility_type={{ current_filters.utility_type }}{% endif %}{% if current_filters.search %}&search={{ current_filters.search }}{% endif %}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

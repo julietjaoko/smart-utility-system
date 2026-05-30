@@ -139,9 +139,15 @@
     
     <!-- Top Consuming Units -->
     <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">
-            Top 5 Consuming Units
-        </h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); flex-wrap: wrap;">
+            <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">
+                Top 5 Consuming Units
+            </h2>
+            <a href="{% url 'all_unit_performance' %}?year={{ year }}" class="btn btn-secondary">
+                <i data-lucide="list" width="16" height="16"></i>
+                View All Units
+            </a>
+        </div>
         
         <div class="table-container">
             <table>
@@ -184,7 +190,7 @@
                 <div class="stat-icon">
                     <i data-lucide="{% if method.payment_method == 'MPESA' %}smartphone{% elif method.payment_method == 'CASH' %}wallet{% else %}building{% endif %}" width="20" height="20"></i>
                 </div>
-                <div class="stat-label">{{ method.get_payment_method_display }}</div>
+                <div class="stat-label">{{ method.payment_method }}</div>
                 <div class="stat-value">{{ method.count }}</div>
                 <small style="color: var(--text-secondary);">KES {{ method.amount|floatformat:2 }}</small>
             </div>

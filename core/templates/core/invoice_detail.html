@@ -4,9 +4,9 @@
 
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
-    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <a href="{% if request.user.role == 'PROPERTY_MANAGER' %}{% url 'manager_dashboard' %}{% else %}{% url 'tenant_dashboard' %}{% endif %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
     <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
-    <a href="{% url 'invoice_list' %}">Invoices</a>
+    <a href="{% if request.user.role == 'PROPERTY_MANAGER' %}{% url 'invoice_list' %}{% else %}{% url 'tenant_invoices' %}{% endif %}">Invoices</a>
     <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
     <span class="current">{{ invoice.invoice_number }}</span>
 </nav>
@@ -31,7 +31,7 @@
             <a href="{% url 'download_invoice_pdf' invoice.id %}" class="btn btn-secondary">
                 <i data-lucide="download" width="16" height="16"></i> Download PDF
             </a>
-            <a href="{% url 'invoice_list' %}" class="btn btn-secondary">
+            <a href="{% if request.user.role == 'PROPERTY_MANAGER' %}{% url 'invoice_list' %}{% else %}{% url 'tenant_invoices' %}{% endif %}" class="btn btn-secondary">
                 <i data-lucide="arrow-left" width="16" height="16"></i> Back
             </a>
         </div>
@@ -166,6 +166,9 @@
                             </a>
                             
                             {% if request.user.role == 'PROPERTY_MANAGER' %}
+                            <a href="{% url 'edit_payment' payment.id %}" class="badge badge-info" style="text-decoration: none; padding: 4px 8px; border-radius: 4px;">
+                                <i data-lucide="pencil" width="14" height="14" style="vertical-align: middle; margin-right: 2px;"></i> Edit
+                            </a>
                             <form method="POST" action="{% url 'delete_payment' payment.id %}" style="margin: 0; display: inline;" onsubmit="return confirm('CRITICAL: Are you sure you want to delete this payment? This will permanently remove the record and reverse the KES {{ payment.amount_paid }} credit from the tenant\'s account balance.');">
                                 {% csrf_token %}
                                 <button type="submit" class="badge badge-danger" style="border: none; cursor: pointer; background-color: #FEE2E2; color: #DC2626; padding: 4px 8px; border-radius: 4px;">
