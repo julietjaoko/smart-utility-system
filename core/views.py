@@ -35,6 +35,74 @@ def refresh_invoice_statuses(invoices):
         invoice.update_status()
 
 
+def recalculate_tenant_ledger(tenant):
+    """
+    Rebuild a tenant's running balance from invoices and payments.
+
+    Later invoices store the balance that was carried forward when they were
+    generated. If an older invoice is paid after a newer one exists, that
+    carried-forward amount must shrink so tenants are not asked to pay it twice.
+    """
+    if not tenant:
+        return Decimal('0.00')
+
+    with transaction.atomic():
+        invoices = list(
+            Invoice.objects.select_for_update()
+            .filter(tenant=tenant)
+            .order_by('invoice_date', 'id')
+        )
+        payment_totals = {
+            row['invoice_id']: row['total'] or Decimal('0.00')
+            for row in Payment.objects.filter(invoice__in=invoices)
+            .values('invoice_id')
+            .annotate(total=Sum('amount_paid'))
+        }
+
+        balance = Decimal('0.00')
+        today = timezone.now().date()
+
+        for invoice in invoices:
+            total_paid = payment_totals.get(invoice.id, Decimal('0.00'))
+            recalculated_total = invoice.subtotal + balance
+
+            if total_paid >= recalculated_total:
+                recalculated_status = 'PAID'
+            elif invoice.due_date < today:
+                recalculated_status = 'OVERDUE'
+            elif total_paid > 0:
+                recalculated_status = 'PARTIALLY_PAID'
+            else:
+                recalculated_status = 'UNPAID'
+
+            changed_fields = []
+            if invoice.previous_balance != balance:
+                invoice.previous_balance = balance
+                changed_fields.append('previous_balance')
+            if invoice.total_due != recalculated_total:
+                invoice.total_due = recalculated_total
+                changed_fields.append('total_due')
+            if invoice.status != recalculated_status:
+                invoice.status = recalculated_status
+                changed_fields.append('status')
+
+            if changed_fields:
+                changed_fields.append('updated_at')
+                invoice.save(update_fields=changed_fields)
+
+            balance = recalculated_total - total_paid
+
+        account_balance, _ = AccountBalance.objects.select_for_update().get_or_create(
+            tenant=tenant,
+            defaults={'current_balance': Decimal('0.00')}
+        )
+        if account_balance.current_balance != balance:
+            account_balance.current_balance = balance
+            account_balance.save(update_fields=['current_balance', 'last_updated'])
+
+    return balance
+
+
 def tenant_can_log_tokens(tenant):
     if not tenant.unit:
         return False
@@ -171,13 +239,12 @@ def tenant_dashboard(request):
     try:
         tenant = Tenant.objects.get(user=request.user)
         invoices = Invoice.objects.filter(tenant=tenant)
-        refresh_invoice_statuses(invoices)
+        current_balance = recalculate_tenant_ledger(tenant)
 
         latest_invoice = invoices.order_by('-invoice_date').first()
         unpaid_invoices = invoices.filter(status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE'])
         overdue_count = unpaid_invoices.filter(status='OVERDUE').count()
         account_balance = AccountBalance.objects.filter(tenant=tenant).first()
-        current_balance = account_balance.current_balance if account_balance else Decimal('0.00')
         recent_payments = Payment.objects.filter(invoice__tenant=tenant).order_by('-payment_date')[:3]
         recent_readings = MeterReading.objects.filter(
             meter__unit=tenant.unit
@@ -873,8 +940,7 @@ def billing_wizard_preview(request):
                 if latest_reading:
                     electricity_units = latest_reading.consumption
                     
-        account_balance = AccountBalance.objects.filter(tenant=tenant).first()
-        prev_balance = account_balance.current_balance if account_balance else Decimal('0.00')
+        prev_balance = recalculate_tenant_ledger(tenant)
         
         water_charge = water_units * (water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'))
         elec_charge = electricity_units * (elec_rate_config.rate_per_unit if elec_rate_config else Decimal('0.00'))
@@ -936,6 +1002,8 @@ def billing_wizard_preview(request):
                     acc, _ = AccountBalance.objects.get_or_create(tenant=tenant)
                     acc.current_balance = invoice.total_due
                     acc.save()
+                    recalculate_tenant_ledger(tenant)
+                    invoice.refresh_from_db()
                     
                     new_seq += 1
                     invoices_created += 1
@@ -1003,7 +1071,10 @@ def invoice_list(request):
         
         # 1. BASE QUERYSET (We use this for the top stats so they don't break when filtering)
         base_invoices = Invoice.objects.filter(unit__manager=manager)
-        refresh_invoice_statuses(base_invoices)
+        tenant_ids = base_invoices.exclude(tenant__isnull=True).values_list('tenant_id', flat=True).distinct()
+        for tenant in Tenant.objects.filter(id__in=tenant_ids):
+            recalculate_tenant_ledger(tenant)
+        base_invoices = Invoice.objects.filter(unit__manager=manager)
         
         # Calculate summary statistics BEFORE filtering
         total_invoices = base_invoices.count()
@@ -1089,7 +1160,8 @@ def invoice_detail(request, invoice_id):
             id=invoice_id,
             tenant=tenant
         )
-    invoice.update_status()
+    recalculate_tenant_ledger(invoice.tenant)
+    invoice.refresh_from_db()
     
     # Get payment history for this invoice
     payments = Payment.objects.filter(invoice=invoice).order_by('-payment_date')
@@ -1118,6 +1190,8 @@ def record_payment(request, invoice_id):
     """
     manager = PropertyManager.objects.get(user=request.user)
     invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
+    recalculate_tenant_ledger(invoice.tenant)
+    invoice.refresh_from_db()
     
     # Calculate total already paid
     total_paid = Payment.objects.filter(invoice=invoice).aggregate(
@@ -1153,6 +1227,7 @@ def record_payment(request, invoice_id):
                     )
                     account_balance.current_balance -= payment.amount_paid
                     account_balance.save()
+                    recalculate_tenant_ledger(tenant)
 
                 # 2. NOTIFICATIONS (Outside the atomic block)
                 try:
@@ -1202,6 +1277,8 @@ def edit_payment(request, payment_id):
     manager = PropertyManager.objects.get(user=request.user)
     payment = get_object_or_404(Payment, id=payment_id, invoice__unit__manager=manager)
     invoice = payment.invoice
+    recalculate_tenant_ledger(invoice.tenant)
+    invoice.refresh_from_db()
     old_amount = payment.amount_paid
     total_paid = Payment.objects.filter(invoice=invoice).aggregate(
         total=Sum('amount_paid')
@@ -1226,7 +1303,7 @@ def edit_payment(request, payment_id):
                     )
                     account_balance.current_balance -= delta
                     account_balance.save()
-                    invoice.update_status()
+                    recalculate_tenant_ledger(invoice.tenant)
 
                 messages.success(request, 'Payment updated successfully.')
                 return redirect('invoice_detail', invoice_id=invoice.id)
@@ -1352,6 +1429,9 @@ def initiate_mpesa_payment(request, invoice_id):
             'success': False,
             'error': 'Unauthorized role.'
         })
+
+    recalculate_tenant_ledger(invoice.tenant)
+    invoice.refresh_from_db()
 
     if invoice.status == 'PAID':
         return JsonResponse({
@@ -1487,8 +1567,8 @@ def tenant_invoices(request):
         tenant = Tenant.objects.get(user=request.user)
         
         # Get all invoices for this tenant
+        current_balance = recalculate_tenant_ledger(tenant)
         invoices = Invoice.objects.filter(tenant=tenant).order_by('-invoice_date')
-        refresh_invoice_statuses(invoices)
         
         # Filter by status if specified
         status_filter = request.GET.get('status', '').strip().upper()
@@ -1496,9 +1576,6 @@ def tenant_invoices(request):
             invoices = invoices.filter(status=status_filter)
         
         # Get account balance
-        account_balance = AccountBalance.objects.filter(tenant=tenant).first()
-        current_balance = account_balance.current_balance if account_balance else Decimal('0.00')
-        
         abs_balance = abs(current_balance)
 
         # Pagination
@@ -2795,6 +2872,7 @@ def mpesa_webhook(request, invoice_id):
                     )
                     account_balance.current_balance -= amount_paid
                     account_balance.save()
+                    recalculate_tenant_ledger(tenant)
 
                 # 3. Send automated receipt (Outside atomic block)
                 try:
@@ -3018,8 +3096,7 @@ def generate_final_invoice(request, tenant_id):
                     electricity_units = latest_reading.consumption
 
         # 4. Get Previous Balance
-        account_balance = AccountBalance.objects.filter(tenant=tenant).first()
-        prev_balance = account_balance.current_balance if account_balance else Decimal('0.00')
+        prev_balance = recalculate_tenant_ledger(tenant)
 
         try:
             with transaction.atomic():
@@ -3053,6 +3130,8 @@ def generate_final_invoice(request, tenant_id):
                 acc, _ = AccountBalance.objects.get_or_create(tenant=tenant)
                 acc.current_balance = invoice.total_due
                 acc.save()
+                recalculate_tenant_ledger(tenant)
+                invoice.refresh_from_db()
 
             messages.success(request, f'✓ Final Invoice {invoice_number} generated successfully! Please collect payment before deactivating.')
             return redirect('invoice_detail', invoice_id=invoice.id)
@@ -3093,7 +3172,7 @@ def delete_payment(request, payment_id):
                 payment.delete()
                 
                 # 3. Re-calculate the invoice status (e.g., changing it from PAID back to UNPAID)
-                invoice.update_status()
+                recalculate_tenant_ledger(tenant)
                 
             messages.success(request, f'✓ Payment of KES {amount_deleted} safely reversed. Account balance updated.')
         except Exception as e:
