@@ -23,6 +23,18 @@ class User(AbstractUser):
 class PropertyManager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     estate_name = models.CharField(max_length=100)
+    water_anomaly_threshold = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('100.00'),
+        help_text="Maximum normal water consumption per reading period"
+    )
+    electricity_anomaly_threshold = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('1000.00'),
+        help_text="Maximum normal electricity consumption per reading period"
+    )
     
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.estate_name}"
@@ -180,6 +192,23 @@ class MeterReading(models.Model):
             self.consumption = self.reading_value
 
         # --- ANOMALY DETECTION LOGIC ---
+        self.is_anomaly = False
+        manager = self.meter.unit.manager
+        hard_limits = {
+            'WATER': manager.water_anomaly_threshold,
+            'ELECTRICITY': manager.electricity_anomaly_threshold,
+        }
+        max_expected_consumption = hard_limits.get(self.meter.meter_type, Decimal('500.00'))
+
+        if previous_reading and self.reading_value < previous_reading.reading_value:
+            self.is_anomaly = True
+
+        if self.consumption <= 0 or self.consumption > max_expected_consumption:
+            self.is_anomaly = True
+
+        if self.is_anomaly and self._state.adding:
+            self.verification_status = 'PENDING'
+
         # Scope anomalies to the CURRENT tenant only
         current_tenant = self.meter.unit.tenants.filter(is_active=True).first()
         
@@ -198,7 +227,7 @@ class MeterReading(models.Model):
             
         recent_readings = recent_query.order_by('-reading_date')[:3]
 
-        # Only run anomaly check if we have established a baseline for THIS tenant
+        # Only run baseline anomaly checks after absolute checks have run.
         if recent_readings.count() >= 2:
             avg_consumption = sum(r.consumption for r in recent_readings) / Decimal(recent_readings.count())
             
@@ -213,9 +242,6 @@ class MeterReading(models.Model):
                 
                 if self._state.adding:
                     self.verification_status = 'PENDING'
-        else:
-            # Not enough data for this specific tenant to determine an anomaly
-            self.is_anomaly = False
         
         # Note: We must call the base models.Model save() method, not super() 
         # to avoid infinite recursion issues in some Django setups.
@@ -473,10 +499,10 @@ class Invoice(models.Model):
         # Update status
         if total_paid >= self.total_due:
             self.status = 'PAID'
-        elif total_paid > 0:
-            self.status = 'PARTIALLY_PAID'
         elif self.due_date < timezone.now().date():
             self.status = 'OVERDUE'
+        elif total_paid > 0:
+            self.status = 'PARTIALLY_PAID'
         else:
             self.status = 'UNPAID'
         

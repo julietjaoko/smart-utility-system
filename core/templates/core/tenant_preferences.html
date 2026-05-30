@@ -72,9 +72,14 @@
                             <strong style="font-size: 1rem; color: var(--text-primary);">Electricity Token Logging</strong>
                         </div>
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+                            {% if token_logging_available %}
                             Track your prepaid electricity tokens in one place. Log token numbers, units purchased, and amounts spent.
+                            {% else %}
+                            Optional token logging is only available when your unit does not use a managed electricity meter.
+                            {% endif %}
                         </p>
                     </div>
+                    {% if token_logging_available %}
                     <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer; margin-left: var(--spacing-lg);">
                         <input 
                             type="checkbox" 
@@ -85,6 +90,9 @@
                             {% if preferences.enable_token_logging %}Enabled{% else %}Disabled{% endif %}
                         </span>
                     </label>
+                    {% else %}
+                    <span class="badge badge-info">Managed by meter</span>
+                    {% endif %}
                 </div>
             </div>
             

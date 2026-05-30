@@ -54,6 +54,16 @@
                 {{ form.estate_name }}
                 {{ form.estate_name.errors }}
             </div>
+            <div class="form-group">
+                <label for="{{ form.water_anomaly_threshold.id_for_label }}">Water Anomaly Threshold</label>
+                {{ form.water_anomaly_threshold }}
+                {{ form.water_anomaly_threshold.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.electricity_anomaly_threshold.id_for_label }}">Electricity Anomaly Threshold</label>
+                {{ form.electricity_anomaly_threshold }}
+                {{ form.electricity_anomaly_threshold.errors }}
+            </div>
         </div>
 
         <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-xl);">

@@ -12,6 +12,7 @@ urlpatterns = [
     path('manager/tenants/add/', views.add_tenant, name='add_tenant'),
     path('manager/readings/enter/', views.enter_meter_reading, name='enter_meter_reading'),
     path('manager/readings/', views.meter_reading_list, name='meter_reading_list'),
+    path('manager/readings/<int:reading_id>/edit/', views.edit_meter_reading, name='edit_meter_reading'),
     path('manager/readings/<int:reading_id>/', views.meter_reading_detail, name='meter_reading_detail'),
     path('manager/units/<int:unit_id>/', views.unit_detail, name='unit_detail'),
     path('get-unit-meters/<int:unit_id>/', views.get_unit_meters, name='get_unit_meters'),
@@ -32,6 +33,7 @@ urlpatterns = [
     path('invoices/<int:invoice_id>/', views.invoice_detail, name='invoice_detail'),
     path('invoices/<int:invoice_id>/pay/', views.record_payment, name='record_payment'),
     path('manager/payments/', views.payment_list, name='payment_list'),
+    path('payments/<int:payment_id>/edit/', views.edit_payment, name='edit_payment'),
     path('invoices/<int:invoice_id>/mpesa/', views.initiate_mpesa_payment, name='initiate_mpesa_payment'),
     path('mpesa/callback/', views.mpesa_callback, name='mpesa_callback'),
     path('tenant/invoices/', views.tenant_invoices, name='tenant_invoices'),
@@ -45,6 +47,7 @@ urlpatterns = [
     path('manager/consumption/export/', views.export_consumption_excel, name='export_consumption_excel'),
     # Advanced Analytics
     path('manager/analytics/advanced/', views.advanced_analytics, name='advanced_analytics'),
+    path('manager/analytics/units/', views.all_unit_performance, name='all_unit_performance'),
     path('manager/units/<int:unit_id>/performance/', views.unit_performance, name='unit_performance'),
 
     path('readings/anomaly/<int:reading_id>/<str:action>/', views.resolve_anomaly, name='resolve_anomaly'),
@@ -68,10 +71,6 @@ urlpatterns = [
     path("manager/maintenance/", views.manager_maintenance_requests, name="manager_maintenance_requests"),
     path("manager/maintenance/<int:request_id>/", views.manager_maintenance_detail, name="manager_maintenance_detail"),
 
-    path("system-admin/", views.system_admin_dashboard, name="system_admin_dashboard"),
-    path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
-    path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),
-    path("system-admin/users/<int:user_id>/toggle/", views.system_admin_toggle_user, name="system_admin_toggle_user"),
     path("system-admin/", views.system_admin_dashboard, name="system_admin_dashboard"),
     path("system-admin/managers/", views.system_admin_managers, name="system_admin_managers"),
     path("system-admin/managers/create/", views.system_admin_create_manager, name="system_admin_create_manager"),

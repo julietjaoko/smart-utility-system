@@ -52,6 +52,20 @@
     min-height: 72px;
 }
 
+.tenant-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 0.7fr;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.tenant-panel {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+}
+
 @media (max-width: 768px) {
     .quick-links-grid {
         grid-template-columns: 1fr;
@@ -59,6 +73,10 @@
 
     .quick-link-card {
         width: 100%;
+    }
+
+    .tenant-dashboard-grid {
+        grid-template-columns: 1fr;
     }
 }
 </style>
@@ -129,6 +147,72 @@
         </div>
     </div>
     {% endif %}
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="wallet" width="20" height="20"></i></div>
+            <div class="stat-label">Current Balance</div>
+            <div class="stat-value" style="color: {% if current_balance > 0 %}var(--error){% else %}var(--success){% endif %};">
+                KES {{ abs_balance|floatformat:2 }}
+            </div>
+            <small style="color: var(--text-secondary);">{% if current_balance > 0 %}Amount due{% else %}No outstanding debt{% endif %}</small>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="receipt" width="20" height="20"></i></div>
+            <div class="stat-label">Open Invoices</div>
+            <div class="stat-value">{{ open_invoice_count }}</div>
+            <small style="color: {% if overdue_count > 0 %}var(--error){% else %}var(--text-secondary){% endif %};">{{ overdue_count }} overdue</small>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i data-lucide="file-text" width="20" height="20"></i></div>
+            <div class="stat-label">Latest Invoice</div>
+            <div class="stat-value" style="font-size: 1.25rem;">{% if latest_invoice %}KES {{ latest_invoice.balance_due|floatformat:2 }}{% else %}-{% endif %}</div>
+            <small style="color: var(--text-secondary);">{% if latest_invoice %}{{ latest_invoice.billing_period }}{% else %}No invoices yet{% endif %}</small>
+        </div>
+    </div>
+
+    <div class="tenant-dashboard-grid">
+        <div class="tenant-panel">
+            <h2 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-md);">Recent Consumption</h2>
+            {% if recent_readings %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Type</th><th>Consumption</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in recent_readings %}
+                        <tr>
+                            <td>{{ reading.reading_date|date:"M d, Y" }}</td>
+                            <td>{{ reading.meter.get_meter_type_display }}</td>
+                            <td style="font-weight: 700;">{{ reading.consumption }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color: var(--text-secondary); margin: 0;">No consumption readings yet.</p>
+            {% endif %}
+        </div>
+
+        <div class="tenant-panel">
+            <h2 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-md);">Recent Payments</h2>
+            {% if recent_payments %}
+                {% for payment in recent_payments %}
+                <div style="display: flex; justify-content: space-between; gap: var(--spacing-md); padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border);">
+                    <div>
+                        <div style="font-weight: 600;">KES {{ payment.amount_paid|floatformat:2 }}</div>
+                        <div style="font-size: 0.8125rem; color: var(--text-secondary);">{{ payment.payment_date|date:"M d, Y" }}</div>
+                    </div>
+                    <span class="badge badge-info">{{ payment.get_payment_method_display }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+            <p style="color: var(--text-secondary); margin: 0;">No payments recorded yet.</p>
+            {% endif %}
+        </div>
+    </div>
     
     <div>
         <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">Quick Links</h2>
@@ -141,10 +225,12 @@
                 <i data-lucide="trending-up" width="20" height="20"></i>
                 <span style="font-size: 1rem;">Consumption History</span>
             </a>
+            {% if token_logging_available %}
             <a href="{% url 'electricity_tokens' %}" class="btn btn-secondary quick-link-card">
                 <i data-lucide="zap" width="20" height="20"></i>
                 <span style="font-size: 1rem;">Electricity Tokens</span>
             </a>
+            {% endif %}
             <a href="{% url 'tenant_preferences' %}" class="btn btn-secondary quick-link-card">
                 <i data-lucide="settings" width="20" height="20"></i>
                 <span style="font-size: 1rem;">Preferences</span>

@@ -145,6 +145,27 @@
     </div>
     
     <div style="margin-top: var(--spacing-2xl);">
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">Anomaly Thresholds</h2>
+        <form method="POST" style="background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-lg); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-md); align-items: end;">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="water_anomaly_threshold">Water threshold</label>
+                <input type="number" step="0.01" min="0.01" id="water_anomaly_threshold" name="water_anomaly_threshold" value="{{ manager.water_anomaly_threshold }}">
+                <small>Readings above this water consumption are flagged.</small>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="electricity_anomaly_threshold">Electricity threshold</label>
+                <input type="number" step="0.01" min="0.01" id="electricity_anomaly_threshold" name="electricity_anomaly_threshold" value="{{ manager.electricity_anomaly_threshold }}">
+                <small>Readings above this electricity consumption are flagged.</small>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i data-lucide="save" width="16" height="16"></i>
+                Save Thresholds
+            </button>
+        </form>
+    </div>
+
+    <div style="margin-top: var(--spacing-2xl);">
         <div class="section-header">
             <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin: 0;">Fixed Monthly Charges</h2>
             <button onclick="openModal('{% url 'add_fixed_charge' %}', 'Add Fixed Charge')" class="btn btn-primary">
