@@ -1,65 +1,73 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Billing Wizard - Step 2{% endblock %}
+{% block title %}Billing Wizard - Step 3{% endblock %}
 
 {% block content %}
-<div class="card" style="max-width: 800px; margin: 0 auto;">
-    <div class="card-header">
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h1 class="card-title">
-            <i data-lucide="settings-2" width="24" height="24"></i>
-            Billing Wizard: Confirm Rates
+            <i data-lucide="file-check" width="24" height="24"></i>
+            Invoice Preview: {{ billing_month_display }}
         </h1>
+        <span class="badge" style="background: var(--primary-color); color: white;">
+            {{ total_invoices }} Invoices Ready
+        </span>
     </div>
     
     <div style="padding: var(--spacing-lg);">
         <div style="display: flex; justify-content: space-between; margin-bottom: var(--spacing-xl); padding-bottom: var(--spacing-md); border-bottom: 1px solid var(--border-color);">
             <div style="color: var(--success-color);">✓ Select Period</div>
-            <div style="font-weight: 600; color: var(--primary-color);">2. Confirm Rates</div>
-            <div style="color: var(--text-secondary);">3. Preview & Generate</div>
+            <div style="color: var(--success-color);">✓ Confirm Rates</div>
+            <div style="font-weight: 600; color: var(--primary-color);">3. Preview & Generate</div>
         </div>
 
-        <h3 style="margin-bottom: var(--spacing-md);">Active Consumption Rates</h3>
-        <div class="stats-grid" style="margin-bottom: var(--spacing-xl);">
-            <div class="stat-card">
-                <div class="stat-label">Water Rate</div>
-                <div class="stat-value" style="font-size: 1.5rem;">
-                    KES {{ water_rate.rate_per_unit|default:"0.00" }} <span style="font-size: 1rem; color: var(--text-secondary);">/unit</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Electricity Rate</div>
-                <div class="stat-value" style="font-size: 1.5rem;">
-                    KES {{ elec_rate.rate_per_unit|default:"0.00" }} <span style="font-size: 1rem; color: var(--text-secondary);">/unit</span>
-                </div>
-            </div>
+        {% if preview_data %}
+        <div style="overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>Tenant</th>
+                        <th>Water (Units/KES)</th>
+                        <th>Elec (Units/KES)</th>
+                        <th>Fixed Charges</th>
+                        <th>Prev Balance</th>
+                        <th>Total Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in preview_data %}
+                    <tr>
+                        <td><strong>{{ data.unit.unit_number }}</strong></td>
+                        <td>{{ data.tenant.user.get_full_name|default:data.tenant.user.username }}</td>
+                        <td>{{ data.water_units }} / {{ data.water_charge }}</td>
+                        <td>{{ data.electricity_units }} / {{ data.elec_charge }}</td>
+                        <td>{{ data.fixed_charges }}</td>
+                        <td style="color: {% if data.prev_balance > 0 %}var(--danger-color){% elif data.prev_balance < 0 %}var(--success-color){% else %}inherit{% endif %};">
+                            {{ data.prev_balance }}
+                        </td>
+                        <td><strong>KES {{ data.total_due }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-
-        <h3 style="margin-bottom: var(--spacing-md);">Active Fixed Charges</h3>
-        <div style="background: var(--bg-secondary); padding: var(--spacing-md); border-radius: 8px; margin-bottom: var(--spacing-xl);">
-            {% if fixed_charges %}
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                {% for charge in fixed_charges %}
-                    <li style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
-                        <span>{{ charge.charge_name }}</span>
-                        <strong>KES {{ charge.amount }}</strong>
-                    </li>
-                {% endfor %}
-                </ul>
-            {% else %}
-                <p style="color: var(--text-secondary); margin: 0;">No active fixed charges found.</p>
-            {% endif %}
+        {% else %}
+        <div class="alert alert-info">
+            No active units or tenants found requiring invoices for this period.
         </div>
+        {% endif %}
         
         <form method="POST">
             {% csrf_token %}
             <div style="display: flex; justify-content: space-between; margin-top: var(--spacing-xl);">
-                <a href="{% url 'billing_wizard_start' %}" class="btn btn-secondary">
+                <a href="{% url 'billing_wizard_rates' %}" class="btn btn-secondary">
                     <i data-lucide="arrow-left" width="16" height="16" style="margin-right: 0.5rem;"></i>
-                    Back
+                    Back to Rates
                 </a>
-                <button type="submit" class="btn btn-primary">
-                    Confirm & Preview Invoices
-                    <i data-lucide="arrow-right" width="16" height="16" style="margin-left: 0.5rem;"></i>
+                <button type="submit" class="btn btn-primary" {% if not preview_data %}disabled{% endif %}>
+                    <i data-lucide="check-circle" width="16" height="16" style="margin-right: 0.5rem;"></i>
+                    Generate {{ total_invoices }} Invoices
                 </button>
             </div>
         </form>
