@@ -16,7 +16,63 @@
 <style>
 .info-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); }
 .charge-row { display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border); }
-@media (max-width: 768px) { .charge-row { flex-direction: column; align-items: flex-start; gap: 0.25rem; } }
+.invoice-total-panel {
+    margin-top: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0;
+}
+.invoice-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+.invoice-total-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+.invoice-total-money {
+    font-family: monospace;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.invoice-total-row--paid {
+    border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+    padding-bottom: 0.5rem;
+}
+.invoice-total-row--paid .invoice-total-label,
+.invoice-total-row--paid .invoice-total-money {
+    color: var(--success);
+}
+.invoice-total-row--due {
+    padding-top: 0.25rem;
+}
+.invoice-total-row--due .invoice-total-label {
+    color: inherit;
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+.invoice-total-row--due .invoice-total-money {
+    font-size: 1.5rem;
+}
+@media (max-width: 768px) {
+    .charge-row { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+    .invoice-total-row { align-items: flex-start; }
+    .invoice-total-row--due {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    .invoice-total-row--due .invoice-total-label {
+        font-size: 1rem;
+    }
+    .invoice-total-row--due .invoice-total-money {
+        font-size: 1.25rem;
+    }
+}
 </style>
 {% endblock %}
 
@@ -109,27 +165,27 @@
                 <div style="font-weight: 700; font-family: monospace; font-size: 1.125rem;">KES {{ invoice.subtotal|floatformat:2 }}</div>
             </div>
             
-            <div class="alert alert-warning" style="margin-top: var(--spacing-md); display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0;">
+            <div class="alert alert-warning invoice-total-panel">
                 <!-- Always show original total -->
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-secondary);">ORIGINAL INVOICE TOTAL</div>
-                    <div style="font-size: 1rem; font-weight: 600; color: var(--text-secondary);">KES {{ invoice.total_due|floatformat:2 }}</div>
+                <div class="invoice-total-row">
+                    <div class="invoice-total-label">Original Invoice Total</div>
+                    <div class="invoice-total-money" style="color: var(--text-secondary);">KES {{ invoice.total_due|floatformat:2 }}</div>
                 </div>
                 
                 <!-- Only show "Amount Paid" line if they actually paid something -->
                 {% if total_paid > 0 %}
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(245, 158, 11, 0.3); padding-bottom: 0.5rem;">
-                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--success);">AMOUNT ALREADY PAID</div>
-                    <div style="font-size: 1rem; font-weight: 600; color: var(--success);">- KES {{ total_paid|floatformat:2 }}</div>
+                <div class="invoice-total-row invoice-total-row--paid">
+                    <div class="invoice-total-label">Amount Already Paid</div>
+                    <div class="invoice-total-money">- KES {{ total_paid|floatformat:2 }}</div>
                 </div>
                 {% endif %}
                 
                 <!-- The final big number -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.25rem;">
-                    <div style="font-size: 1.125rem; font-weight: 700; text-transform: uppercase;">
-                        {% if total_paid > 0 %}REMAINING BALANCE{% else %}AMOUNT DUE{% endif %}
+                <div class="invoice-total-row invoice-total-row--due">
+                    <div class="invoice-total-label">
+                        {% if total_paid > 0 %}Remaining Balance{% else %}Amount Due{% endif %}
                     </div>
-                    <div style="font-size: 1.5rem; font-weight: 700; font-family: monospace;">
+                    <div class="invoice-total-money">
                         KES {{ remaining_balance|floatformat:2 }}
                     </div>
                 </div>

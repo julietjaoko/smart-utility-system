@@ -33,11 +33,11 @@
             <label for="has_electricity_meter" style="margin: 0;">Has Electricity Meter</label>
         </div>
         
-        <div style="display: flex; justify-content: space-between;">
+        <div class="form-actions">
             <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary">Cancel</a>
             <button type="submit" class="btn btn-primary">Save Changes</button>
         </div>
-        <div style="margin-top: var(--spacing-xl); padding-top: var(--spacing-md); border-top: 1px solid var(--border-color);">
+        <div style="margin-top: var(--spacing-xl); padding-top: var(--spacing-md); border-top: 1px solid var(--border);">
             <p style="color: var(--text-secondary); font-size: 0.9rem;">Need to manage the person living here?</p>
             <a href="{% url 'unit_detail' unit.id %}" class="btn btn-secondary" style="margin-top: var(--spacing-sm);">
                 Go to Tenant Management

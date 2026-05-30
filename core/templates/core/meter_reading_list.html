@@ -124,7 +124,7 @@
             Meter Readings
         </h1>
         <div class="header-actions">
-            <button onclick="openModal('{% url 'enter_meter_reading' %}', 'Enter Meter Reading')" class="btn btn-primary">
+            <button type="button" onclick="openModal('{% url 'enter_meter_reading' %}', 'Enter Meter Reading')" class="btn btn-primary">
                 <i data-lucide="plus" width="16" height="16"></i>
                 Enter New Reading
             </button>
@@ -132,10 +132,10 @@
     </div>
 
     <div class="reading-tabs">
-        <button onclick="switchTab('all')" id="btn-tab-all" class="reading-tab active">
+        <button type="button" onclick="switchTab('all')" id="btn-tab-all" class="reading-tab active">
             All Readings
         </button>
-        <button onclick="switchTab('triage')" id="btn-tab-triage" class="reading-tab" style="display: flex; align-items: center; gap: 0.5rem;">
+        <button type="button" onclick="switchTab('triage')" id="btn-tab-triage" class="reading-tab" style="display: flex; align-items: center; gap: 0.5rem;">
             Requires Action
             {% if pending_count > 0 %}
                 <span style="background: var(--error); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">{{ pending_count }}</span>

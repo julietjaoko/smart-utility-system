@@ -21,7 +21,7 @@
         </p>
     </div>
     <div class="header-actions">
-        <button onclick="openModal('{% url 'system_admin_edit_manager' manager.id %}', 'Edit Property Manager')" class="btn btn-secondary">
+        <button type="button" onclick="openModal('{% url 'system_admin_edit_manager' manager.id %}', 'Edit Property Manager')" class="btn btn-secondary">
             <i data-lucide="edit" width="16"></i> Edit
         </button>
         <form method="POST" action="{% url 'system_admin_toggle_user' manager.user.id %}" style="display: inline;">

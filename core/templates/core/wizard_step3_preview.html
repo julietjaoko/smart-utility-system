@@ -2,28 +2,52 @@
 
 {% block title %}Billing Wizard - Step 3{% endblock %}
 
+{% block extra_css %}
+<style>
+.wizard-progress {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.wizard-progress__done { color: var(--success); }
+.wizard-progress__current { color: var(--primary); font-weight: 600; }
+
+@media (max-width: 768px) {
+    .wizard-progress {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-header">
         <h1 class="card-title">
             <i data-lucide="file-check" width="24" height="24"></i>
             Invoice Preview: {{ billing_month_display }}
         </h1>
-        <span class="badge" style="background: var(--primary-color); color: white;">
+        <span class="badge badge-info">
             {{ total_invoices }} Invoices Ready
         </span>
     </div>
-    
+
     <div style="padding: var(--spacing-lg);">
-        <div style="display: flex; justify-content: space-between; margin-bottom: var(--spacing-xl); padding-bottom: var(--spacing-md); border-bottom: 1px solid var(--border-color);">
-            <div style="color: var(--success-color);">✓ Select Period</div>
-            <div style="color: var(--success-color);">✓ Confirm Rates</div>
-            <div style="font-weight: 600; color: var(--primary-color);">3. Preview & Generate</div>
+        <div class="wizard-progress">
+            <div class="wizard-progress__done">Done: Select Period</div>
+            <div class="wizard-progress__done">Done: Confirm Rates</div>
+            <div class="wizard-progress__current">3. Preview & Generate</div>
         </div>
 
         {% if preview_data %}
-        <div style="overflow-x: auto;">
-            <table class="table">
+        <div class="table-container">
+            <table>
                 <thead>
                     <tr>
                         <th>Unit</th>
@@ -43,7 +67,7 @@
                         <td>{{ data.water_units }} / {{ data.water_charge }}</td>
                         <td>{{ data.electricity_units }} / {{ data.elec_charge }}</td>
                         <td>{{ data.fixed_charges }}</td>
-                        <td style="color: {% if data.prev_balance > 0 %}var(--danger-color){% elif data.prev_balance < 0 %}var(--success-color){% else %}inherit{% endif %};">
+                        <td style="color: {% if data.prev_balance > 0 %}var(--error){% elif data.prev_balance < 0 %}var(--success){% else %}inherit{% endif %};">
                             {{ data.prev_balance }}
                         </td>
                         <td><strong>KES {{ data.total_due }}</strong></td>
@@ -57,16 +81,16 @@
             No active units or tenants found requiring invoices for this period.
         </div>
         {% endif %}
-        
+
         <form method="POST">
             {% csrf_token %}
-            <div style="display: flex; justify-content: space-between; margin-top: var(--spacing-xl);">
+            <div class="form-actions">
                 <a href="{% url 'billing_wizard_rates' %}" class="btn btn-secondary">
-                    <i data-lucide="arrow-left" width="16" height="16" style="margin-right: 0.5rem;"></i>
+                    <i data-lucide="arrow-left" width="16" height="16"></i>
                     Back to Rates
                 </a>
                 <button type="submit" class="btn btn-primary" {% if not preview_data %}disabled{% endif %}>
-                    <i data-lucide="check-circle" width="16" height="16" style="margin-right: 0.5rem;"></i>
+                    <i data-lucide="check-circle" width="16" height="16"></i>
                     Generate {{ total_invoices }} Invoices
                 </button>
             </div>

@@ -62,7 +62,7 @@
         </div>
 
         <div class="header-actions">
-            <button onclick="openModal('{% url 'add_tenant' %}', 'Add New Tenant')" class="btn btn-primary">
+            <button type="button" onclick="openModal('{% url 'add_tenant' %}', 'Add New Tenant')" class="btn btn-primary">
                 <i data-lucide="user-plus" width="16" height="16"></i> Add New Tenant
             </button>
         </div>
@@ -125,7 +125,7 @@
                                 <span style="font-size: 0.85rem; color: var(--text-tertiary);">History Retained</span>
                             {% endif %}
                             
-                            <button onclick="openModal('{% url 'edit_tenant' tenant.id %}', 'Edit Tenant')" class="btn btn-secondary">
+                            <button type="button" onclick="openModal('{% url 'edit_tenant' tenant.id %}', 'Edit Tenant')" class="btn btn-secondary">
                                 <i data-lucide="edit" width="14" height="14" style="margin-right: 2px;"></i> Edit
                             </button>
                         </div>

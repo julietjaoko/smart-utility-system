@@ -2,6 +2,50 @@
 
 {% block title %}My Invoices{% endblock %}
 
+{% block extra_css %}
+<style>
+.account-balance-alert {
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+}
+
+.account-balance-amount {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-family: monospace;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.account-balance-currency {
+    font-size: 1.15rem;
+}
+
+.account-balance-number {
+    font-size: 2rem;
+    overflow-wrap: anywhere;
+}
+
+.invoice-amount-cell {
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    .account-balance-alert {
+        align-items: flex-start;
+    }
+
+    .account-balance-number {
+        font-size: 1.75rem;
+    }
+}
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'tenant_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
@@ -24,13 +68,14 @@
         </div>
     </div>
     
-    <div class="alert {% if current_balance > 0 %}alert-error{% else %}alert-success{% endif %}" style="align-items: center; padding: var(--spacing-lg); justify-content: space-between;">
+    <div class="alert account-balance-alert {% if current_balance > 0 %}alert-error{% else %}alert-success{% endif %}">
         <div>
             <div style="font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Current Account Balance</div>
-            <div style="font-size: 2rem; font-weight: 700; font-family: monospace;">
-                {% if current_balance > 0 %}KES {{ current_balance|floatformat:2 }}
-                {% elif current_balance < 0 %}KES {{ abs_balance|floatformat:2 }}
-                {% else %}KES 0.00{% endif %}
+            <div class="account-balance-amount">
+                <span class="account-balance-currency">KES</span>
+                <span class="account-balance-number">
+                    {% if current_balance > 0 %}{{ current_balance|floatformat:2 }}{% elif current_balance < 0 %}{{ abs_balance|floatformat:2 }}{% else %}0.00{% endif %}
+                </span>
             </div>
             <div style="font-size: 0.875rem; font-weight: 600; margin-top: 0.25rem;">
                 {% if current_balance > 0 %}Outstanding{% elif current_balance < 0 %}Credit{% else %}Fully Settled{% endif %}
@@ -68,7 +113,7 @@
                 <tr>
                     <td style="font-weight: 600; font-family: monospace;">{{ invoice.invoice_number }}</td>
                     <td>{{ invoice.billing_period }}</td>
-                    <td style="font-weight: 700;">KES {{ invoice.total_due|floatformat:2 }}</td>
+                    <td class="invoice-amount-cell">KES {{ invoice.total_due|floatformat:2 }}</td>
                     <td>{{ invoice.due_date|date:"M d, Y" }}</td>
                     <td><span class="status-badge status-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span></td>
                     <td>
