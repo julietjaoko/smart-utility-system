@@ -31,14 +31,14 @@ class BillingLedgerTests(TestCase):
         )
         self.tenant = Tenant.objects.create(user=tenant_user, unit=self.unit)
 
-    def make_invoice(self, number, subtotal, previous_balance):
+    def make_invoice(self, number, subtotal, previous_balance, days_offset=0):
         today = timezone.now().date()
         return Invoice.objects.create(
             unit=self.unit,
             tenant=self.tenant,
             invoice_number=number,
-            invoice_date=today,
-            due_date=today + timedelta(days=10),
+            invoice_date=today + timedelta(days=days_offset),
+            due_date=today + timedelta(days=days_offset + 10),
             billing_period=number,
             subtotal=Decimal(subtotal),
             previous_balance=Decimal(previous_balance),
@@ -67,3 +67,44 @@ class BillingLedgerTests(TestCase):
         self.assertEqual(new_invoice.total_due, Decimal('500.00'))
         self.assertEqual(current_balance, Decimal('500.00'))
         self.assertEqual(new_invoice.balance_due, Decimal('500.00'))
+
+    def test_latest_invoice_payment_clears_carried_previous_invoices(self):
+        carried_balance = Decimal('0.00')
+        old_invoices = []
+
+        for index in range(6):
+            invoice = self.make_invoice(
+                f'INV-OLD-{index + 1}',
+                '3000.00',
+                str(carried_balance),
+                days_offset=index,
+            )
+            old_invoices.append(invoice)
+            carried_balance += Decimal('3000.00')
+
+        latest_invoice = self.make_invoice(
+            'INV-LATEST',
+            '7000.00',
+            str(carried_balance),
+            days_offset=6,
+        )
+        AccountBalance.objects.create(tenant=self.tenant, current_balance=Decimal('25000.00'))
+
+        Payment.objects.create(
+            invoice=latest_invoice,
+            payment_date=timezone.now().date(),
+            amount_paid=Decimal('25000.00'),
+            payment_method='CASH',
+        )
+
+        current_balance = recalculate_tenant_ledger(self.tenant)
+
+        for invoice in old_invoices:
+            invoice.refresh_from_db()
+            self.assertEqual(invoice.status, 'PAID')
+
+        latest_invoice.refresh_from_db()
+        self.assertEqual(latest_invoice.status, 'PAID')
+        self.assertEqual(latest_invoice.previous_balance, Decimal('18000.00'))
+        self.assertEqual(latest_invoice.total_due, Decimal('25000.00'))
+        self.assertEqual(current_balance, Decimal('0.00'))

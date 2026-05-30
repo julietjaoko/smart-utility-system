@@ -58,20 +58,24 @@ def recalculate_tenant_ledger(tenant):
             .values('invoice_id')
             .annotate(total=Sum('amount_paid'))
         }
+        total_paid_to_tenant = sum(payment_totals.values(), Decimal('0.00'))
 
         balance = Decimal('0.00')
+        cumulative_charges = Decimal('0.00')
         today = timezone.now().date()
 
         for invoice in invoices:
             total_paid = payment_totals.get(invoice.id, Decimal('0.00'))
             recalculated_total = invoice.subtotal + balance
+            cumulative_charges += invoice.subtotal
+            invoice_remaining_after_all_payments = cumulative_charges - total_paid_to_tenant
 
-            if total_paid >= recalculated_total:
+            if invoice_remaining_after_all_payments <= 0:
                 recalculated_status = 'PAID'
+            elif invoice_remaining_after_all_payments < invoice.subtotal:
+                recalculated_status = 'PARTIALLY_PAID'
             elif invoice.due_date < today:
                 recalculated_status = 'OVERDUE'
-            elif total_paid > 0:
-                recalculated_status = 'PARTIALLY_PAID'
             else:
                 recalculated_status = 'UNPAID'
 
