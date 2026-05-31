@@ -3340,6 +3340,7 @@ def system_admin_dashboard(request):
     total_tenants = Tenant.objects.count()
     active_tenants = Tenant.objects.filter(is_active=True).count()
     total_units = Unit.objects.count()
+    total_invoices = Invoice.objects.count()
 
     # System-Wide Financials
     total_revenue_ytd = Payment.objects.filter(
@@ -3350,23 +3351,15 @@ def system_admin_dashboard(request):
         status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE']
     ).aggregate(total=Sum('total_due'))['total'] or Decimal('0.00')
 
-    # Top Performing Managers (By Revenue Collected)
-    # FIX: Changed 'payment' to 'payments' to match the related_name in models.py
-    top_managers = PropertyManager.objects.annotate(
-        total_collected=Sum(
-            'unit__invoice__payments__amount_paid', 
-            filter=Q(unit__invoice__payments__payment_date__year=current_year)
-        )
-    ).order_by('-total_collected')[:5]
-
     context = {
         "total_managers": total_managers,
         "total_tenants": total_tenants,
         "active_tenants": active_tenants,
         "total_units": total_units,
+        "total_invoices": total_invoices,
         "total_revenue_ytd": total_revenue_ytd,
         "total_outstanding": total_outstanding,
-        "top_managers": top_managers,
+        "current_year": current_year,
     }
     return render(request, "core/system_admin_dashboard.html", context)
 

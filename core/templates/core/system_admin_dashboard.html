@@ -1,6 +1,111 @@
 {% extends 'core/base.html' %}
 {% block title %}System Admin{% endblock %}
 
+{% block extra_css %}
+<style>
+.admin-dashboard-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing-xl);
+}
+
+.section-kicker {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin: 0 0 0.75rem;
+}
+
+.admin-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: var(--spacing-xl);
+}
+
+.admin-action-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.admin-action-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.admin-action-title {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.admin-action-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.admin-summary-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+    min-width: 0;
+}
+
+.admin-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.admin-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.admin-summary-label {
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+
+.admin-summary-value {
+    display: block;
+    margin-top: 0.35rem;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'system_admin_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
@@ -11,7 +116,7 @@
 
 {% block content %}
 <div class="card">
-    <div class="card-header">
+    <div class="admin-dashboard-hero">
         <div>
             <h1 class="card-title">
                 <i data-lucide="shield-check"></i>
@@ -27,11 +132,53 @@
         </a>
     </div>
 
+    <p class="section-kicker">Platform Overview</p>
     <div class="stats-grid">
-        <div class="stat-card"><div class="stat-label">Property Managers</div><div class="stat-value">{{ total_managers }}</div></div>
-        <div class="stat-card"><div class="stat-label">Tenants</div><div class="stat-value">{{ total_tenants }}</div></div>
-        <div class="stat-card"><div class="stat-label">Units</div><div class="stat-value">{{ total_units }}</div></div>
-        <div class="stat-card"><div class="stat-label">Invoices</div><div class="stat-value">{{ total_invoices }}</div></div>
+        <div class="stat-card"><div class="stat-label">Property Managers</div><div class="stat-value">{{ total_managers }}</div><small style="color: var(--text-secondary);">Active estates on platform</small></div>
+        <div class="stat-card"><div class="stat-label">Active Tenants</div><div class="stat-value">{{ active_tenants }}</div><small style="color: var(--text-secondary);">of {{ total_tenants }} tenant records</small></div>
+        <div class="stat-card"><div class="stat-label">Units</div><div class="stat-value">{{ total_units }}</div><small style="color: var(--text-secondary);">Across all managers</small></div>
+        <div class="stat-card"><div class="stat-label">Invoices</div><div class="stat-value">{{ total_invoices }}</div><small style="color: var(--text-secondary);">Platform-wide billing records</small></div>
+    </div>
+
+    <p class="section-kicker">Quick Actions</p>
+    <div class="admin-quick-actions">
+        <a href="{% url 'system_admin_managers' %}" class="admin-action-card">
+            <span class="admin-action-icon" style="background: #E0E7FF; color: #4338CA;">
+                <i data-lucide="briefcase-business" width="16" height="16"></i>
+            </span>
+            <span>
+                <span class="admin-action-title">Manage Managers</span>
+                <span class="admin-action-desc">Review estates and manager accounts</span>
+            </span>
+        </a>
+        <a href="{% url 'system_admin_create_manager' %}" class="admin-action-card">
+            <span class="admin-action-icon" style="background: #D1FAE5; color: #047857;">
+                <i data-lucide="user-plus" width="16" height="16"></i>
+            </span>
+            <span>
+                <span class="admin-action-title">Add Manager</span>
+                <span class="admin-action-desc">Create a new property manager login</span>
+            </span>
+        </a>
+    </div>
+
+    <p class="section-kicker">Financial Snapshot</p>
+    <div class="admin-summary-grid">
+        <div class="admin-summary-panel">
+            <span class="admin-summary-label">Revenue YTD</span>
+            <span class="admin-summary-value">KES {{ total_revenue_ytd|floatformat:2 }}</span>
+            <p style="color: var(--text-secondary); font-size: 0.8125rem; margin-top: 0.5rem;">Payments collected across the platform in {{ current_year }}.</p>
+        </div>
+        <div class="admin-summary-panel">
+            <span class="admin-summary-label">Outstanding</span>
+            <span class="admin-summary-value" style="color: var(--error);">KES {{ total_outstanding|floatformat:2 }}</span>
+            <p style="color: var(--text-secondary); font-size: 0.8125rem; margin-top: 0.5rem;">Open unpaid, partial, and overdue balances.</p>
+        </div>
+        <div class="admin-summary-panel">
+            <span class="admin-summary-label">Tenant Occupancy</span>
+            <span class="admin-summary-value">{{ active_tenants }} / {{ total_units }}</span>
+            <p style="color: var(--text-secondary); font-size: 0.8125rem; margin-top: 0.5rem;">Active tenants compared with total platform units.</p>
+        </div>
     </div>
 </div>
 {% endblock %}

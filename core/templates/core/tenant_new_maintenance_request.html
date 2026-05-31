@@ -34,8 +34,19 @@
             <button type="submit" class="btn btn-primary">
                 <i data-lucide="send" width="16"></i> Submit Request
             </button>
-            <a href="{% url 'tenant_maintenance_requests' %}" class="btn btn-secondary">Cancel</a>
+            <a href="{% url 'tenant_maintenance_requests' %}" class="btn btn-secondary" data-modal-cancel>Cancel</a>
         </div>
     </form>
 </div>
+
+<script>
+document.querySelectorAll('[data-modal-cancel]').forEach(function(cancelLink) {
+    cancelLink.addEventListener('click', function(event) {
+        if (typeof closeModal === 'function' && document.getElementById('dynamic-modal')?.contains(cancelLink)) {
+            event.preventDefault();
+            closeModal();
+        }
+    });
+});
+</script>
 {% endblock %}

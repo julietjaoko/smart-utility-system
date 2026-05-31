@@ -16,9 +16,9 @@
             <h1 class="card-title"><i data-lucide="message-square-warning"></i> Maintenance Requests</h1>
             <p style="color: var(--text-secondary); margin-top: 0.5rem;">Report issues and follow replies from your property manager.</p>
         </div>
-        <a href="{% url 'tenant_new_maintenance_request' %}" class="btn btn-primary">
+        <button type="button" onclick="openModal('{% url 'tenant_new_maintenance_request' %}', 'New Maintenance Request')" class="btn btn-primary">
             <i data-lucide="plus" width="16"></i> New Request
-        </a>
+        </button>
     </div>
 
     <div class="table-container">
