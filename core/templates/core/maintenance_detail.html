@@ -1,6 +1,22 @@
 {% extends 'core/base.html' %}
 {% block title %}Maintenance Detail{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    {% if is_manager %}
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'manager_maintenance_requests' %}">Maintenance Requests</a>
+    {% else %}
+    <a href="{% url 'tenant_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'tenant_maintenance_requests' %}">Maintenance Requests</a>
+    {% endif %}
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">{{ maintenance_request.subject }}</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">

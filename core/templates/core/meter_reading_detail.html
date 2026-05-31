@@ -2,6 +2,16 @@
 
 {% block title %}Reading Details{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'meter_reading_list' %}">Meter Readings</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Reading Details</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">

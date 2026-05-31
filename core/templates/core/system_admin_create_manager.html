@@ -1,6 +1,16 @@
 {% extends 'core/base.html' %}
 {% block title %}Create Property Manager{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'system_admin_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'system_admin_managers' %}">Property Managers</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Create Manager</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card" style="max-width: 760px;">
     <div class="card-header">

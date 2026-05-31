@@ -1,6 +1,16 @@
 {% extends 'core/base.html' %}
 {% block title %}New Maintenance Request{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'tenant_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'tenant_maintenance_requests' %}">Maintenance Requests</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">New Request</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card" style="max-width: 760px;">
     <div class="card-header">

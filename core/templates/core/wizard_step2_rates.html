@@ -26,6 +26,18 @@
 </style>
 {% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'invoice_list' %}">Invoices</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'billing_wizard_start' %}">Billing Wizard</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Rates</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card" style="max-width: 800px; margin: 0 auto;">
     <div class="card-header">

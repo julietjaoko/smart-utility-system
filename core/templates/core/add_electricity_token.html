@@ -2,6 +2,16 @@
 
 {% block title %}Log Electricity Token{% endblock %}
 
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'tenant_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'electricity_tokens' %}">Electricity Tokens</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Log Token</span>
+</nav>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div class="card-header">
