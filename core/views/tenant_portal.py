@@ -166,7 +166,7 @@ def tenant_preferences(request):
             
             preferences.save()
             
-            messages.success(request, '✓ Preferences updated successfully')
+            messages.success(request, 'Preferences updated successfully.')
             return redirect('tenant_preferences')
         
         context = {

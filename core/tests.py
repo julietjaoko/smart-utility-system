@@ -301,29 +301,46 @@ class LoginMessageTests(TestCase):
         self.assertNotContains(response, 'Logged in successfully.')
 
     def test_authenticated_pages_render_django_messages_as_toasts(self):
-        self.client.force_login(User.objects.create_user(
-            username='manager-toast@example.com',
+        manager_user = User.objects.create_user(
+            username='manager-toast-owner@example.com',
             password='password123',
             role='PROPERTY_MANAGER',
-        ))
+        )
         manager = PropertyManager.objects.create(
-            user=User.objects.get(username='manager-toast@example.com'),
+            user=manager_user,
             estate_name='Toast Estate',
         )
-        session = self.client.session
-        session.save()
+        unit = Unit.objects.create(
+            unit_number='T1',
+            estate_name='Toast Estate',
+            manager=manager,
+        )
+        tenant_user = User.objects.create_user(
+            username='tenant-toast@example.com',
+            password='password123',
+            role='TENANT',
+        )
+        Tenant.objects.create(
+            user=tenant_user,
+            unit=unit,
+            phone_number='0712345678',
+        )
 
-        from django.contrib.messages import get_messages
-        from django.contrib.messages.storage.fallback import FallbackStorage
-        from django.test import RequestFactory
-        request = RequestFactory().get(reverse('manager_dashboard'))
-        request.session = session
-        setattr(request, '_messages', FallbackStorage(request))
-        messages.success(request, 'Preferences updated successfully')
-        list(get_messages(request))
+        self.client.force_login(tenant_user)
+        response = self.client.post(
+            reverse('tenant_preferences'),
+            {
+                'phone_number': '0712345678',
+                'enable_sms_notifications': 'on',
+                'enable_email_notifications': 'on',
+                'show_consumption_alerts': 'on',
+            },
+            follow=True,
+        )
 
-        self.client.force_login(manager.user)
-        messages.success
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="toast success"')
+        self.assertContains(response, 'Preferences updated successfully.')
 
 
 class ActivityLogExportTests(TestCase):
