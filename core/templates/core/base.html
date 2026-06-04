@@ -410,7 +410,119 @@
         input:focus + .toggle-slider { box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2); }
         input:checked + .toggle-slider:before { transform: translateX(20px); }
 
-        /* --- FULL PAGE LOADER ANIMATION --- */
+        /* --- FULL PAGE LOADER --- */
+        .page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 10050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-md);
+            background:
+                radial-gradient(circle at 18% 12%, rgba(5, 150, 105, 0.14), transparent 42%),
+                radial-gradient(circle at 82% 88%, rgba(59, 130, 246, 0.08), transparent 38%),
+                rgba(248, 250, 252, 0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.35s ease, visibility 0.35s ease;
+        }
+        .page-loader.is-active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        html.page-loading { overflow: hidden; }
+        html.page-loading .page-loader { opacity: 1; visibility: visible; pointer-events: auto; }
+
+        .page-loader__panel {
+            width: min(100%, 380px);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) + 4px);
+            box-shadow: var(--shadow-lg);
+            padding: clamp(1.5rem, 4vw, 2.25rem);
+            text-align: center;
+            animation: loaderPanelIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes loaderPanelIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .page-loader__brand {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            margin: 0 auto var(--spacing-md);
+            border-radius: 16px;
+            background: rgba(5, 150, 105, 0.12);
+            color: var(--primary);
+            box-shadow: inset 0 0 0 1px rgba(5, 150, 105, 0.18);
+        }
+        .page-loader__brand svg { width: 28px; height: 28px; }
+
+        .page-loader__spinner {
+            position: relative;
+            width: 52px;
+            height: 52px;
+            margin: 0 auto;
+        }
+        .page-loader__ring,
+        .page-loader__ring::before {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+        .page-loader__ring {
+            border: 3px solid rgba(5, 150, 105, 0.15);
+        }
+        .page-loader__ring::before {
+            content: "";
+            border: 3px solid transparent;
+            border-top-color: var(--primary);
+            border-right-color: rgba(5, 150, 105, 0.45);
+            animation: loaderSpin 0.85s linear infinite;
+        }
+        @keyframes loaderSpin { to { transform: rotate(360deg); } }
+
+        .page-loader__message {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        @media (max-width: 480px) {
+            .page-loader { padding: var(--spacing-sm); align-items: flex-end; }
+            .page-loader__panel {
+                width: 100%;
+                border-radius: var(--radius) var(--radius) 0 0;
+                margin-bottom: 0;
+                padding-bottom: calc(var(--spacing-xl) + env(safe-area-inset-bottom, 0px));
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .page-loader,
+            .page-loader__panel,
+            .page-loader__ring::before {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        /* Legacy inline spinner (buttons / modals) */
         .loader {
             width: 48px; height: 48px; border: 5px solid #EFF6FF;
             border-bottom-color: var(--primary); border-radius: 50%;
@@ -438,9 +550,16 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; flex-direction: column; align-items: center; justify-content: center;">
-        <div class="loader"></div>
-        <p style="margin-top: 1rem; color: var(--primary); font-weight: 600; font-family: inherit;">Processing, please wait...</p>
+    <div id="page-loader" class="page-loader" role="status" aria-live="polite" aria-busy="false" aria-label="Loading page">
+        <div class="page-loader__panel">
+            <div class="page-loader__brand" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+            </div>
+            <div class="page-loader__spinner" aria-hidden="true">
+                <div class="page-loader__ring"></div>
+            </div>
+            <p class="page-loader__message" id="page-loader-message">Working...</p>
+        </div>
     </div>
 
     {% if request.user.is_authenticated %}
@@ -544,6 +663,59 @@
     {% endif %}
 
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        (function () {
+            const loader = document.getElementById('page-loader');
+            const messageEl = document.getElementById('page-loader-message');
+
+            const DEFAULT_MESSAGE = 'Working...';
+            function setCopy(message) {
+                if (messageEl) messageEl.textContent = message || DEFAULT_MESSAGE;
+            }
+
+            function show(message) {
+                if (!loader) return;
+                setCopy(message);
+                loader.classList.add('is-active');
+                loader.setAttribute('aria-busy', 'true');
+                document.documentElement.classList.add('page-loading');
+            }
+
+            function hide() {
+                if (!loader) return;
+                loader.classList.remove('is-active');
+                loader.setAttribute('aria-busy', 'false');
+                document.documentElement.classList.remove('page-loading');
+            }
+
+            window.SUMSLoader = { show: show, hide: hide, setCopy: setCopy };
+
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted) hide();
+            });
+
+            document.addEventListener('submit', function (event) {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement)) return;
+                if (form.dataset.noLoader !== undefined) return;
+                if (form.closest('#dynamic-modal')) return;
+                if (form.target && form.target !== '_self') return;
+
+                let message = 'Processing...';
+
+                const submitter = event.submitter;
+                const submitLabel = submitter && (submitter.value || submitter.textContent || '').trim();
+                if (submitLabel) {
+                    message = submitLabel.replace(/\s+/g, ' ');
+                } else if (form.querySelector('[name="username"]') && form.querySelector('[name="password"]')) {
+                    message = 'Signing you in...';
+                }
+
+                show(message);
+            }, true);
+        })();
+    </script>
 
     <script>
         lucide.createIcons();
@@ -801,17 +973,13 @@
                     });
                     
                     if (response.redirected) {
-                        closeModal(); // Hide the modal immediately
-                        
-                        // Show your existing global loading overlay
-                        const loader = document.getElementById('loading-overlay');
-                        if (loader) {
-                            loader.querySelector('p').textContent = 'Saving changes...';
-                            loader.style.display = 'flex';
+                        closeModal();
+
+                        if (window.SUMSLoader) {
+                            window.SUMSLoader.show('Saving changes...');
                         }
-                        
-                        // Proceed with the redirect behind the loading screen
-                        window.location.href = response.url; 
+
+                        window.location.href = response.url;
                         return;
                     }
                     

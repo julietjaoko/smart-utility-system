@@ -6,6 +6,8 @@ from decimal import Decimal
 
 # Custom User Model
 class User(AbstractUser):
+    """Application user with a role used for dashboard routing and access control."""
+
     ROLE_CHOICES = [
         ('SYSTEM_ADMIN', 'System Admin'),
         ('PROPERTY_MANAGER', 'Property Manager'),
@@ -21,6 +23,8 @@ class User(AbstractUser):
 
 # Property Manager
 class PropertyManager(models.Model):
+    """Stores manager-specific estate settings used when billing and reviewing usage."""
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     estate_name = models.CharField(max_length=100)
     water_anomaly_threshold = models.DecimalField(
@@ -42,6 +46,8 @@ class PropertyManager(models.Model):
 
 # Unit
 class Unit(models.Model):
+    """A rentable unit managed within one estate."""
+
     unit_number = models.CharField(max_length=20)
     estate_name = models.CharField(max_length=100)
     manager = models.ForeignKey(PropertyManager, on_delete=models.CASCADE)
@@ -172,7 +178,7 @@ class MeterReading(models.Model):
     def save(self, *args, **kwargs):
         from decimal import Decimal
         
-        # 1. Get the previous reading, excluding rejected ones
+        # Rejected readings are ignored so they do not affect future consumption values.
         previous_reading = MeterReading.objects.filter(
             meter=self.meter,
             reading_date__lt=self.reading_date
@@ -183,15 +189,12 @@ class MeterReading(models.Model):
         ).order_by('-reading_date').first()
 
         if previous_reading:
-            # Standard calculation for existing meters
             self.consumption = self.reading_value - previous_reading.reading_value
         else:
-            # FIX FOR NEW UNITS: 
-            # If this is the first ever reading for this meter, 
-            # assume the meter started at 0. The reading IS the consumption.
+            # A first reading has no earlier baseline, so the meter is treated as starting from zero.
             self.consumption = self.reading_value
 
-        # --- ANOMALY DETECTION LOGIC ---
+        # Hard limits catch impossible or unusually high readings before comparing recent trends.
         self.is_anomaly = False
         manager = self.meter.unit.manager
         hard_limits = {
@@ -209,7 +212,7 @@ class MeterReading(models.Model):
         if self.is_anomaly and self._state.adding:
             self.verification_status = 'PENDING'
 
-        # Scope anomalies to the CURRENT tenant only
+        # Trend checks use only the current tenant's period so a previous tenant's usage is not mixed in.
         current_tenant = self.meter.unit.tenants.filter(is_active=True).first()
         
         recent_query = MeterReading.objects.filter(
@@ -221,17 +224,16 @@ class MeterReading(models.Model):
             pk=self.pk if self.pk else None
         )
         
-        # Only look at history since this specific tenant moved in
         if current_tenant and current_tenant.move_in_date:
             recent_query = recent_query.filter(reading_date__gte=current_tenant.move_in_date)
             
         recent_readings = recent_query.order_by('-reading_date')[:3]
 
-        # Only run baseline anomaly checks after absolute checks have run.
+        # At least two readings are needed before a tenant-specific average is meaningful.
         if recent_readings.count() >= 2:
             avg_consumption = sum(r.consumption for r in recent_readings) / Decimal(recent_readings.count())
             
-            # +/- 30% Anomaly Logic
+            # A 30% band allows normal variation while still highlighting sudden usage changes.
             lower_bound = avg_consumption * Decimal('0.70')
             upper_bound = avg_consumption * Decimal('1.30')
             
@@ -243,8 +245,6 @@ class MeterReading(models.Model):
                 if self._state.adding:
                     self.verification_status = 'PENDING'
         
-        # Note: We must call the base models.Model save() method, not super() 
-        # to avoid infinite recursion issues in some Django setups.
         super(MeterReading, self).save(*args, **kwargs)
 
 # Rate Configuration Model
@@ -461,42 +461,34 @@ class Invoice(models.Model):
     
     def calculate_totals(self):
         """
-        Calculate all invoice totals.
-        This method is called before saving.
+        Recalculate charges from the stored units, rates, and carried balance.
         """
-        # Calculate water charge
         self.water_charge = self.water_units * self.water_rate
         
-        # Calculate electricity charge
         if self.electricity_units and self.electricity_rate:
             self.electricity_charge = self.electricity_units * self.electricity_rate
         else:
             self.electricity_charge = Decimal('0.00')
         
-        # Calculate subtotal (before previous balance)
+        # The subtotal is kept separate so the invoice can show current charges apart from older debt.
         self.subtotal = self.water_charge + self.electricity_charge + self.total_fixed_charges
-        
-        # Calculate total due (including previous balance)
         self.total_due = self.subtotal + self.previous_balance
 
     @property
     def abs_previous_balance(self):
-        """Makes the balance a positive number for the display"""
+        """Return a display-friendly balance while preserving the stored sign."""
         return abs(self.previous_balance)
     
     def update_status(self):
         """
-        Update invoice status based on payments.
-        Called after any payment is recorded.
+        Set the invoice status from payments and the due date.
         """
         from decimal import Decimal
         
-        # Get total paid for this invoice
         total_paid = Payment.objects.filter(invoice=self).aggregate(
             total=Sum('amount_paid')
         )['total'] or Decimal('0.00')
         
-        # Update status
         if total_paid >= self.total_due:
             self.status = 'PAID'
         elif self.due_date < timezone.now().date():
@@ -583,10 +575,9 @@ class Payment(models.Model):
     
     def save(self, *args, **kwargs):
         """
-        Override save to update invoice status after payment.
+        Keep invoice status in sync whenever a payment is saved.
         """
         super().save(*args, **kwargs)
-        # Update invoice status
         self.invoice.update_status()
 
 
@@ -620,7 +611,7 @@ class AccountBalance(models.Model):
     
     @property
     def abs_balance(self):
-        """Returns the positive value of the balance for the template"""
+        """Return a display-friendly balance while preserving the stored sign."""
         return abs(self.current_balance)
 
 
@@ -763,42 +754,33 @@ class MaintenanceMessage(models.Model):
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-# ---------------------------------------------------------
-# SIGNALS: Automatic Background Tasks
-# ---------------------------------------------------------
-
 @receiver(post_save, sender=Unit)
 def manage_unit_meters(sender, instance, created, **kwargs):
     """
-    Automatically creates or activates/deactivates meters when a Unit is saved.
+    Keep meter records aligned with the utility options selected on a unit.
     """
-    # 1. Handle Water Meter
+    # Existing meters are deactivated instead of deleted so old readings remain available.
     if instance.has_water_meter:
-        # get_or_create safely makes one if it doesn't exist, and ignores if it does
         meter, meter_created = Meter.objects.get_or_create(
             unit=instance,
             meter_type='WATER',
             defaults={
-                'meter_number': f'WTR-{instance.unit_number}', # Default serial number
+                'meter_number': f'WTR-{instance.unit_number}',
                 'is_active': True
             }
         )
-        # If it already existed but was inactive, reactivate it
         if not meter_created and not meter.is_active:
             meter.is_active = True
             meter.save()
     else:
-        # If unchecked, safely deactivate the meter (don't delete to preserve history!)
         Meter.objects.filter(unit=instance, meter_type='WATER').update(is_active=False)
         
-        
-    # 2. Handle Electricity Meter
     if instance.has_electricity_meter:
         meter, meter_created = Meter.objects.get_or_create(
             unit=instance,
             meter_type='ELECTRICITY',
             defaults={
-                'meter_number': f'ELEC-{instance.unit_number}', # Default serial number
+                'meter_number': f'ELEC-{instance.unit_number}',
                 'is_active': True
             }
         )

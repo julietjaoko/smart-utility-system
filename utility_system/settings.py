@@ -85,9 +85,7 @@ WSGI_APPLICATION = 'utility_system.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# ==========================================
 # DATABASE CONFIGURATION (Aiven Cloud & Local)
-# ==========================================
 
 DB_HOST = config('DB_HOST', default='localhost')
 
