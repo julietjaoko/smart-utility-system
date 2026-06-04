@@ -1,64 +1,27 @@
 import json
 import logging
-import os
-from calendar import month_name, monthrange
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
-from django.db import transaction
-from django.db.models import Avg, Count, F, Max, Q, Sum
-from django.db.models.functions import TruncMonth, TruncYear
-from django.http import FileResponse, HttpResponse, JsonResponse
+from django.db.models import Avg, Count, Q, Sum
+from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_date
-from django.views.decorators.csrf import csrf_exempt
 
-from ..decorators import manager_required, system_admin_required, tenant_required
-from ..email_utils import InvoiceNotification, PaymentNotification
-from ..excel_exporter import ConsumptionExporter, InvoiceExporter, PaymentExporter
-from ..forms import (
-    MaintenanceMessageForm,
-    MaintenanceRequestForm,
-    MeterReadingForm,
-    PaymentForm,
-    PropertyManagerCreationForm,
-    PropertyManagerUpdateForm,
-    TenantCreationForm,
-    TenantUpdateForm,
-    UnitForm,
-)
+from ..decorators import manager_required
 from ..models import (
-    AccountBalance,
-    ElectricityToken,
-    FixedCharge,
     Invoice,
-    MaintenanceMessage,
-    MaintenanceRequest,
-    Meter,
     MeterReading,
     Payment,
     PropertyManager,
-    RateConfig,
     Tenant,
-    TenantPreferences,
     Unit,
 )
-from ..mpesa import process_mpesa_callback
-from ..pdf_generator import InvoicePDF, PaymentReceiptPDF
-from ..sms_utils import InvoiceSMS, PaymentSMS, TokenSMS
 from .helpers import (
-    recalculate_meter_readings,
-    recalculate_tenant_ledger,
     refresh_invoice_statuses,
-    tenant_can_log_tokens,
 )
 
 logger = logging.getLogger(__name__)
