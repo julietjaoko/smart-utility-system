@@ -3,12 +3,11 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import DecimalField, Exists, F, OuterRef, Subquery, Sum
 from django.urls import reverse
 from django.utils import timezone
 
 from ..models import Invoice, Meter, MeterReading, Payment, Tenant, Unit
-from ..views.helpers import refresh_invoice_statuses
 
 MIN_BASELINE_READINGS = 3
 COLLECTION_RATE_WARN = 70
@@ -24,35 +23,40 @@ def _insight(level, icon, message, *, link_name=None, link_kwargs=None, link_lab
 def _high_usage_spikes(manager):
     """Units whose latest reading exceeds the stored smart baseline upper bound."""
     spikes = []
+    latest_consumption = (
+        MeterReading.objects.filter(meter=OuterRef('pk'))
+        .exclude(verification_status='REJECTED')
+        .order_by('-reading_date')
+        .values('consumption')[:1]
+    )
+
     meters = Meter.objects.filter(
         unit__manager=manager,
         is_active=True,
-    ).select_related('unit', 'usage_baseline')
+        usage_baseline__sample_size__gte=MIN_BASELINE_READINGS,
+        usage_baseline__mean_consumption__gt=0,
+    ).select_related(
+        'unit',
+        'usage_baseline',
+    ).annotate(
+        latest_consumption=Subquery(latest_consumption, output_field=DecimalField()),
+    ).filter(
+        latest_consumption__gt=F('usage_baseline__upper_bound'),
+    )
 
     for meter in meters:
-        baseline = getattr(meter, 'usage_baseline', None)
-        if not baseline or baseline.sample_size < MIN_BASELINE_READINGS:
-            continue
-
-        latest = (
-            MeterReading.objects.filter(meter=meter)
-            .exclude(verification_status='REJECTED')
-            .order_by('-reading_date')
-            .first()
+        baseline = meter.usage_baseline
+        pct = float(
+            (meter.latest_consumption - baseline.mean_consumption)
+            / baseline.mean_consumption
+            * 100
         )
-        if not latest or baseline.mean_consumption <= 0:
-            continue
-
-        if latest.consumption > baseline.upper_bound:
-            pct = float(
-                (latest.consumption - baseline.mean_consumption) / baseline.mean_consumption * 100
-            )
-            spikes.append({
-                'unit_id': meter.unit_id,
-                'unit_number': meter.unit.unit_number,
-                'meter_label': meter.get_meter_type_display(),
-                'pct': pct,
-            })
+        spikes.append({
+            'unit_id': meter.unit_id,
+            'unit_number': meter.unit.unit_number,
+            'meter_label': meter.get_meter_type_display(),
+            'pct': pct,
+        })
 
     spikes.sort(key=lambda s: s['pct'], reverse=True)
     return spikes
@@ -60,20 +64,23 @@ def _high_usage_spikes(manager):
 
 def _units_missing_readings_this_month(manager, month_start, month_end):
     """Active tenanted units with an active meter but no reading in the current month."""
-    missing = 0
-    units = Unit.objects.filter(manager=manager).prefetch_related('meter_set')
-    for unit in units:
-        if not Tenant.objects.filter(unit=unit, is_active=True).exists():
-            continue
-        for meter in unit.meter_set.filter(is_active=True):
-            has_reading = MeterReading.objects.filter(
-                meter=meter,
-                reading_date__gte=month_start,
-                reading_date__lte=month_end,
-            ).exclude(verification_status='REJECTED').exists()
-            if not has_reading:
-                missing += 1
-    return missing
+    active_tenant = Tenant.objects.filter(unit=OuterRef('unit_id'), is_active=True)
+    month_reading = MeterReading.objects.filter(
+        meter=OuterRef('pk'),
+        reading_date__gte=month_start,
+        reading_date__lte=month_end,
+    ).exclude(verification_status='REJECTED')
+
+    return Meter.objects.filter(
+        unit__manager=manager,
+        is_active=True,
+    ).annotate(
+        has_active_tenant=Exists(active_tenant),
+        has_month_reading=Exists(month_reading),
+    ).filter(
+        has_active_tenant=True,
+        has_month_reading=False,
+    ).count()
 
 
 def get_manager_insights(manager, limit=5):
@@ -106,9 +113,8 @@ def get_manager_insights(manager, limit=5):
         unit__manager=manager,
         status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE'],
     )
-    refresh_invoice_statuses(open_invoices)
 
-    overdue_count = Invoice.objects.filter(unit__manager=manager, status='OVERDUE').count()
+    overdue_count = open_invoices.filter(due_date__lt=today).count()
     if overdue_count:
         insights.append(_insight(
             'critical',

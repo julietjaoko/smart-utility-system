@@ -2,6 +2,104 @@
 
 {% block title %}Reports{% endblock %}
 
+{% block extra_css %}
+<style>
+.reports-intro {
+    color: var(--text-secondary);
+    margin: 0 0 var(--spacing-lg);
+    max-width: 760px;
+}
+
+.report-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+}
+
+.report-type-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    min-height: 116px;
+    padding: var(--spacing-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: inherit;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.report-type-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(5, 150, 105, 0.45);
+    box-shadow: var(--shadow-md);
+}
+
+.report-type-card.is-active {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.08), var(--surface) 70%);
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.10);
+}
+
+.report-type-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--primary);
+    background: rgba(5, 150, 105, 0.10);
+}
+
+.report-type-title {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.report-type-desc {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+.report-filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--spacing-md);
+    align-items: end;
+    padding: var(--spacing-lg);
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.report-filter-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .report-type-card {
+        min-height: auto;
+    }
+
+    .report-filter-actions .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
@@ -29,24 +127,34 @@
         </div>
     </div>
 
-    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+    <p class="reports-intro">
         Generate management reports with shared filters. Preview on screen, then export to Excel for audits and record-keeping.
     </p>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-md); margin-bottom: var(--spacing-xl);">
+    <div class="report-type-grid">
         {% for value, label, desc in report_types %}
         <a href="?report={{ value }}&start_date={{ filters.start_date_str }}&end_date={{ filters.end_date_str }}{% if filters.unit_id %}&unit={{ filters.unit_id }}{% endif %}"
-           class="quick-action-card" style="text-decoration: none; {% if filters.report_type == value %}border-color: var(--primary); box-shadow: var(--shadow-md);{% endif %}">
-            <div class="quick-action-icon"><i data-lucide="file-bar-chart" width="20" height="20"></i></div>
+           class="report-type-card {% if filters.report_type == value %}is-active{% endif %}">
+            <span class="report-type-icon">
+                {% if value == 'financial' %}
+                <i data-lucide="wallet" width="20" height="20"></i>
+                {% elif value == 'arrears' %}
+                <i data-lucide="alert-circle" width="20" height="20"></i>
+                {% elif value == 'consumption' %}
+                <i data-lucide="gauge" width="20" height="20"></i>
+                {% else %}
+                <i data-lucide="alert-triangle" width="20" height="20"></i>
+                {% endif %}
+            </span>
             <div>
-                <span class="quick-action-title">{{ label }}</span>
-                <span class="quick-action-desc">{{ desc }}</span>
+                <span class="report-type-title">{{ label }}</span>
+                <span class="report-type-desc">{{ desc }}</span>
             </div>
         </a>
         {% endfor %}
     </div>
 
-    <form method="GET" class="reading-filter-form">
+    <form method="GET" class="report-filter-form">
         <input type="hidden" name="report" value="{{ filters.report_type }}">
         <div>
             <label class="form-label">From</label>
@@ -75,7 +183,7 @@
             </select>
         </div>
         {% endif %}
-        <div style="display: flex; gap: var(--spacing-sm); align-items: flex-end;">
+        <div class="report-filter-actions">
             <button type="submit" class="btn btn-primary">Apply filters</button>
             <a href="{% url 'export_report_excel' %}?report={{ filters.report_type }}&start_date={{ filters.start_date_str }}&end_date={{ filters.end_date_str }}{% if filters.unit_id %}&unit={{ filters.unit_id }}{% endif %}{% if filters.meter_type %}&meter_type={{ filters.meter_type }}{% endif %}" class="btn btn-secondary">
                 <i data-lucide="download" width="16" height="16"></i>

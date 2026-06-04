@@ -123,6 +123,14 @@ class BillingLedgerTests(TestCase):
         self.assertEqual(latest_invoice.total_due, Decimal('25000.00'))
         self.assertEqual(current_balance, Decimal('0.00'))
 
+    def test_manager_dashboard_loads_with_insights(self):
+        self.client.force_login(self.manager.user)
+
+        response = self.client.get(reverse('manager_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Insights')
+
 
 class ConsumptionExportTests(TestCase):
     def setUp(self):

@@ -2,6 +2,10 @@
 
 {% block title %}Advanced Analytics{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block breadcrumbs %}
 <nav class="breadcrumbs">
     <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
