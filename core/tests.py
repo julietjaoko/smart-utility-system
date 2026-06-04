@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import timedelta
 from io import BytesIO
+from unittest.mock import Mock
 
 from django.urls import reverse
 from django.test import TestCase
@@ -20,6 +21,7 @@ from .models import (
     Unit,
     User,
 )
+from .sms_utils import AfricasTalkingSMS
 from .views import recalculate_tenant_ledger
 
 
@@ -341,6 +343,56 @@ class LoginMessageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'class="toast success"')
         self.assertContains(response, 'Preferences updated successfully.')
+
+
+class AfricasTalkingSMSTests(TestCase):
+    def test_success_depends_on_recipient_status(self):
+        service = AfricasTalkingSMS()
+        service.sms = Mock()
+        service.sms.send.return_value = {
+            'SMSMessageData': {
+                'Message': 'Sent to 1/1 Total Cost: KES 0.8000',
+                'Recipients': [
+                    {
+                        'statusCode': 101,
+                        'number': '+254712345678',
+                        'status': 'Success',
+                        'messageId': 'ATXid_test',
+                    }
+                ],
+            }
+        }
+
+        result = service.send_sms('0712345678', 'Test message')
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['status'], 'Success')
+        service.sms.send.assert_called_once_with(
+            message='Test message',
+            recipients=['+254712345678'],
+        )
+
+    def test_failed_recipient_status_is_reported_as_failed(self):
+        service = AfricasTalkingSMS()
+        service.sms = Mock()
+        service.sms.send.return_value = {
+            'SMSMessageData': {
+                'Message': 'Sent to 0/1 Total Cost: KES 0.0000',
+                'Recipients': [
+                    {
+                        'statusCode': 406,
+                        'number': '+254712345678',
+                        'status': 'InvalidPhoneNumber',
+                    }
+                ],
+            }
+        }
+
+        result = service.send_sms('0712345678', 'Test message')
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['status'], 'InvalidPhoneNumber')
+        self.assertEqual(result['error'], 'InvalidPhoneNumber')
 
 
 class ActivityLogExportTests(TestCase):

@@ -1,8 +1,6 @@
-"""
-SMS notification utilities using Africa's Talking API.
-Handles sending SMS for invoices, payments, and alerts.
-"""
+"""SMS notification utilities using Africa's Talking API."""
 
+import logging
 import requests
 import urllib3
 from django.conf import settings
@@ -30,6 +28,8 @@ requests.post = _patched_post
 
 import africastalking  # import AFTER the patch
 
+logger = logging.getLogger(__name__)
+
 
 class AfricasTalkingSMS:
     """
@@ -44,6 +44,22 @@ class AfricasTalkingSMS:
         # Initialize SDK
         africastalking.initialize(self.username, self.api_key)
         self.sms = africastalking.SMS
+
+    def normalize_phone_number(self, phone_number):
+        """Convert local Kenyan phone numbers to E.164 format."""
+        phone_number = str(phone_number or '').strip().replace(' ', '').replace('-', '')
+
+        if phone_number.startswith('0'):
+            return '+254' + phone_number[1:]
+        if phone_number.startswith('254'):
+            return '+' + phone_number
+        if phone_number.startswith('+'):
+            return phone_number
+        return '+254' + phone_number
+
+    def _recipient_result(self, response):
+        recipients = response.get('SMSMessageData', {}).get('Recipients', [])
+        return recipients[0] if recipients else {}
         
     def send_sms(self, phone_number, message):
         """
@@ -57,36 +73,45 @@ class AfricasTalkingSMS:
             dict: Response with success status and details
         """
         try:
-            # Format phone number
-            if phone_number.startswith('0'):
-                phone_number = '+254' + phone_number[1:]
-            elif phone_number.startswith('254'):
-                phone_number = '+' + phone_number
-            elif not phone_number.startswith('+'):
-                phone_number = '+254' + phone_number
+            phone_number = self.normalize_phone_number(phone_number)
                 
             # Send SMS (Sender ID removed for sandbox compatibility!)
             response = self.sms.send(
                 message=message,
                 recipients=[phone_number]
             )
-            
-            # Print the exact response to your terminal!
-            print("\n=== AFRICA'S TALKING API RESPONSE ===")
-            print(response)
-            print("=====================================\n")
-            
+
+            recipient = self._recipient_result(response)
+            provider_status = recipient.get('status')
+            provider_message = response.get('SMSMessageData', {}).get('Message', '')
+            success = provider_status == 'Success'
+
+            if success:
+                logger.info(
+                    "Africa's Talking SMS accepted for %s: %s",
+                    phone_number,
+                    provider_message,
+                )
+            else:
+                logger.warning(
+                    "Africa's Talking SMS failed for %s: status=%s response=%s",
+                    phone_number,
+                    provider_status or 'MissingRecipientStatus',
+                    response,
+                )
+
             return {
-                'success': True,
+                'success': success,
                 'response': response,
-                'message': 'SMS sent successfully'
+                'recipient': recipient,
+                'status': provider_status,
+                'status_code': recipient.get('statusCode'),
+                'error': None if success else provider_status or provider_message or 'Unknown SMS failure',
+                'message': 'SMS sent successfully' if success else provider_message or 'SMS failed',
             }
             
         except Exception as e:
-            # Print the exact error to your terminal!
-            print("\n=== AFRICA'S TALKING API ERROR ===")
-            print(str(e))
-            print("==================================\n")
+            logger.exception("Africa's Talking SMS error for %s", phone_number)
             return {
                 'success': False,
                 'error': str(e),
