@@ -157,6 +157,11 @@ class MeterReading(models.Model):
         default=False,
         help_text="Flagged if consumption pattern is unusual"
     )
+    anomaly_type = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="Machine-readable reason when is_anomaly is True",
+    )
     verification_status = models.CharField(
         max_length=10,
         choices=VERIFICATION_CHOICES,
@@ -174,9 +179,23 @@ class MeterReading(models.Model):
     
     def __str__(self):
         return f"{self.meter.unit.unit_number} - {self.meter.get_meter_type_display()} - {self.reading_value}"
+
+    @property
+    def has_anomaly(self):
+        return self.is_anomaly
+
+    def get_anomaly_label(self):
+        if not self.anomaly_type:
+            return ''
+        from .baselines.services import ANOMALY_LABELS
+        return ANOMALY_LABELS.get(
+            self.anomaly_type,
+            self.anomaly_type.replace('_', ' ').title(),
+        )
     
     def save(self, *args, **kwargs):
         from decimal import Decimal
+        from .baselines.services import detect_reading_anomalies, refresh_meter_baseline
         
         # Rejected readings are ignored so they do not affect future consumption values.
         previous_reading = MeterReading.objects.filter(
@@ -191,61 +210,42 @@ class MeterReading(models.Model):
         if previous_reading:
             self.consumption = self.reading_value - previous_reading.reading_value
         else:
-            # A first reading has no earlier baseline, so the meter is treated as starting from zero.
             self.consumption = self.reading_value
 
-        # Hard limits catch impossible or unusually high readings before comparing recent trends.
-        self.is_anomaly = False
-        manager = self.meter.unit.manager
-        hard_limits = {
-            'WATER': manager.water_anomaly_threshold,
-            'ELECTRICITY': manager.electricity_anomaly_threshold,
-        }
-        max_expected_consumption = hard_limits.get(self.meter.meter_type, Decimal('500.00'))
-
-        if previous_reading and self.reading_value < previous_reading.reading_value:
-            self.is_anomaly = True
-
-        if self.consumption <= 0 or self.consumption > max_expected_consumption:
-            self.is_anomaly = True
+        self.is_anomaly, self.anomaly_type = detect_reading_anomalies(self)
+        if not self.is_anomaly:
+            self.anomaly_type = ''
 
         if self.is_anomaly and self._state.adding:
             self.verification_status = 'PENDING'
-
-        # Trend checks use only the current tenant's period so a previous tenant's usage is not mixed in.
-        current_tenant = self.meter.unit.tenants.filter(is_active=True).first()
         
-        recent_query = MeterReading.objects.filter(
-            meter=self.meter,
-            reading_date__lt=self.reading_date
-        ).exclude(
-            verification_status='REJECTED'
-        ).exclude(
-            pk=self.pk if self.pk else None
+        super().save(*args, **kwargs)
+        refresh_meter_baseline(self.meter)
+
+
+class UnitMeterBaseline(models.Model):
+    """Rolling consumption profile for one meter (per unit + utility type)."""
+
+    meter = models.OneToOneField(
+        Meter,
+        on_delete=models.CASCADE,
+        related_name='usage_baseline',
+    )
+    sample_size = models.PositiveSmallIntegerField(default=0)
+    mean_consumption = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    std_deviation = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    lower_bound = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    upper_bound = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Unit meter baseline'
+
+    def __str__(self):
+        return (
+            f'{self.meter.unit.unit_number} {self.meter.get_meter_type_display()} '
+            f'baseline (n={self.sample_size})'
         )
-        
-        if current_tenant and current_tenant.move_in_date:
-            recent_query = recent_query.filter(reading_date__gte=current_tenant.move_in_date)
-            
-        recent_readings = recent_query.order_by('-reading_date')[:3]
-
-        # At least two readings are needed before a tenant-specific average is meaningful.
-        if recent_readings.count() >= 2:
-            avg_consumption = sum(r.consumption for r in recent_readings) / Decimal(recent_readings.count())
-            
-            # A 30% band allows normal variation while still highlighting sudden usage changes.
-            lower_bound = avg_consumption * Decimal('0.70')
-            upper_bound = avg_consumption * Decimal('1.30')
-            
-            if (self.consumption <= 0 or 
-                self.consumption < lower_bound or 
-                self.consumption > upper_bound):
-                self.is_anomaly = True
-                
-                if self._state.adding:
-                    self.verification_status = 'PENDING'
-        
-        super(MeterReading, self).save(*args, **kwargs)
 
 # Rate Configuration Model
 class RateConfig(models.Model):

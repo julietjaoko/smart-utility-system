@@ -23,7 +23,6 @@ def login_view(request):
                 return redirect("manager_dashboard")
 
             logout(request)
-            messages.error(request, "Property Manager profile not found. Please contact admin.")
             return redirect("login")
 
         if request.user.role == "TENANT":
@@ -31,7 +30,6 @@ def login_view(request):
                 return redirect("tenant_dashboard")
 
             logout(request)
-            messages.error(request, "Tenant profile not found. Please contact admin.")
             return redirect("login")
 
         return redirect("/admin/")
@@ -56,24 +54,30 @@ def login_view(request):
             )
 
             if user.is_superuser or user.role == "SYSTEM_ADMIN":
+                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("system_admin_dashboard")
 
             if user.role == "PROPERTY_MANAGER" and not PropertyManager.objects.filter(user=user).exists():
-                messages.error(request, "Property Manager profile not found. Please contact admin.")
-                return render(request, "core/login.html")
+                logout(request)
+                messages.error(request, "Invalid username or password.", extra_tags="invalid-login")
+                return redirect("login")
 
             if user.role == "TENANT" and not Tenant.objects.filter(user=user).exists():
-                messages.error(request, "Tenant profile not found. Please contact admin.")
-                return render(request, "core/login.html")
+                logout(request)
+                messages.error(request, "Invalid username or password.", extra_tags="invalid-login")
+                return redirect("login")
 
             if user.role == "PROPERTY_MANAGER":
+                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("manager_dashboard")
             elif user.role == "TENANT":
+                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("tenant_dashboard")
             else:
+                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("/admin/")
 
-        messages.error(request, "Invalid username or password")
+        messages.error(request, "Invalid username or password.", extra_tags="invalid-login")
 
     return render(request, "core/login.html")
 

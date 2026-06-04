@@ -106,17 +106,64 @@
     <div class="alert alert-warning">
         <i data-lucide="alert-triangle" width="20" height="20"></i>
         <div>
-            <strong>Anomaly Detected: {{ reading.anomaly_type }}</strong>
+            <strong>Smart anomaly: {{ reading.get_anomaly_label }}</strong>
             <p style="margin-top: 0.25rem; font-size: 0.875rem; opacity: 0.9;">
-                {% if reading.anomaly_type == 'zero_consumption' %}
-                No consumption detected. The reading is the same as the previous one.
-                {% elif reading.anomaly_type == 'negative_consumption' %}
-                Reading is lower than the previous reading. This may indicate a meter reset or data entry error.
-                {% elif reading.anomaly_type == 'high_consumption' %}
-                Consumption is significantly higher than average. This may indicate a leak or unusual usage.
+                {% if reading.anomaly_type == 'below_baseline' or reading.anomaly_type == 'above_baseline' %}
+                Compared to this unit’s learned profile from the last {{ baseline_at_reading.sample_size|default:"few" }} reading(s).
+                Normal band: {{ baseline_at_reading.lower_bound|floatformat:2 }} – {{ baseline_at_reading.upper_bound|floatformat:2 }} units
+                (mean {{ baseline_at_reading.mean_consumption|floatformat:2 }}).
+                {% elif reading.anomaly_type == 'hard_limit_exceeded' %}
+                Above the estate-wide hard limit configured under Rates &amp; Charges.
+                {% else %}
+                {{ reading.get_anomaly_label }}. Review the reading and photo before billing.
                 {% endif %}
             </p>
         </div>
+    </div>
+    {% endif %}
+
+    {% if baseline_at_reading or current_baseline %}
+    <div style="margin-bottom: var(--spacing-xl); padding: var(--spacing-lg); border: 1px solid var(--border); border-radius: var(--radius); background: var(--background);">
+        <h2 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 var(--spacing-md); display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="brain-circuit" width="20" height="20"></i>
+            Smart baseline (this meter)
+        </h2>
+        {% if baseline_at_reading %}
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0 0 var(--spacing-md);">
+            Profile used when this reading was recorded ({{ baseline_at_reading.sample_size }} prior samples).
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md);">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Normal range</div>
+                <div style="font-weight: 600;">{{ baseline_at_reading.lower_bound|floatformat:2 }} – {{ baseline_at_reading.upper_bound|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Average</div>
+                <div style="font-weight: 600;">{{ baseline_at_reading.mean_consumption|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Std. deviation</div>
+                <div style="font-weight: 600;">{{ baseline_at_reading.std_deviation|floatformat:2 }}</div>
+            </div>
+        </div>
+        {% elif current_baseline %}
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0 0 var(--spacing-md);">
+            Current profile ({{ current_baseline.sample_size }} samples, updated {{ current_baseline.updated_at|date:"M d, Y" }}).
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--spacing-md);">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Normal range</div>
+                <div style="font-weight: 600;">{{ current_baseline.lower_bound|floatformat:2 }} – {{ current_baseline.upper_bound|floatformat:2 }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Average</div>
+                <div style="font-weight: 600;">{{ current_baseline.mean_consumption|floatformat:2 }}</div>
+            </div>
+        </div>
+        {% endif %}
+        <p style="font-size: 0.75rem; color: var(--text-tertiary); margin: var(--spacing-md) 0 0;">
+            Baselines learn each unit’s pattern (up to 6 readings, current tenant period). Readings outside mean ± 2× std dev are flagged.
+        </p>
     </div>
     {% endif %}
     

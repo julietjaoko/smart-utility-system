@@ -10,9 +10,10 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
-from django.conf import settings
 from datetime import datetime
-import os
+from io import BytesIO
+
+from .export_helpers import tenant_display_name
 
 
 class InvoicePDF:
@@ -25,19 +26,20 @@ class InvoicePDF:
         self.pagesize = A4
         self.width, self.height = self.pagesize
         
+    def generate_bytes(self):
+        """Build PDF in memory and return raw bytes."""
+        buffer = BytesIO()
+        self._build_document(buffer)
+        return buffer.getvalue()
+
     def generate(self, filename):
-        """
-        Generate PDF and save to file.
-        
-        Args:
-            filename (str): Path where PDF should be saved
-        
-        Returns:
-            str: Path to generated PDF
-        """
-        # Create PDF document
+        """Generate PDF and save to file."""
+        self._build_document(filename)
+        return filename
+
+    def _build_document(self, dest):
         doc = SimpleDocTemplate(
-            filename,
+            dest,
             pagesize=self.pagesize,
             rightMargin=0.75*inch,
             leftMargin=0.75*inch,
@@ -118,12 +120,18 @@ class InvoicePDF:
         # Bill To Section
         elements.append(Paragraph('BILL TO', heading_style))
         
+        tenant_name = tenant_display_name(self.invoice)
+        tenant_email = ''
+        if self.invoice.tenant and self.invoice.tenant.user:
+            tenant_email = self.invoice.tenant.user.email or ''
+
         bill_to_data = [
-            [f'<b>{self.invoice.tenant.user.get_full_name()}</b>'],
+            [Paragraph(f'<b>{tenant_name}</b>', normal_style)],
             [f'Unit: {self.invoice.unit.unit_number}'],
             [f'Estate: {self.invoice.unit.estate_name}'],
-            [f'Email: {self.invoice.tenant.user.email}']
         ]
+        if tenant_email:
+            bill_to_data.append([f'Email: {tenant_email}'])
         
         bill_to_table = Table(bill_to_data, colWidths=[3*inch])
         bill_to_table.setStyle(TableStyle([
@@ -141,20 +149,20 @@ class InvoicePDF:
             ['Description', 'Quantity', 'Rate', 'Amount (KES)']
         ]
         
-        # Add water charges
-        if self.invoice.water_units > 0:
+        water_units = self.invoice.water_units or 0
+        if water_units > 0:
             charges_data.append([
                 'Water Consumption',
-                f'{self.invoice.water_units} m³',
+                f'{water_units} m³',
                 f'{self.invoice.water_rate}',
                 f'{self.invoice.water_charge:,.2f}'
             ])
         
-        # Add electricity charges
-        if self.invoice.electricity_units > 0:
+        electricity_units = self.invoice.electricity_units or 0
+        if electricity_units > 0:
             charges_data.append([
                 'Electricity Consumption',
-                f'{self.invoice.electricity_units} kWh',
+                f'{electricity_units} kWh',
                 f'{self.invoice.electricity_rate}',
                 f'{self.invoice.electricity_charge:,.2f}'
             ])
@@ -208,11 +216,11 @@ class InvoicePDF:
             ])
         
         summary_data.append([
-            '<b>TOTAL AMOUNT DUE:</b>',
-            f'<b>KES {self.invoice.total_due:,.2f}</b>'
+            'TOTAL AMOUNT DUE:',
+            f'KES {self.invoice.total_due:,.2f}',
         ])
-        
-        summary_table = Table(summary_data, colWidths=[4*inch, 2*inch])
+
+        summary_table = Table(summary_data, colWidths=[4 * inch, 2 * inch])
         summary_table.setStyle(TableStyle([
             ('FONT', (0, 0), (0, -2), 'Helvetica', 10),
             ('FONT', (1, 0), (1, -2), 'Helvetica', 10),
@@ -229,11 +237,16 @@ class InvoicePDF:
         elements.append(Paragraph('PAYMENT INSTRUCTIONS', heading_style))
         
         payment_info = """
-        <b>M-Pesa Paybill:</b> [Your Paybill Number]<br/>
+        <b>M-Pesa Paybill:</b> 456902<br/>
         <b>Account Number:</b> {invoice_number}<br/>
-        <b>Bank Transfer:</b> [Bank Details]<br/>
         <br/>
-        Please quote your invoice number when making payment.
+        <b>Bank Transfer:</b><br/>
+        Bank: Demo Commercial Bank<br/>
+        Account Name: SUMS Utilities Collection<br/>
+        Account Number: 000012345678<br/>
+        Reference: {invoice_number}<br/>
+        <br/>
+        Please quote your invoice number ({invoice_number}) when making your payment.
         """.format(invoice_number=self.invoice.invoice_number)
         
         elements.append(Paragraph(payment_info, normal_style))
@@ -252,10 +265,7 @@ class InvoicePDF:
         )
         elements.append(Paragraph(footer_text, footer_style))
         
-        # Build PDF
         doc.build(elements)
-        
-        return filename
 
 
 class PaymentReceiptPDF:
@@ -269,12 +279,18 @@ class PaymentReceiptPDF:
         self.pagesize = A4
         self.width, self.height = self.pagesize
     
+    def generate_bytes(self):
+        buffer = BytesIO()
+        self._build_document(buffer)
+        return buffer.getvalue()
+
     def generate(self, filename):
-        """
-        Generate payment receipt PDF.
-        """
+        self._build_document(filename)
+        return filename
+
+    def _build_document(self, dest):
         doc = SimpleDocTemplate(
-            filename,
+            dest,
             pagesize=self.pagesize,
             rightMargin=0.75*inch,
             leftMargin=0.75*inch,
@@ -329,9 +345,8 @@ class PaymentReceiptPDF:
         elements.append(receipt_table)
         elements.append(Spacer(1, 0.3*inch))
         
-        # Tenant Info
         tenant_data = [
-            ['Tenant:', self.invoice.tenant.user.get_full_name()],
+            ['Tenant:', tenant_display_name(self.invoice)],
             ['Unit:', self.invoice.unit.unit_number],
             ['Estate:', self.invoice.unit.estate_name],
         ]
@@ -352,7 +367,4 @@ class PaymentReceiptPDF:
         )
         elements.append(thank_you)
         
-        # Build PDF
         doc.build(elements)
-        
-        return filename

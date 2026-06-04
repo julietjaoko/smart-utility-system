@@ -1,313 +1,242 @@
 # Smart Utility System (SUMS)
 
-A comprehensive Django-based utility management platform designed for property managers and tenants to manage water and electricity consumption, billing, and payments in real-time.
+Smart Utility System is a Django utility-management platform for rental estates. It helps property managers record water and electricity readings, detect abnormal consumption, generate invoices, track payments, export reports, and give tenants a transparent self-service portal.
 
-**Live Demo:** [smartutilitysystem.vercel.app](https://smartutilitysystem.vercel.app)
+Live demo: [smartutilitysystem.vercel.app](https://smartutilitysystem.vercel.app)
 
-## What the Project Does
+## Highlights
 
-Smart Utility System is a complete utility management solution that helps property managers efficiently track meter readings, generate invoices, and collect payments from tenants. Tenants can view their consumption, track payments, and receive SMS/email notifications.
+- Role-based dashboards for system admins, property managers, and tenants.
+- Unit and tenant management with active/vacant unit tracking.
+- Water and electricity meter readings with automatic consumption calculation.
+- Smart anomaly detection using per-meter baselines and manager-defined hard limits.
+- Tenant-facing high consumption alerts controlled by tenant preferences.
+- Billing wizard with anomaly review gate before invoices are generated.
+- Invoice PDFs, payment receipts, and Excel exports for invoices, payments, consumption, reports, and audit logs.
+- M-Pesa STK Push support and manual cash/bank payment recording.
+- Email and SMS notification preferences.
+- Maintenance request workflow for tenants and managers.
+- Immutable audit logs for authentication, billing, payments, readings, tenants, units, and maintenance.
 
-### Key Features
+## Demo Flow
 
-- **Meter Management**: Track water and electricity consumption with automatic anomaly detection
-- **Smart Billing**: Automated invoice generation with water, electricity, and fixed charges
-- **Payment Processing**: Integration with M-Pesa for seamless mobile money payments
-- **Tenant Dashboard**: Real-time access to consumption data and payment history
-- **SMS & Email Notifications**: Automated alerts for invoices and payment confirmations
-- **Reporting**: Reports Center with financial, arrears, consumption, and anomaly reports (Excel export)
-- **Audit logging**: Immutable activity log for logins, billing, payments, and meter readings
-- **Photo Verification**: Attach photos to meter readings for verification
-- **Role-Based Access**: Separate dashboards for property managers and tenants
+For a presentation, this sequence shows the strongest parts of the system:
 
-## Why This Project is Useful
+1. Log in as a property manager and open the dashboard.
+2. Show smart insights, open readings that require review, then verify or reject an anomaly.
+3. Enter a new meter reading and point out automatic consumption and anomaly detection.
+4. Open the billing wizard and show that pending anomalies block invoice generation.
+5. Export meter readings or reports to Excel.
+6. Log in as a tenant and show invoices, consumption history, high consumption alerts, and preferences.
+7. Toggle High Consumption Alerts in tenant preferences to show that the tenant controls those warnings.
 
-Managing utilities across multiple residential units is complex and error-prone. This system:
+## How Anomaly Detection Works
 
-- **Eliminates manual reading & calculation errors** through automated consumption calculations
-- **Speeds up billing cycles** with one-click invoice generation
-- **Reduces payment delays** with integrated M-Pesa payment processing
-- **Improves transparency** so tenants can verify their consumption anytime
-- **Detects anomalies** automatically to catch meter issues or unusual patterns
-- **Saves administrative time** with automated email and SMS notifications
+The anomaly check runs automatically whenever a meter reading is saved.
+
+Main files:
+
+- `core/models.py`: `MeterReading.save()` calculates consumption and calls the anomaly service.
+- `core/baselines/services.py`: contains baseline calculation and `detect_reading_anomalies()`.
+- `core/views/meter_readings.py`: displays readings, pending anomalies, and verify/reject actions.
+- `core/views/billing.py`: blocks invoice generation while pending anomalies exist.
+- `core/tenant_alerts.py`: converts high-consumption anomalies into tenant-facing alerts.
+
+The system checks for:
+
+- Meter rollback: the new meter value is lower than the previous value.
+- Zero or negative consumption.
+- Consumption above the manager's hard limit for water or electricity.
+- Consumption above or below the unit meter's learned baseline.
+- Sudden spike/drop fallback when there is not enough baseline history.
+
+Smart baselines use up to 6 recent non-rejected readings and require at least 3 readings before the statistical baseline becomes active. New anomalous readings are marked as pending review.
 
 ## Getting Started
 
-### Prerequisites
+### Requirements
 
-- Python 3.8+
-- MySQL 5.7+
-- pip (Python package manager)
+- Python 3.12 recommended
+- MySQL 5.7+ or compatible cloud MySQL
+- pip
 
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/julietjaoko/smart-utility-system.git
-   cd smart-utility-system
-   ```
-
-2. **Create a virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables:**
-   Create a `.env` file in the root directory:
-   ```
-   DJANGO_SECRET_KEY=your-secret-key-here
-   DEBUG=False
-   DB_HOST=your-database-host
-   DB_NAME=utility_management
-   DB_USER=your-db-user
-   DB_PASSWORD=your-db-password
-   DB_PORT=3306
-   
-   MPESA_CONSUMER_KEY=your-mpesa-key
-   MPESA_CONSUMER_SECRET=your-mpesa-secret
-   MPESA_SHORTCODE=174379
-   MPESA_PASSKEY=your-mpesa-passkey
-   MPESA_CALLBACK_URL=https://your-domain/api/mpesa-callback/
-   
-   AFRICASTALKING_USERNAME=your-africa-talking-username
-   AFRICASTALKING_API_KEY=your-api-key
-   AFRICASTALKING_SENDER_ID=
-   ```
-
-5. **Set up the database:**
-   ```bash
-   python manage.py migrate
-   ```
-
-6. **Create a superuser account:**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-7. **Collect static files:**
-   ```bash
-   python manage.py collectstatic --noinput
-   ```
-
-8. **Run the development server:**
-   ```bash
-   python manage.py runserver
-   ```
-   Visit `http://localhost:8000` in your browser.
-
-### Build & Deployment
-
-For production deployment (e.g., Vercel):
+### Setup
 
 ```bash
-./build.sh
+git clone https://github.com/julietjaoko/smart-utility-system.git
+cd smart-utility-system
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-This script will:
-- Install all dependencies
-- Collect static files
-- Run database migrations
+Create a `.env` file in the project root:
 
-## Usage Examples
+```env
+DJANGO_SECRET_KEY=your-secret-key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 
-### Creating Units and Tenants
+DB_HOST=localhost
+DB_NAME=utility_management
+DB_USER=root
+DB_PASSWORD=
+DB_PORT=3306
 
-1. Log in as a property manager
-2. Navigate to the admin panel and create a **Unit** with meter preferences
-3. Add tenants to units with move-in dates
-4. Configure utility rates and fixed charges
+MPESA_CONSUMER_KEY=your-mpesa-key
+MPESA_CONSUMER_SECRET=your-mpesa-secret
+MPESA_SHORTCODE=174379
+MPESA_PASSKEY=your-mpesa-passkey
+MPESA_CALLBACK_URL=https://your-domain/mpesa/callback/
 
-### Recording Meter Readings
+AFRICASTALKING_USERNAME=your-username
+AFRICASTALKING_API_KEY=your-api-key
+AFRICASTALKING_SENDER_ID=
+```
 
-1. Go to **Meter Readings** section
-2. Enter the current meter value and optional photo
-3. The system automatically:
-   - Calculates consumption from previous reading
-   - Detects anomalies (±30% threshold from average)
-   - Flags unusual patterns for verification
+Run migrations and start the app:
 
-### Generating Invoices
+```bash
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
 
-1. Navigate to **Invoice Generation**
-2. Select a billing period and units
-3. System automatically calculates:
-   - Water charges (consumption × rate)
-   - Electricity charges (if applicable)
-   - Fixed charges (garbage, security, etc.)
-4. Export as PDF or send directly to tenants
+Open `http://127.0.0.1:8000`.
 
-### Payment Processing
+## Optional Test Data
 
-1. Tenants can pay via **M-Pesa** (automatic confirmation)
-2. Property managers can manually record **Cash** or **Bank Transfer** payments
-3. Invoice status updates automatically:
-   - UNPAID → PARTIALLY_PAID → PAID
+The project includes a seed command that creates an additional demo manager, units, tenants, meters, and readings:
 
-### Tenant Dashboard
+```bash
+python manage.py populate_test_data
+```
 
-Tenants can:
-- View current and past invoices
-- Check consumption trends
-- Track payment history
-- Manage notification preferences
-- Log electricity tokens (for prepaid plans)
+Generated demo users from that command:
 
-## Technology Stack
+- Manager: `manager2`
+- Tenants: `tenant_alex1`, `tenant_alex2`
+- Password: `password123`
 
-- **Backend**: Django 6.0.3 (Python)
-- **Database**: MySQL 5.7+
-- **Frontend**: HTML/CSS/JavaScript
-- **Payments**: M-Pesa STK Push API
-- **SMS**: Africa's Talking API
-- **Email**: Django's email backend
-- **Reporting**: ReportLab (PDF), OpenPyXL (Excel)
-- **Hosting**: Vercel (serverless)
+Use demo credentials only in local development.
+
+## Useful Commands
+
+```bash
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test core
+python manage.py refresh_usage_baselines
+python manage.py refresh_usage_baselines --reprocess-readings
+```
 
 ## Project Structure
 
-```
+```text
 smart-utility-system/
-├── api/                      # Vercel serverless entry point
-│   └── index.py
-├── core/                     # Main Django app
-│   ├── models.py            # Database models (User, Unit, Tenant, etc.)
-│   ├── views.py             # View logic
-│   ├── urls.py              # URL routing
-│   ├── forms.py             # Django forms
-│   ├── admin.py             # Admin panel configuration
-│   ├── email_utils.py       # Email sending utilities
-│   ├── sms_utils.py         # SMS notifications via Africa's Talking
-│   ├── mpesa.py             # M-Pesa payment integration
-│   ├── pdf_generator.py     # PDF invoice generation
-│   ├── excel_exporter.py    # Excel export functionality
-│   ├── decorators.py        # Custom decorators
-│   └── templates/           # HTML templates
-├── utility_system/          # Django project settings
-│   ├── settings.py          # Configuration
-│   ├── urls.py              # Project URLs
-│   ├── wsgi.py              # WSGI configuration
-│   └── asgi.py              # ASGI configuration
-├── manage.py                # Django management script
-├── requirements.txt         # Python dependencies
-├── build.sh                 # Production build script
-├── vercel.json              # Vercel deployment config
-└── ca.pem                   # SSL certificate for Aiven MySQL
-
+├── api/                         # Vercel serverless entry point
+├── core/                        # Main Django app
+│   ├── baselines/               # Meter baseline and anomaly services
+│   ├── insights/                # Manager dashboard insight services
+│   ├── management/commands/     # Seed and maintenance commands
+│   ├── templates/core/          # Django templates
+│   ├── views/                   # Split view modules
+│   ├── models.py                # Core database models
+│   ├── forms.py                 # Django forms
+│   ├── excel_exporter.py        # Excel workbook generation
+│   ├── pdf_generator.py         # Invoice and receipt PDF generation
+│   ├── tenant_alerts.py         # Tenant high-consumption alert helpers
+│   ├── sms_utils.py             # SMS helpers
+│   └── email_utils.py           # Email helpers
+├── media/                       # Uploaded media
+├── utility_system/              # Django settings and root URLs
+├── manage.py
+├── requirements.txt
+├── build.sh
+├── vercel.json
+└── ca.pem                       # CA certificate for cloud MySQL
 ```
 
 ## Key Models
 
-- **User**: Custom user with role-based access (Property Manager / Tenant)
-- **PropertyManager**: Manager profile with estate details
-- **Unit**: Residential unit with meter configuration
-- **Tenant**: Tenant profile linked to a unit
-- **Meter**: Water or electricity meter for a unit
-- **MeterReading**: Monthly reading with automatic consumption calculation
-- **Invoice**: Monthly bill with water, electricity, and fixed charges
-- **Payment**: Payment record with M-Pesa support
-- **RateConfig**: Configurable utility rates per property manager
-- **FixedCharge**: Monthly fixed charges (garbage, security, etc.)
+- `User`: custom user with role-based access.
+- `PropertyManager`: estate owner profile and anomaly thresholds.
+- `Unit`: rentable unit with meter configuration.
+- `Tenant`: tenant profile linked to a unit.
+- `Meter`: water or electricity meter for a unit.
+- `MeterReading`: reading value, consumption, anomaly status, verification status, and optional photo.
+- `UnitMeterBaseline`: rolling per-meter consumption profile.
+- `Invoice`: monthly bill with utility and fixed charges.
+- `Payment`: manual and M-Pesa payment records.
+- `RateConfig`: water/electricity rates.
+- `FixedCharge`: recurring estate charges.
+- `TenantPreferences`: tenant notification and feature toggles.
+- `MaintenanceRequest`: tenant maintenance tickets.
+- `AuditLog`: immutable system activity history.
 
-## API Endpoints
+## Exports and Reports
 
-The system exposes several endpoints for integration:
+Managers can export:
 
-- `/api/mpesa-callback/` - M-Pesa payment confirmation webhook
-- `/admin/` - Django admin panel
-- Various view endpoints for invoice generation, payment recording, and reporting
+- Invoices
+- Payments
+- Meter readings/consumption
+- Financial reports
+- Arrears reports
+- Consumption summaries
+- Anomaly reports
+- Activity logs
 
-## Configuration
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `DJANGO_SECRET_KEY` | Django secret key for security |
-| `DEBUG` | Set to False for production |
-| `DB_HOST` | Database hostname |
-| `DB_NAME` | Database name |
-| `DB_USER` | Database user |
-| `DB_PASSWORD` | Database password |
-| `MPESA_CONSUMER_KEY` | M-Pesa API consumer key |
-| `MPESA_CONSUMER_SECRET` | M-Pesa API consumer secret |
-| `MPESA_PASSKEY` | M-Pesa passkey for STK Push |
-| `MPESA_CALLBACK_URL` | URL for M-Pesa payment callbacks |
-| `AFRICASTALKING_USERNAME` | Africa's Talking username |
-| `AFRICASTALKING_API_KEY` | Africa's Talking API key |
-| `AFRICASTALKING_SENDER_ID` | SMS sender ID |
-
-### Database Setup
-
-The project supports both local MySQL and Aiven Cloud MySQL:
-- **Local**: Uses `ssl: {'cert_reqs': 0}` for development
-- **Production**: Uses CA certificate (`ca.pem`) for SSL verification
+Exports are generated with OpenPyXL and returned as `.xlsx` downloads.
 
 ## Deployment
 
-### Vercel Deployment
-
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy using the included `build.sh` script
+The project includes Vercel configuration:
 
 ```bash
+./build.sh
 vercel --prod
 ```
 
-## Where to Get Help
+Before deploying:
 
-### Documentation
-- [Django Documentation](https://docs.djangoproject.com/)
-- [M-Pesa STK Push API](https://developer.safaricom.co.ke/apis/mpesa-stk-push)
-- [Africa's Talking SMS API](https://africastalking.com/sms/api)
+- Set all required environment variables in Vercel.
+- Configure `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`.
+- Confirm the production database is reachable.
+- Keep `DEBUG=False`.
+- Ensure `ca.pem` is present when using cloud MySQL with SSL.
 
-### Support Resources
-- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/julietjaoko/smart-utility-system/issues)
-- **Email**: Contact the maintainer for technical support
+## Troubleshooting
 
-### Common Issues
+### Database connection fails
 
-**Database Connection Error**
-- Verify `DB_HOST`, `DB_USER`, and `DB_PASSWORD` in `.env`
-- For Aiven cloud, ensure `ca.pem` is in the project root
-- Check firewall rules allow MySQL connections
+- Check `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_PORT`.
+- Confirm MySQL is running or the cloud database is reachable.
+- Confirm `ca.pem` is present for cloud MySQL.
 
-**M-Pesa Callbacks Not Working**
-- Verify `MPESA_CALLBACK_URL` is publicly accessible
-- Check M-Pesa API credentials in Safaricom dashboard
-- Review Django logs for callback errors
+### M-Pesa callbacks fail
 
-**SMS Not Sending**
-- Confirm `AFRICASTALKING_API_KEY` is valid
-- Check sender ID is registered with Africa's Talking
-- Verify recipient phone numbers are in E.164 format (+254...)
+- Confirm `MPESA_CALLBACK_URL` is public and points to the correct route.
+- Check Safaricom credentials and shortcode settings.
+- Review Django logs for callback payload errors.
 
-## Contributing
+### SMS messages do not send
 
-Contributions are welcome! Please follow these guidelines:
+- Confirm Africa's Talking credentials.
+- Use valid phone numbers, preferably in `+254...` format.
+- Check whether tenant SMS notifications are enabled.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Static files warning in development
 
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed contribution guidelines.
+If Django warns that `staticfiles/` does not exist, run:
 
-## License
+```bash
+python manage.py collectstatic --noinput
+```
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+## Maintainer
 
-## Maintainers
+Juliet Jaoko - [@julietjaoko](https://github.com/julietjaoko)
 
-**Juliet Jaoko** - [@julietjaoko](https://github.com/julietjaoko)
-
----
-
-**Built with ❤️ for efficient utility management in East Africa**
+Built for practical utility management in East Africa.

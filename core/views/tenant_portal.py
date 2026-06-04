@@ -17,6 +17,7 @@ from ..models import (
     TenantPreferences,
 )
 from ..sms_utils import TokenSMS
+from ..tenant_alerts import mark_high_consumption_readings, tenant_consumption_alerts
 from .helpers import (
     recalculate_tenant_ledger,
     tenant_can_log_tokens,
@@ -87,12 +88,18 @@ def tenant_consumption_history(request):
         meter_type = request.GET.get('meter_type', 'WATER')
         
         # Get readings for this unit's meters
-        readings = MeterReading.objects.filter(
+        readings = list(MeterReading.objects.filter(
             meter__unit=unit,
             meter__meter_type=meter_type
         ).exclude(
             verification_status='REJECTED'
-        ).order_by('-reading_date')[:12]  # Last 12 readings
+        ).order_by('-reading_date')[:12])  # Last 12 readings
+
+        high_consumption_alerts = tenant_consumption_alerts(
+            tenant,
+            meter_type=meter_type,
+        )
+        mark_high_consumption_readings(readings, high_consumption_alerts)
         
         # Prepare chart data
         chart_labels = []
@@ -106,6 +113,7 @@ def tenant_consumption_history(request):
             'readings': readings,
             'meter_type': meter_type,
             'unit': unit,
+            'high_consumption_alerts': high_consumption_alerts,
             'chart_labels': json.dumps(chart_labels),
             'chart_data': json.dumps(chart_data),
         }

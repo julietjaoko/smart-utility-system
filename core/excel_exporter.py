@@ -3,11 +3,15 @@ Excel export utility for generating reports.
 Uses openpyxl to create professional Excel spreadsheets.
 """
 
+from io import BytesIO
+
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import datetime
 from decimal import Decimal
+
+from .export_helpers import tenant_display_name
 
 
 class ExcelExporter:
@@ -77,11 +81,13 @@ class ExcelExporter:
             adjusted_width = min(max_length + 2, 50)
             self.ws.column_dimensions[column_letter].width = adjusted_width
     
-    def save(self, filename):
-        """
-        Save workbook to file.
-        """
+    def save(self, filename=None):
+        """Save workbook to a path or return bytes when filename is None."""
         self.auto_adjust_columns()
+        if filename is None:
+            buffer = BytesIO()
+            self.wb.save(buffer)
+            return buffer.getvalue()
         self.wb.save(filename)
         return filename
 
@@ -135,7 +141,7 @@ class InvoiceExporter(ExcelExporter):
             data = [
                 invoice.invoice_number,
                 invoice.unit.unit_number,
-                invoice.tenant.user.get_full_name() or invoice.tenant.user.username,
+                tenant_display_name(invoice),
                 invoice.billing_period,
                 invoice.invoice_date.strftime('%Y-%m-%d'),
                 invoice.due_date.strftime('%Y-%m-%d'),
@@ -246,7 +252,7 @@ class PaymentExporter(ExcelExporter):
                 payment.payment_date.strftime('%Y-%m-%d'),
                 payment.invoice.invoice_number,
                 payment.invoice.unit.unit_number,
-                payment.invoice.tenant.user.get_full_name() or payment.invoice.tenant.user.username,
+                tenant_display_name(payment.invoice),
                 float(payment.amount_paid),
                 payment.get_payment_method_display(),
                 payment.mpesa_reference or '',
@@ -287,6 +293,16 @@ class ConsumptionExporter(ExcelExporter):
     """
     Export consumption data to Excel.
     """
+
+    def get_previous_reading_value(self, reading):
+        previous_reading = reading.meter.readings.filter(
+            reading_date__lt=reading.reading_date,
+        ).exclude(
+            verification_status='REJECTED',
+        ).exclude(
+            pk=reading.pk,
+        ).order_by('-reading_date', '-id').first()
+        return previous_reading.reading_value if previous_reading else Decimal('0.00')
     
     def generate(self, readings, filename):
         """
@@ -332,9 +348,9 @@ class ConsumptionExporter(ExcelExporter):
                 reading.meter.get_meter_type_display(),
                 reading.meter.meter_number,
                 float(reading.reading_value),
-                float(reading.previous_reading) if reading.previous_reading else 0,
-                float(reading.consumption),
-                'Yes' if reading.has_anomaly else 'No',
+                float(self.get_previous_reading_value(reading)),
+                float(reading.consumption or 0),
+                'Yes' if reading.is_anomaly else 'No',
                 reading.anomaly_type or '',
                 reading.recorded_by.username if reading.recorded_by else ''
             ]
@@ -361,7 +377,7 @@ class ConsumptionExporter(ExcelExporter):
         self.ws[f'A{summary_row}'] = 'TOTAL CONSUMPTION'
         self.ws[f'A{summary_row}'].font = self.bold_font
         
-        total_consumption = sum(float(reading.consumption) for reading in readings)
+        total_consumption = sum(float(reading.consumption or 0) for reading in readings)
         self.ws[f'H{summary_row}'] = total_consumption
         self.ws[f'H{summary_row}'].font = self.bold_font
         self.ws[f'H{summary_row}'].number_format = '#,##0.00'

@@ -145,7 +145,11 @@
     </div>
     
     <div style="margin-top: var(--spacing-2xl);">
-        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-lg);">Anomaly Thresholds</h2>
+        <h2 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-sm);">Anomaly Detection</h2>
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0 0 var(--spacing-lg); max-width: 52rem;">
+            SUMS uses <strong>per-unit smart baselines</strong> (up to 6 recent readings, mean ± 2× standard deviation) for each meter.
+            Estate-wide thresholds below still apply as hard caps for impossible usage spikes.
+        </p>
         <form method="POST" style="background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--spacing-lg); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-md); align-items: end;">
             {% csrf_token %}
             <div class="form-group" style="margin-bottom: 0;">

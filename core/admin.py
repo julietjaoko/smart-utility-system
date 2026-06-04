@@ -6,7 +6,7 @@ from .models import (
     User, PropertyManager, Unit, Tenant,
     Meter, MeterReading, ElectricityToken, TenantPreferences,
     RateConfig, FixedCharge, Invoice, Payment, AccountBalance,
-    MaintenanceRequest, MaintenanceMessage, AuditLog,
+    MaintenanceRequest, MaintenanceMessage, AuditLog, UnitMeterBaseline,
 )
 
 
@@ -78,6 +78,21 @@ class MeterAdmin(admin.ModelAdmin):
     search_fields = ['meter_number', 'unit__unit_number']
 
 
+@admin.register(UnitMeterBaseline)
+class UnitMeterBaselineAdmin(admin.ModelAdmin):
+    list_display = [
+        'meter', 'sample_size', 'mean_consumption', 'lower_bound', 'upper_bound', 'updated_at',
+    ]
+    search_fields = ['meter__unit__unit_number', 'meter__meter_number']
+    readonly_fields = [
+        'meter', 'sample_size', 'mean_consumption', 'std_deviation',
+        'lower_bound', 'upper_bound', 'updated_at',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+
 @admin.register(MeterReading)
 class MeterReadingAdmin(admin.ModelAdmin):
     """
@@ -86,11 +101,11 @@ class MeterReadingAdmin(admin.ModelAdmin):
     """
     list_display = [
         'meter', 'reading_date', 'reading_value', 
-        'consumption', 'is_anomaly', 'recorded_by'
+        'consumption', 'is_anomaly', 'anomaly_type', 'recorded_by'
     ]
-    list_filter = ['is_anomaly', 'meter__meter_type', 'reading_date']
+    list_filter = ['is_anomaly', 'anomaly_type', 'meter__meter_type', 'reading_date']
     search_fields = ['meter__unit__unit_number', 'notes']
-    readonly_fields = ['consumption', 'is_anomaly', 'created_at']
+    readonly_fields = ['consumption', 'is_anomaly', 'anomaly_type', 'created_at']
     ordering = ['-reading_date']
     
     # Highlight anomalies in red

@@ -16,62 +16,60 @@
 <style>
 .info-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); }
 .charge-row { display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--border); }
-.invoice-total-panel {
-    margin-top: var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 0;
+.charge-row:last-of-type { border-bottom: none; }
+.invoice-summary-footer {
+    margin-top: var(--spacing-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
 }
-.invoice-total-row {
+.invoice-summary-footer__head {
+    padding: 0.75rem 1.25rem;
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+.invoice-summary-rows { padding: 0.25rem 0; }
+.invoice-summary-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-md);
+    padding: 0.625rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9375rem;
 }
-.invoice-total-label {
-    font-size: 0.875rem;
+.invoice-summary-row:last-child { border-bottom: none; }
+.invoice-summary-row__label { color: var(--text-secondary); font-weight: 500; }
+.invoice-summary-row__amount {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-}
-.invoice-total-money {
-    font-family: monospace;
-    font-weight: 700;
+    color: var(--text-primary);
     white-space: nowrap;
 }
-.invoice-total-row--paid {
-    border-bottom: 1px solid rgba(245, 158, 11, 0.3);
-    padding-bottom: 0.5rem;
+.invoice-summary-row--paid .invoice-summary-row__amount { color: var(--success); }
+.invoice-summary-row--due {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.08) 0%, var(--surface) 100%);
+    padding: 1rem 1.25rem;
 }
-.invoice-total-row--paid .invoice-total-label,
-.invoice-total-row--paid .invoice-total-money {
-    color: var(--success);
-}
-.invoice-total-row--due {
-    padding-top: 0.25rem;
-}
-.invoice-total-row--due .invoice-total-label {
-    color: inherit;
-    font-size: 1.125rem;
+.invoice-summary-row--due .invoice-summary-row__label {
+    font-size: 1rem;
     font-weight: 700;
+    color: var(--text-primary);
 }
-.invoice-total-row--due .invoice-total-money {
-    font-size: 1.5rem;
+.invoice-summary-row--due .invoice-summary-row__amount {
+    font-size: 1.375rem;
+    font-weight: 800;
+    color: var(--primary);
 }
 @media (max-width: 768px) {
     .charge-row { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
-    .invoice-total-row { align-items: flex-start; }
-    .invoice-total-row--due {
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-    .invoice-total-row--due .invoice-total-label {
-        font-size: 1rem;
-    }
-    .invoice-total-row--due .invoice-total-money {
-        font-size: 1.25rem;
-    }
+    .invoice-summary-row { flex-direction: column; align-items: flex-start; }
 }
 </style>
 {% endblock %}
@@ -149,7 +147,7 @@
                 <div style="color: var(--text-secondary); font-weight: 500;">Water Consumption <small>({{ invoice.water_units }} units @ KES {{ invoice.water_rate }})</small></div>
                 <div style="font-weight: 600; font-family: monospace; font-size: 1rem;">KES {{ invoice.water_charge|floatformat:2 }}</div>
             </div>
-            {% if invoice.electricity_units > 0 %}
+            {% if invoice.electricity_units and invoice.electricity_units > 0 %}
             <div class="charge-row">
                 <div style="color: var(--text-secondary); font-weight: 500;">Electricity Consumption <small>({{ invoice.electricity_units }} units @ KES {{ invoice.electricity_rate }})</small></div>
                 <div style="font-weight: 600; font-family: monospace; font-size: 1rem;">KES {{ invoice.electricity_charge|floatformat:2 }}</div>
@@ -160,34 +158,30 @@
                 <div style="font-weight: 600; font-family: monospace; font-size: 1rem;">KES {{ invoice.total_fixed_charges|floatformat:2 }}</div>
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-md) 0; border-bottom: 2px solid var(--border); margin-top: var(--spacing-sm);">
-                <div style="font-weight: 600; text-transform: uppercase;">Subtotal</div>
+            <div class="charge-row" style="border-bottom: 2px solid var(--border); margin-top: var(--spacing-sm); padding-top: var(--spacing-md);">
+                <div style="font-weight: 700; text-transform: uppercase; font-size: 0.8125rem; letter-spacing: 0.04em;">Subtotal (current charges)</div>
                 <div style="font-weight: 700; font-family: monospace; font-size: 1.125rem;">KES {{ invoice.subtotal|floatformat:2 }}</div>
             </div>
-            
-            <div class="alert alert-warning invoice-total-panel">
-                <!-- Always show original total -->
-                <div class="invoice-total-row">
-                    <div class="invoice-total-label">Original Invoice Total</div>
-                    <div class="invoice-total-money" style="color: var(--text-secondary);">KES {{ invoice.total_due|floatformat:2 }}</div>
+        </div>
+
+        <div class="invoice-summary-footer">
+            <div class="invoice-summary-footer__head">Invoice total</div>
+            <div class="invoice-summary-rows">
+                <div class="invoice-summary-row">
+                    <span class="invoice-summary-row__label">Invoice total (incl. balance brought forward)</span>
+                    <span class="invoice-summary-row__amount">KES {{ invoice.total_due|floatformat:2 }}</span>
                 </div>
-                
-                <!-- Only show "Amount Paid" line if they actually paid something -->
                 {% if total_paid > 0 %}
-                <div class="invoice-total-row invoice-total-row--paid">
-                    <div class="invoice-total-label">Amount Already Paid</div>
-                    <div class="invoice-total-money">- KES {{ total_paid|floatformat:2 }}</div>
+                <div class="invoice-summary-row invoice-summary-row--paid">
+                    <span class="invoice-summary-row__label">Payments received</span>
+                    <span class="invoice-summary-row__amount">− KES {{ total_paid|floatformat:2 }}</span>
                 </div>
                 {% endif %}
-                
-                <!-- The final big number -->
-                <div class="invoice-total-row invoice-total-row--due">
-                    <div class="invoice-total-label">
-                        {% if total_paid > 0 %}Remaining Balance{% else %}Amount Due{% endif %}
-                    </div>
-                    <div class="invoice-total-money">
-                        KES {{ remaining_balance|floatformat:2 }}
-                    </div>
+                <div class="invoice-summary-row invoice-summary-row--due">
+                    <span class="invoice-summary-row__label">
+                        {% if total_paid > 0 %}Balance remaining{% else %}Amount due{% endif %}
+                    </span>
+                    <span class="invoice-summary-row__amount">KES {{ remaining_balance|floatformat:2 }}</span>
                 </div>
             </div>
         </div>

@@ -15,6 +15,8 @@ from ..models import (
     TenantPreferences,
     Unit,
 )
+from ..insights.services import get_manager_insights
+from ..tenant_alerts import mark_high_consumption_readings, tenant_consumption_alerts
 from .helpers import (
     recalculate_tenant_ledger,
     tenant_can_log_tokens,
@@ -51,11 +53,14 @@ def manager_dashboard(request):
             reading_date__month=current_month,
             reading_date__year=current_year
         ).count()
+
+        smart_insights = get_manager_insights(manager)
         
         context = {
             'total_units': total_units,
             'active_tenants': active_tenants,
             'total_readings': total_readings,
+            'smart_insights': smart_insights,
         }
         
         return render(request, 'core/manager_dashboard.html', context)
@@ -84,13 +89,15 @@ def tenant_dashboard(request):
         overdue_count = unpaid_invoices.filter(status='OVERDUE').count()
         account_balance = AccountBalance.objects.filter(tenant=tenant).first()
         recent_payments = Payment.objects.filter(invoice__tenant=tenant).order_by('-payment_date')[:3]
-        recent_readings = MeterReading.objects.filter(
+        recent_readings = list(MeterReading.objects.filter(
             meter__unit=tenant.unit
         ).exclude(
             verification_status='REJECTED'
-        ).select_related('meter').order_by('-reading_date')[:4] if tenant.unit else []
+        ).select_related('meter').order_by('-reading_date')[:4]) if tenant.unit else []
         preferences, _ = TenantPreferences.objects.get_or_create(tenant=tenant)
         token_logging_available = tenant_can_log_tokens(tenant)
+        high_consumption_alerts = tenant_consumption_alerts(tenant, limit=2)
+        mark_high_consumption_readings(recent_readings, high_consumption_alerts)
 
         context = {
             'tenant': tenant,
@@ -102,6 +109,7 @@ def tenant_dashboard(request):
             'abs_balance': abs(current_balance),
             'recent_payments': recent_payments,
             'recent_readings': recent_readings,
+            'high_consumption_alerts': high_consumption_alerts,
             'preferences': preferences,
             'token_logging_available': token_logging_available,
         }

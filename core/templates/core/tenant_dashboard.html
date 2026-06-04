@@ -148,6 +148,28 @@
     </div>
     {% endif %}
 
+    {% if high_consumption_alerts %}
+    <div class="warning-panel">
+        <div class="panel-inner">
+            <i data-lucide="alert-triangle" width="20" height="20" style="color: var(--warning); flex-shrink: 0;"></i>
+            <div>
+                <strong style="display: block; color: var(--text-primary);">High Consumption Alert</strong>
+                {% with alert=high_consumption_alerts.0 %}
+                <p style="margin-top: 0.25rem; font-size: 0.875rem; color: var(--text-secondary);">
+                    Your {{ alert.meter_label|lower }} reading on {{ alert.reading.reading_date|date:"M d, Y" }}
+                    used {{ alert.reading.consumption }} units and was flagged as {{ alert.reason|lower }}.
+                    {% if alert.percent_above %}That is about {{ alert.percent_above|floatformat:0 }}% above your recent average.{% endif %}
+                </p>
+                {% endwith %}
+                <a href="{% url 'tenant_consumption_history' %}" class="btn btn-secondary" style="margin-top: var(--spacing-sm);">
+                    <i data-lucide="trending-up" width="16" height="16"></i>
+                    View consumption
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-icon"><i data-lucide="wallet" width="20" height="20"></i></div>
@@ -185,7 +207,12 @@
                         <tr>
                             <td>{{ reading.reading_date|date:"M d, Y" }}</td>
                             <td>{{ reading.meter.get_meter_type_display }}</td>
-                            <td style="font-weight: 700;">{{ reading.consumption }}</td>
+                            <td style="font-weight: 700;">
+                                {{ reading.consumption }}
+                                {% if reading.is_high_consumption_alert %}
+                                <span class="badge badge-warning" style="margin-left: 0.35rem;">High</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

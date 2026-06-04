@@ -124,7 +124,7 @@
             Meter Readings
         </h1>
         <div class="header-actions">
-            <a href="{% url 'export_consumption_excel' %}" class="btn btn-secondary">
+            <a href="{% url 'export_consumption_excel' %}?{% if current_filters.search %}search={{ current_filters.search|urlencode }}&{% endif %}{% if current_filters.unit %}unit={{ current_filters.unit }}&{% endif %}{% if current_filters.meter_type %}meter_type={{ current_filters.meter_type }}&{% endif %}{% if current_filters.anomalies %}anomalies={{ current_filters.anomalies }}&{% endif %}{% if current_filters.start_date %}start_date={{ current_filters.start_date }}&{% endif %}{% if current_filters.end_date %}end_date={{ current_filters.end_date }}{% endif %}" class="btn btn-secondary">
                 <i data-lucide="file-spreadsheet" width="16" height="16"></i>
                 Export Excel
             </a>

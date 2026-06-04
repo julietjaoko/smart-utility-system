@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from ..audit_log import log_audit
+from ..baselines.services import build_baseline_for_meter
 from ..decorators import manager_required
 from ..forms import MeterReadingForm
 from ..models import MeterReading, PropertyManager, Unit
@@ -236,10 +237,19 @@ def meter_reading_detail(request, reading_id):
         else:
             avg_consumption = 0
         
+        baseline_at_reading = build_baseline_for_meter(
+            reading.meter,
+            before=reading.reading_date,
+            exclude_pk=reading.pk,
+        )
+        current_baseline = getattr(reading.meter, 'usage_baseline', None)
+
         context = {
             'reading': reading,
             'previous_readings': previous_readings,
             'avg_consumption': avg_consumption,
+            'baseline_at_reading': baseline_at_reading,
+            'current_baseline': current_baseline,
         }
         
         return render(request, 'core/meter_reading_detail.html', context)
