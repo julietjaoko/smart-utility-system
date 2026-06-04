@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from ..audit_log import log_audit
 from ..decorators import manager_required
 from ..forms import (
     TenantCreationForm,
@@ -75,6 +76,17 @@ def add_tenant(request):
                         phone_number=form.cleaned_data['phone_number'],
                         move_in_date=timezone.now().date()
                     )
+
+                log_audit(
+                    request=request,
+                    category='TENANT',
+                    action='TENANT_CREATED',
+                    message=f'Created tenant {user.get_full_name()} in unit {tenant.unit.unit_number}',
+                    property_manager=manager,
+                    object_type='Tenant',
+                    object_id=tenant.id,
+                    object_repr=user.username,
+                )
                     
                 messages.success(
                     request, 
@@ -130,6 +142,17 @@ def edit_tenant(request, tenant_id):
                         user.save()
                         
                     tenant.save()
+
+                log_audit(
+                    request=request,
+                    category='TENANT',
+                    action='TENANT_UPDATED',
+                    message=f'Updated tenant profile for {user.get_full_name()}',
+                    property_manager=manager,
+                    object_type='Tenant',
+                    object_id=tenant.id,
+                    object_repr=user.username,
+                )
                     
                 messages.success(request, f'✓ Tenant {user.get_full_name()} updated successfully.')
                 return redirect('manage_tenants')
@@ -203,6 +226,18 @@ def deactivate_tenant(request, tenant_id):
         # 3. Vacate the unit
         tenant.unit = None
         tenant.save()
+
+        log_audit(
+            request=request,
+            category='TENANT',
+            action='TENANT_DEACTIVATED',
+            message=f'Deactivated tenant {user.get_full_name()}; vacated unit {unit.unit_number}',
+            property_manager=manager,
+            object_type='Tenant',
+            object_id=tenant.id,
+            object_repr=user.username,
+            severity='WARNING',
+        )
         
         messages.success(request, f'✓ Tenant {user.get_full_name()} deactivated successfully. Unit {unit.unit_number} is now vacant.')
         return redirect('unit_detail', unit_id=unit.id)

@@ -45,6 +45,11 @@ urlpatterns = [
     path('manager/invoices/export/', views.export_invoices_excel, name='export_invoices_excel'),
     path('manager/payments/export/', views.export_payments_excel, name='export_payments_excel'),
     path('manager/consumption/export/', views.export_consumption_excel, name='export_consumption_excel'),
+    # Reports & audit logs
+    path('manager/reports/', views.reports_center, name='reports_center'),
+    path('manager/reports/export/', views.export_report_excel, name='export_report_excel'),
+    path('manager/activity-log/', views.activity_logs, name='activity_logs'),
+    path('manager/activity-log/export/', views.export_activity_logs_excel, name='export_activity_logs_excel'),
     # Advanced Analytics
     path('manager/analytics/advanced/', views.advanced_analytics, name='advanced_analytics'),
     path('manager/analytics/units/', views.all_unit_performance, name='all_unit_performance'),
@@ -79,5 +84,7 @@ urlpatterns = [
     path('system-admin/tenant/<int:tenant_id>/toggle/', views.system_admin_toggle_tenant, name='system_admin_toggle_tenant'),
     path('system-admin/manager/<int:manager_id>/edit/', views.system_admin_edit_manager, name='system_admin_edit_manager'),
     path('system-admin/tenant/<int:tenant_id>/edit/', views.system_admin_edit_tenant, name='system_admin_edit_tenant'),
+    path('system-admin/activity-log/', views.system_admin_activity_logs, name='system_admin_activity_logs'),
+    path('system-admin/activity-log/export/', views.system_admin_export_activity_logs, name='system_admin_export_activity_logs'),
 
 ]

@@ -10,6 +10,7 @@ from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from ..audit_log import log_audit
 from ..decorators import manager_required
 from ..email_utils import InvoiceNotification
 from ..models import (
@@ -239,7 +240,16 @@ def billing_wizard_preview(request):
                 errors.append(f"Error generating for {data['unit'].unit_number}: {str(e)}")
                 
         del request.session['billing_month']
-        
+
+        log_audit(
+            request=request,
+            category='BILLING',
+            action='INVOICES_GENERATED',
+            message=f'Generated {invoices_created} invoice(s) for {billing_date.strftime("%B %Y")}',
+            property_manager=manager,
+            metadata={'count': invoices_created, 'period': billing_date.strftime('%Y-%m')},
+        )
+
         if errors:
             messages.warning(request, f'Generated {invoices_created} invoices, but encountered errors: {"; ".join(errors)}')
         else:

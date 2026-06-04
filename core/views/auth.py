@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate, get_user_model, login, logout, upd
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import redirect, render
+from ..audit_log import log_audit
 from ..models import (
     PropertyManager,
     Tenant,
@@ -43,6 +44,16 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
+            log_audit(
+                request=request,
+                category='AUTH',
+                action='LOGIN',
+                message=f'User {user.username} signed in',
+                actor=user,
+                object_type='User',
+                object_id=user.id,
+                object_repr=user.username,
+            )
 
             if user.is_superuser or user.role == "SYSTEM_ADMIN":
                 return redirect("system_admin_dashboard")
@@ -68,6 +79,15 @@ def login_view(request):
 
 @login_required
 def logout_view(request):
+    log_audit(
+        request=request,
+        category='AUTH',
+        action='LOGOUT',
+        message=f'User {request.user.username} signed out',
+        object_type='User',
+        object_id=request.user.id,
+        object_repr=request.user.username,
+    )
     logout(request)
     return redirect('login')
 
@@ -82,7 +102,15 @@ def change_password(request):
             user = form.save()
             # Django rotates the auth hash on password change, so the session must be refreshed.
             update_session_auth_hash(request, user)
-            
+            log_audit(
+                request=request,
+                category='AUTH',
+                action='PASSWORD_CHANGED',
+                message=f'User {user.username} changed their password',
+                object_type='User',
+                object_id=user.id,
+                object_repr=user.username,
+            )
             messages.success(request, '✓ Your password was successfully updated!')
             
             if request.user.role == 'PROPERTY_MANAGER':

@@ -8,6 +8,7 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from ..audit_log import log_audit
 from ..decorators import system_admin_required
 from ..forms import PropertyManagerCreationForm, PropertyManagerUpdateForm, TenantUpdateForm
 from ..models import (
@@ -121,6 +122,15 @@ def system_admin_create_manager(request):
         form = PropertyManagerCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            log_audit(
+                request=request,
+                category='SYSTEM',
+                action='MANAGER_CREATED',
+                message=f'Created property manager {user.username}',
+                object_type='User',
+                object_id=user.id,
+                object_repr=user.username,
+            )
             messages.success(request, f"Property manager {user.get_full_name() or user.username} created successfully.")
             return redirect("system_admin_managers")
         messages.error(request, "Please correct the errors below.")
@@ -141,6 +151,16 @@ def system_admin_toggle_user(request, user_id):
     user.save(update_fields=["is_active"])
 
     status = "activated" if user.is_active else "deactivated"
+    log_audit(
+        request=request,
+        category='SYSTEM',
+        action='USER_TOGGLED',
+        message=f'{user.username} was {status} by system admin',
+        object_type='User',
+        object_id=user.id,
+        object_repr=user.username,
+        severity='WARNING' if not user.is_active else 'INFO',
+    )
     messages.success(request, f"{user.username} has been {status}.")
     return redirect("system_admin_managers")
 

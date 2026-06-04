@@ -751,6 +751,63 @@ class MaintenanceMessage(models.Model):
         return f"Message from {self.sender.username} on {self.request.subject}"
 
 
+class AuditLog(models.Model):
+    """Immutable audit trail for security review and operational reporting."""
+
+    CATEGORY_CHOICES = [
+        ('AUTH', 'Authentication'),
+        ('BILLING', 'Billing'),
+        ('PAYMENT', 'Payment'),
+        ('READING', 'Meter Reading'),
+        ('TENANT', 'Tenant Management'),
+        ('UNIT', 'Unit Management'),
+        ('SYSTEM', 'System Administration'),
+        ('MAINTENANCE', 'Maintenance'),
+    ]
+    SEVERITY_CHOICES = [
+        ('INFO', 'Info'),
+        ('WARNING', 'Warning'),
+        ('CRITICAL', 'Critical'),
+    ]
+
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+    )
+    property_manager = models.ForeignKey(
+        PropertyManager,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text='Scopes manager-visible logs to one estate portfolio',
+    )
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, db_index=True)
+    action = models.CharField(max_length=64, db_index=True)
+    message = models.TextField()
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='INFO')
+    object_type = models.CharField(max_length=50, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    object_repr = models.CharField(max_length=255, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['property_manager', '-created_at']),
+            models.Index(fields=['category', '-created_at']),
+        ]
+
+    def __str__(self):
+        actor_name = self.actor.username if self.actor else 'System'
+        return f'{self.get_category_display()} · {self.action} · {actor_name}'
+
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 

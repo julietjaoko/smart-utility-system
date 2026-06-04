@@ -241,13 +241,23 @@
             </span>
         </a>
 
-        <a href="{% url 'advanced_analytics' %}" class="quick-action-card">
+        <a href="{% url 'reports_center' %}" class="quick-action-card">
             <span style="width: 32px; height: 32px; border-radius: 7px; background: #FAECE7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #993C1D;">
-                <i data-lucide="bar-chart-4" width="16" height="16"></i>
+                <i data-lucide="clipboard-list" width="16" height="16"></i>
             </span>
             <span class="quick-action-text">
-                <span class="quick-action-title">Advanced Analytics</span>
-                <span class="quick-action-desc">Deep-dive reports & forecasts</span>
+                <span class="quick-action-title">Reports Center</span>
+                <span class="quick-action-desc">Financial, arrears & consumption exports</span>
+            </span>
+        </a>
+
+        <a href="{% url 'activity_logs' %}" class="quick-action-card">
+            <span style="width: 32px; height: 32px; border-radius: 7px; background: var(--bg-secondary, #f3f4f6); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-secondary);">
+                <i data-lucide="scroll-text" width="16" height="16"></i>
+            </span>
+            <span class="quick-action-text">
+                <span class="quick-action-title">Activity Log</span>
+                <span class="quick-action-desc">Audit trail of system actions</span>
             </span>
         </a>
 

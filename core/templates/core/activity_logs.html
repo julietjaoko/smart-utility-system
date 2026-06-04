@@ -1,0 +1,120 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Activity Log{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    {% if is_system_view %}
+    <a href="{% url 'system_admin_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Admin</a>
+    {% else %}
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <a href="{% url 'reports_center' %}">Reports</a>
+    {% endif %}
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Activity Log</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="scroll-text" width="28" height="28"></i>
+            {% if is_system_view %}Platform Activity Log{% else %}Activity Log{% endif %}
+        </h1>
+        <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+            {% if is_system_view %}
+            <a href="{% url 'system_admin_export_activity_logs' %}?category={{ current_filters.category }}&action={{ current_filters.action }}&start_date={{ current_filters.start_date }}&end_date={{ current_filters.end_date }}" class="btn btn-secondary">
+                <i data-lucide="download" width="16" height="16"></i>
+                Export Excel
+            </a>
+            {% else %}
+            <a href="{% url 'export_activity_logs_excel' %}?category={{ current_filters.category }}&action={{ current_filters.action }}&start_date={{ current_filters.start_date }}&end_date={{ current_filters.end_date }}" class="btn btn-secondary">
+                <i data-lucide="download" width="16" height="16"></i>
+                Export Excel
+            </a>
+            <a href="{% url 'reports_center' %}" class="btn btn-secondary">Reports Center</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+        Immutable audit trail of logins, billing, payments, meter readings, and administrative actions.
+    </p>
+
+    <form method="GET" class="reading-filter-form">
+        <div>
+            <label class="form-label">Category</label>
+            <select name="category" class="form-input">
+                <option value="">All</option>
+                {% for code, label in categories %}
+                <option value="{{ code }}" {% if current_filters.category == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Action contains</label>
+            <input type="text" name="action" value="{{ current_filters.action }}" class="form-input" placeholder="e.g. PAYMENT">
+        </div>
+        <div>
+            <label class="form-label">From</label>
+            <input type="date" name="start_date" value="{{ current_filters.start_date }}" class="form-input">
+        </div>
+        <div>
+            <label class="form-label">To</label>
+            <input type="date" name="end_date" value="{{ current_filters.end_date }}" class="form-input">
+        </div>
+        <div style="align-self: flex-end;">
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </div>
+    </form>
+
+    <div class="table-container" style="margin-top: var(--spacing-lg);">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    {% if is_system_view %}<th>Estate</th>{% endif %}
+                    <th>Actor</th>
+                    <th>Category</th>
+                    <th>Action</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in page_obj %}
+                <tr>
+                    <td style="white-space: nowrap;">{{ entry.created_at|date:"M d, Y H:i" }}</td>
+                    {% if is_system_view %}
+                    <td>{{ entry.property_manager.estate_name|default:"—" }}</td>
+                    {% endif %}
+                    <td>{{ entry.actor.username|default:"System" }}</td>
+                    <td>{{ entry.get_category_display }}</td>
+                    <td><code style="font-size: 0.8rem;">{{ entry.action }}</code></td>
+                    <td>{{ entry.message }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{% if is_system_view %}6{% else %}5{% endif %}" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                        No activity recorded yet for these filters.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="reading-pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&category={{ current_filters.category }}&action={{ current_filters.action }}&start_date={{ current_filters.start_date }}&end_date={{ current_filters.end_date }}" class="btn btn-secondary btn-sm">Previous</a>
+        {% endif %}
+        <span class="reading-pagination-current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&category={{ current_filters.category }}&action={{ current_filters.action }}&start_date={{ current_filters.start_date }}&end_date={{ current_filters.end_date }}" class="btn btn-secondary btn-sm">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

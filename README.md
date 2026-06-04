@@ -15,7 +15,8 @@ Smart Utility System is a complete utility management solution that helps proper
 - **Payment Processing**: Integration with M-Pesa for seamless mobile money payments
 - **Tenant Dashboard**: Real-time access to consumption data and payment history
 - **SMS & Email Notifications**: Automated alerts for invoices and payment confirmations
-- **Reporting**: Export billing data to Excel and PDF formats
+- **Reporting**: Reports Center with financial, arrears, consumption, and anomaly reports (Excel export)
+- **Audit logging**: Immutable activity log for logins, billing, payments, and meter readings
 - **Photo Verification**: Attach photos to meter readings for verification
 - **Role-Based Access**: Separate dashboards for property managers and tenants
 

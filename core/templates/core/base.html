@@ -591,6 +591,9 @@
                     <a href="{% url 'system_admin_create_manager' %}" class="nav-item {% if request.resolver_match.url_name == 'system_admin_create_manager' %}active{% endif %}">
                         <i data-lucide="user-plus" width="20"></i><span class="sidebar-label">Add New Manager</span>
                     </a>
+                    <a href="{% url 'system_admin_activity_logs' %}" class="nav-item {% if 'activity_log' in request.resolver_match.url_name %}active{% endif %}">
+                        <i data-lucide="scroll-text" width="20"></i><span class="sidebar-label">Activity Log</span>
+                    </a>
                 {% elif request.user.role == 'PROPERTY_MANAGER' %}
                     <a href="{% url 'manager_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'manager_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span></a>
                     <a href="{% url 'manage_units' %}" class="nav-item {% if 'unit' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="home" width="20"></i><span class="sidebar-label">Units</span></a>
@@ -600,6 +603,8 @@
                     <a href="{% url 'invoice_list' %}" class="nav-item {% if 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="file-text" width="20"></i><span class="sidebar-label">Invoices</span></a>
                     <a href="{% url 'payment_list' %}" class="nav-item {% if 'payment' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="credit-card" width="20"></i><span class="sidebar-label">Payments</span></a>
                     <a href="{% url 'manage_rates' %}" class="nav-item {% if 'rate' in request.resolver_match.url_name or 'charge' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="settings" width="20"></i><span class="sidebar-label">Rates & Charges</span></a>
+                    <a href="{% url 'reports_center' %}" class="nav-item {% if 'report' in request.resolver_match.url_name or request.resolver_match.url_name == 'activity_logs' %}active{% endif %}"><i data-lucide="clipboard-list" width="20"></i><span class="sidebar-label">Reports</span></a>
+                    <a href="{% url 'activity_logs' %}" class="nav-item {% if request.resolver_match.url_name == 'activity_logs' %}active{% endif %}"><i data-lucide="scroll-text" width="20"></i><span class="sidebar-label">Activity Log</span></a>
                     <a href="{% url 'advanced_analytics' %}" class="nav-item {% if 'analytic' in request.resolver_match.url_name %}active{% endif %}"><i data-lucide="bar-chart-2" width="20"></i><span class="sidebar-label">Analytics</span></a>
                 {% else %}
                     <a href="{% url 'tenant_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'tenant_dashboard' %}active{% endif %}"><i data-lucide="layout-dashboard" width="20"></i><span class="sidebar-label">Dashboard</span></a>

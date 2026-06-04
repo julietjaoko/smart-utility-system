@@ -6,7 +6,7 @@ from .models import (
     User, PropertyManager, Unit, Tenant,
     Meter, MeterReading, ElectricityToken, TenantPreferences,
     RateConfig, FixedCharge, Invoice, Payment, AccountBalance,
-    MaintenanceRequest, MaintenanceMessage
+    MaintenanceRequest, MaintenanceMessage, AuditLog,
 )
 
 
@@ -153,3 +153,20 @@ class MaintenanceRequestAdmin(admin.ModelAdmin):
 class MaintenanceMessageAdmin(admin.ModelAdmin):
     list_display = ["request", "sender", "created_at"]
     search_fields = ["message", "sender__username", "request__subject"]
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['created_at', 'actor', 'category', 'action', 'severity', 'property_manager']
+    list_filter = ['category', 'severity', 'created_at']
+    search_fields = ['message', 'action', 'object_repr', 'actor__username']
+    readonly_fields = [
+        'actor', 'property_manager', 'category', 'action', 'message', 'severity',
+        'object_type', 'object_id', 'object_repr', 'metadata', 'ip_address', 'created_at',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

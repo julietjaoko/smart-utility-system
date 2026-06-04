@@ -370,3 +370,194 @@ class ConsumptionExporter(ExcelExporter):
                                                        fill_type='solid')
         
         return self.save(filename)
+
+
+class FinancialSummaryExporter(ExcelExporter):
+    """Executive financial summary with KPI block and monthly breakdown."""
+
+    def generate(self, report_data, filters, filename):
+        self.ws.title = 'Financial Summary'
+        start = filters['start_date_str']
+        end = filters['end_date_str']
+
+        self.ws['A1'] = 'FINANCIAL SUMMARY REPORT'
+        self.ws['A1'].font = self.title_font
+        self.ws['A2'] = f'Period: {start} to {end}'
+        self.ws['A3'] = f'Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}'
+
+        kpis = [
+            ('Total Billed (KES)', float(report_data['total_billed'])),
+            ('Total Collected (KES)', float(report_data['total_collected'])),
+            ('Outstanding (KES)', float(report_data['outstanding'])),
+            ('Collection Rate (%)', report_data['collection_rate']),
+            ('Invoices', report_data['invoice_count']),
+            ('Payments', report_data['payment_count']),
+        ]
+        row = 5
+        for label, value in kpis:
+            self.ws.cell(row=row, column=1, value=label).font = self.bold_font
+            cell = self.ws.cell(row=row, column=2, value=value)
+            cell.font = self.normal_font
+            if 'KES' in label:
+                cell.number_format = '#,##0.00'
+            row += 1
+
+        row += 1
+        headers = ['Month', 'Billed (KES)', 'Collected (KES)', 'Outstanding (KES)']
+        for col, header in enumerate(headers, 1):
+            self.ws.cell(row=row, column=col, value=header)
+        self.style_header_row(row, len(headers))
+        row += 1
+        for item in report_data.get('monthly_rows', []):
+            self.ws.cell(row=row, column=1, value=item['label'])
+            self.ws.cell(row=row, column=2, value=float(item['billed'])).number_format = '#,##0.00'
+            self.ws.cell(row=row, column=3, value=float(item.get('collected', 0))).number_format = '#,##0.00'
+            self.ws.cell(row=row, column=4, value=float(item['outstanding'])).number_format = '#,##0.00'
+            row += 1
+
+        return self.save(filename)
+
+
+class ArrearsExporter(ExcelExporter):
+    def generate(self, report_data, filters, filename):
+        self.ws.title = 'Arrears'
+        self.ws['A1'] = 'ARREARS & OUTSTANDING BALANCES'
+        self.ws['A1'].font = self.title_font
+        self.ws['A2'] = f'Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}'
+        self.ws['A3'] = f'Total outstanding: KES {float(report_data["total_balance"]):,.2f}'
+
+        headers = [
+            'Invoice #', 'Unit', 'Tenant', 'Billing Period', 'Due Date',
+            'Status', 'Total Due', 'Paid', 'Balance Due', 'Days Overdue',
+        ]
+        header_row = 5
+        for col, header in enumerate(headers, 1):
+            self.ws.cell(row=header_row, column=col, value=header)
+        self.style_header_row(header_row, len(headers))
+
+        row = header_row + 1
+        for item in report_data.get('rows', []):
+            data = [
+                item['invoice_number'],
+                item['unit'],
+                item['tenant'],
+                item['billing_period'],
+                item['due_date'].strftime('%Y-%m-%d'),
+                item['status'],
+                float(item['total_due']),
+                float(item['amount_paid']),
+                float(item['balance_due']),
+                item['days_overdue'],
+            ]
+            for col, value in enumerate(data, 1):
+                cell = self.ws.cell(row=row, column=col, value=value)
+                cell.font = self.normal_font
+                cell.border = self.border
+                if col in (7, 8, 9):
+                    cell.number_format = '#,##0.00'
+            row += 1
+
+        return self.save(filename)
+
+
+class ConsumptionSummaryExporter(ExcelExporter):
+    def generate(self, report_data, filters, filename):
+        self.ws.title = 'Consumption'
+        self.ws['A1'] = 'CONSUMPTION SUMMARY REPORT'
+        self.ws['A1'].font = self.title_font
+        self.ws['A2'] = f'Period: {filters["start_date_str"]} to {filters["end_date_str"]}'
+        self.ws['A3'] = (
+            f'Total consumption: {float(report_data["total_consumption"]):,.2f} · '
+            f'Readings: {report_data["reading_count"]} · Anomalies: {report_data["anomaly_count"]}'
+        )
+
+        headers = ['Unit', 'Meter Type', 'Total Consumption', 'Readings', 'Anomalies']
+        header_row = 5
+        for col, header in enumerate(headers, 1):
+            self.ws.cell(row=header_row, column=col, value=header)
+        self.style_header_row(header_row, len(headers))
+
+        row = header_row + 1
+        for item in report_data.get('by_unit', []):
+            self.ws.cell(row=row, column=1, value=item['meter__unit__unit_number'])
+            self.ws.cell(row=row, column=2, value=item.get('meter_label', item['meter__meter_type']))
+            self.ws.cell(row=row, column=3, value=float(item['total'] or 0)).number_format = '#,##0.00'
+            self.ws.cell(row=row, column=4, value=item['readings'])
+            self.ws.cell(row=row, column=5, value=item['anomalies'])
+            row += 1
+
+        return self.save(filename)
+
+
+class AnomalyReportExporter(ExcelExporter):
+    def generate(self, report_data, filters, filename):
+        self.ws.title = 'Anomalies'
+        self.ws['A1'] = 'METER READING ANOMALY REPORT'
+        self.ws['A1'].font = self.title_font
+        self.ws['A2'] = f'Period: {filters["start_date_str"]} to {filters["end_date_str"]}'
+
+        headers = ['Date', 'Unit', 'Meter', 'Consumption', 'Verification', 'Type', 'Recorded By']
+        header_row = 4
+        for col, header in enumerate(headers, 1):
+            self.ws.cell(row=header_row, column=col, value=header)
+        self.style_header_row(header_row, len(headers))
+
+        row = header_row + 1
+        for item in report_data.get('rows', []):
+            data = [
+                item['date'].strftime('%Y-%m-%d'),
+                item['unit'],
+                item['meter_type'],
+                float(item['consumption']),
+                item['verification_status'],
+                item['anomaly_type'],
+                item['recorded_by'],
+            ]
+            for col, value in enumerate(data, 1):
+                self.ws.cell(row=row, column=col, value=value).border = self.border
+            row += 1
+
+        return self.save(filename)
+
+
+class AuditLogExporter(ExcelExporter):
+    def generate(self, logs, filename, include_manager=False):
+        self.ws.title = 'Activity Log'
+        self.ws['A1'] = 'SYSTEM ACTIVITY LOG'
+        self.ws['A1'].font = self.title_font
+        self.ws['A2'] = f'Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}'
+
+        headers = ['Timestamp', 'Actor', 'Category', 'Action', 'Severity', 'Message', 'Object']
+        if include_manager:
+            headers.insert(2, 'Property Manager')
+        header_row = 4
+        for col, header in enumerate(headers, 1):
+            self.ws.cell(row=header_row, column=col, value=header)
+        self.style_header_row(header_row, len(headers))
+
+        row = header_row + 1
+        for entry in logs:
+            actor = entry.actor.username if entry.actor else 'System'
+            object_label = entry.object_repr or (
+                f'{entry.object_type} #{entry.object_id}' if entry.object_type else ''
+            )
+            data = [
+                entry.created_at.strftime('%Y-%m-%d %H:%M'),
+                actor,
+                entry.get_category_display(),
+                entry.action,
+                entry.get_severity_display(),
+                entry.message[:500],
+                object_label,
+            ]
+            if include_manager:
+                manager_name = ''
+                if entry.property_manager:
+                    manager_name = entry.property_manager.estate_name
+                data.insert(2, manager_name)
+
+            for col, value in enumerate(data, 1):
+                self.ws.cell(row=row, column=col, value=value).font = self.normal_font
+            row += 1
+
+        return self.save(filename)

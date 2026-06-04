@@ -12,6 +12,14 @@ from .payments import record_payment, edit_payment, delete_payment, payment_list
 from .tenant_portal import tenant_invoices, tenant_consumption_history, tenant_preferences, electricity_tokens, add_electricity_token, delete_electricity_token
 from .analytics import consumption_analytics, advanced_analytics, all_unit_performance, unit_performance
 from .exports import download_invoice_pdf, download_payment_receipt, export_invoices_excel, export_payments_excel, export_consumption_excel
+from .reports import (
+    reports_center,
+    export_report_excel,
+    activity_logs,
+    export_activity_logs_excel,
+    system_admin_activity_logs,
+    system_admin_export_activity_logs,
+)
 from .maintenance import tenant_maintenance_requests, tenant_new_maintenance_request, tenant_maintenance_detail, manager_maintenance_requests, manager_maintenance_detail
 from .system_admin import system_admin_dashboard, system_admin_manager_detail, system_admin_toggle_tenant, system_admin_managers, system_admin_create_manager, system_admin_toggle_user, system_admin_edit_manager, system_admin_edit_tenant
 
@@ -74,6 +82,12 @@ __all__ = [
     "export_invoices_excel",
     "export_payments_excel",
     "export_consumption_excel",
+    "reports_center",
+    "export_report_excel",
+    "activity_logs",
+    "export_activity_logs_excel",
+    "system_admin_activity_logs",
+    "system_admin_export_activity_logs",
     "tenant_maintenance_requests",
     "tenant_new_maintenance_request",
     "tenant_maintenance_detail",

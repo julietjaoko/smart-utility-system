@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from ..audit_log import log_audit
 from ..decorators import manager_required
 from ..forms import MeterReadingForm
 from ..models import MeterReading, PropertyManager, Unit
@@ -30,6 +31,21 @@ def enter_meter_reading(request):
             reading = form.save(commit=False)
             reading.recorded_by = request.user
             reading.save()
+
+            log_audit(
+                request=request,
+                category='READING',
+                action='READING_CREATED',
+                message=(
+                    f'Meter reading for unit {reading.meter.unit.unit_number} '
+                    f'({reading.meter.get_meter_type_display()}): {reading.consumption} units'
+                ),
+                property_manager=manager,
+                object_type='MeterReading',
+                object_id=reading.id,
+                object_repr=str(reading.meter.unit.unit_number),
+                severity='WARNING' if reading.is_anomaly else 'INFO',
+            )
             
             if reading.is_anomaly:
                 messages.warning(
@@ -74,6 +90,16 @@ def edit_meter_reading(request, reading_id):
             if updated_reading.meter_id != original_meter.id:
                 recalculate_meter_readings(updated_reading.meter)
 
+            log_audit(
+                request=request,
+                category='READING',
+                action='READING_UPDATED',
+                message=f'Updated meter reading #{reading.id} for unit {updated_reading.meter.unit.unit_number}',
+                property_manager=manager,
+                object_type='MeterReading',
+                object_id=updated_reading.id,
+                object_repr=updated_reading.meter.unit.unit_number,
+            )
             if updated_reading.is_anomaly:
                 messages.warning(request, 'Reading updated and flagged for review.')
             else:
@@ -245,6 +271,15 @@ def resolve_anomaly(request, reading_id, action):
         if action == 'verify':
             reading.verification_status = 'VERIFIED'
             reading.save()
+            log_audit(
+                request=request,
+                category='READING',
+                action='ANOMALY_VERIFIED',
+                message=f'Verified anomalous reading for unit {reading.meter.unit.unit_number}',
+                property_manager=manager,
+                object_type='MeterReading',
+                object_id=reading.id,
+            )
             messages.success(
                 request, 
                 f'✓ Reading for Unit {reading.meter.unit.unit_number} verified and cleared for billing.'
@@ -252,6 +287,16 @@ def resolve_anomaly(request, reading_id, action):
         elif action == 'reject':
             reading.verification_status = 'REJECTED'
             reading.save()
+            log_audit(
+                request=request,
+                category='READING',
+                action='ANOMALY_REJECTED',
+                message=f'Rejected anomalous reading for unit {reading.meter.unit.unit_number}',
+                property_manager=manager,
+                object_type='MeterReading',
+                object_id=reading.id,
+                severity='WARNING',
+            )
             messages.warning(
                 request, 
                 f'Reading for Unit {reading.meter.unit.unit_number} rejected. Please enter a corrected reading.'

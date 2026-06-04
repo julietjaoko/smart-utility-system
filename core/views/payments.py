@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
+from ..audit_log import log_audit
 from ..decorators import manager_required
 from ..email_utils import PaymentNotification
 from ..forms import PaymentForm
@@ -87,6 +88,20 @@ def record_payment(request, invoice_id):
                 except Exception as sms_error:
                     logger.error(f"SMS error: {str(sms_error)}")
 
+                log_audit(
+                    request=request,
+                    category='PAYMENT',
+                    action='PAYMENT_RECORDED',
+                    message=(
+                        f'Recorded KES {payment.amount_paid} via {payment.get_payment_method_display()} '
+                        f'for invoice {invoice.invoice_number}'
+                    ),
+                    property_manager=manager,
+                    object_type='Payment',
+                    object_id=payment.id,
+                    object_repr=invoice.invoice_number,
+                    metadata={'amount': str(payment.amount_paid), 'method': payment.payment_method},
+                )
                 messages.success(
                     request,
                     f'✓ Payment of KES {payment.amount_paid} recorded successfully! '
@@ -149,6 +164,16 @@ def edit_payment(request, payment_id):
                     account_balance.save()
                     recalculate_tenant_ledger(invoice.tenant)
 
+                log_audit(
+                    request=request,
+                    category='PAYMENT',
+                    action='PAYMENT_UPDATED',
+                    message=f'Updated payment on invoice {invoice.invoice_number} to KES {updated_payment.amount_paid}',
+                    property_manager=manager,
+                    object_type='Payment',
+                    object_id=updated_payment.id,
+                    object_repr=invoice.invoice_number,
+                )
                 messages.success(request, 'Payment updated successfully.')
                 return redirect('invoice_detail', invoice_id=invoice.id)
             except Exception as e:
@@ -191,10 +216,24 @@ def delete_payment(request, payment_id):
                 account_balance.save()
                 
                 amount_deleted = payment.amount_paid
+                payment_id = payment.id
+                invoice_number = invoice.invoice_number
                 payment.delete()
                 
                 # The ledger replay keeps later invoices and balances consistent after the reversal.
                 recalculate_tenant_ledger(tenant)
+
+                log_audit(
+                    request=request,
+                    category='PAYMENT',
+                    action='PAYMENT_DELETED',
+                    message=f'Reversed payment of KES {amount_deleted} on invoice {invoice_number}',
+                    property_manager=manager,
+                    object_type='Payment',
+                    object_id=payment_id,
+                    object_repr=invoice_number,
+                    severity='WARNING',
+                )
                 
             messages.success(request, f'✓ Payment of KES {amount_deleted} safely reversed. Account balance updated.')
         except Exception as e:

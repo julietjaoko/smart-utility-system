@@ -1,0 +1,263 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Reports{% endblock %}
+
+{% block breadcrumbs %}
+<nav class="breadcrumbs">
+    <a href="{% url 'manager_dashboard' %}"><i data-lucide="home" width="16" height="16"></i> Home</a>
+    <i data-lucide="chevron-right" width="16" height="16" class="separator"></i>
+    <span class="current">Reports</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: var(--spacing-lg);">
+    <div class="card-header">
+        <h1 class="card-title">
+            <i data-lucide="clipboard-list" width="28" height="28"></i>
+            Reports Center
+        </h1>
+        <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+            <a href="{% url 'activity_logs' %}" class="btn btn-secondary">
+                <i data-lucide="scroll-text" width="16" height="16"></i>
+                Activity Log
+            </a>
+            <a href="{% url 'advanced_analytics' %}" class="btn btn-secondary">
+                <i data-lucide="bar-chart-2" width="16" height="16"></i>
+                Analytics
+            </a>
+        </div>
+    </div>
+
+    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-lg);">
+        Generate management reports with shared filters. Preview on screen, then export to Excel for audits and record-keeping.
+    </p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-md); margin-bottom: var(--spacing-xl);">
+        {% for value, label, desc in report_types %}
+        <a href="?report={{ value }}&start_date={{ filters.start_date_str }}&end_date={{ filters.end_date_str }}{% if filters.unit_id %}&unit={{ filters.unit_id }}{% endif %}"
+           class="quick-action-card" style="text-decoration: none; {% if filters.report_type == value %}border-color: var(--primary); box-shadow: var(--shadow-md);{% endif %}">
+            <div class="quick-action-icon"><i data-lucide="file-bar-chart" width="20" height="20"></i></div>
+            <div>
+                <span class="quick-action-title">{{ label }}</span>
+                <span class="quick-action-desc">{{ desc }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <form method="GET" class="reading-filter-form">
+        <input type="hidden" name="report" value="{{ filters.report_type }}">
+        <div>
+            <label class="form-label">From</label>
+            <input type="date" name="start_date" value="{{ filters.start_date_str }}" class="form-input">
+        </div>
+        <div>
+            <label class="form-label">To</label>
+            <input type="date" name="end_date" value="{{ filters.end_date_str }}" class="form-input">
+        </div>
+        <div>
+            <label class="form-label">Unit (optional)</label>
+            <select name="unit" class="form-input">
+                <option value="">All units</option>
+                {% for u in filters.units %}
+                <option value="{{ u.id }}" {% if filters.unit_id == u.id|stringformat:"s" %}selected{% endif %}>{{ u.unit_number }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if filters.report_type == 'consumption' %}
+        <div>
+            <label class="form-label">Meter type</label>
+            <select name="meter_type" class="form-input">
+                <option value="">All</option>
+                <option value="WATER" {% if filters.meter_type == 'WATER' %}selected{% endif %}>Water</option>
+                <option value="ELECTRICITY" {% if filters.meter_type == 'ELECTRICITY' %}selected{% endif %}>Electricity</option>
+            </select>
+        </div>
+        {% endif %}
+        <div style="display: flex; gap: var(--spacing-sm); align-items: flex-end;">
+            <button type="submit" class="btn btn-primary">Apply filters</button>
+            <a href="{% url 'export_report_excel' %}?report={{ filters.report_type }}&start_date={{ filters.start_date_str }}&end_date={{ filters.end_date_str }}{% if filters.unit_id %}&unit={{ filters.unit_id }}{% endif %}{% if filters.meter_type %}&meter_type={{ filters.meter_type }}{% endif %}" class="btn btn-secondary">
+                <i data-lucide="download" width="16" height="16"></i>
+                Download Excel
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header" style="border-bottom: 1px solid var(--border); padding-bottom: var(--spacing-md);">
+        <h2 style="font-size: 1.25rem; font-weight: 600; margin: 0;">{{ report_data.title }}</h2>
+        {% if filters.report_type != 'arrears' %}
+        <span style="color: var(--text-secondary); font-size: 0.9rem;">{{ filters.start_date_str }} — {{ filters.end_date_str }}</span>
+        {% endif %}
+    </div>
+
+    {% if filters.report_type == 'financial' %}
+    <div class="stats-grid" style="margin-top: var(--spacing-lg);">
+        <div class="stat-card">
+            <div class="stat-label">Total Billed</div>
+            <div class="stat-value">KES {{ report_data.total_billed|floatformat:2 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Collected</div>
+            <div class="stat-value" style="color: var(--success);">KES {{ report_data.total_collected|floatformat:2 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Outstanding</div>
+            <div class="stat-value" style="color: var(--error);">KES {{ report_data.outstanding|floatformat:2 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Collection Rate</div>
+            <div class="stat-value">{{ report_data.collection_rate }}%</div>
+            <small style="color: var(--text-secondary);">{{ report_data.invoice_count }} invoices · {{ report_data.payment_count }} payments</small>
+        </div>
+    </div>
+
+    {% if report_data.monthly_rows %}
+    <h3 style="margin: var(--spacing-xl) 0 var(--spacing-md); font-size: 1rem; font-weight: 600;">Monthly breakdown</h3>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Billed (KES)</th>
+                    <th>Collected (KES)</th>
+                    <th>Outstanding (KES)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_data.monthly_rows %}
+                <tr>
+                    <td>{{ row.label }}</td>
+                    <td>{{ row.billed|floatformat:2 }}</td>
+                    <td>{{ row.collected|floatformat:2 }}</td>
+                    <td>{{ row.outstanding|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% elif filters.report_type == 'arrears' %}
+    <div class="stats-grid" style="margin-top: var(--spacing-lg); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="stat-card">
+            <div class="stat-label">Accounts in arrears</div>
+            <div class="stat-value">{{ report_data.account_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total outstanding</div>
+            <div class="stat-value" style="color: var(--error);">KES {{ report_data.total_balance|floatformat:2 }}</div>
+        </div>
+    </div>
+    {% if report_data.rows %}
+    <div class="table-container" style="margin-top: var(--spacing-lg);">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Unit</th>
+                    <th>Tenant</th>
+                    <th>Due date</th>
+                    <th>Balance (KES)</th>
+                    <th>Days overdue</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_data.rows %}
+                <tr>
+                    <td>{{ row.invoice_number }}</td>
+                    <td>{{ row.unit }}</td>
+                    <td>{{ row.tenant|default:"—" }}</td>
+                    <td>{{ row.due_date }}</td>
+                    <td style="font-weight: 600; color: var(--error);">{{ row.balance_due|floatformat:2 }}</td>
+                    <td>{% if row.days_overdue %}{{ row.days_overdue }}{% else %}—{% endif %}</td>
+                    <td>{{ row.status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="padding: var(--spacing-xl); color: var(--text-secondary); text-align: center;">No outstanding balances for the selected filters.</p>
+    {% endif %}
+
+    {% elif filters.report_type == 'consumption' %}
+    <div class="stats-grid" style="margin-top: var(--spacing-lg);">
+        <div class="stat-card">
+            <div class="stat-label">Total consumption</div>
+            <div class="stat-value">{{ report_data.total_consumption|floatformat:2 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Readings</div>
+            <div class="stat-value">{{ report_data.reading_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Anomalies</div>
+            <div class="stat-value" style="color: var(--warning);">{{ report_data.anomaly_count }}</div>
+        </div>
+    </div>
+    {% if report_data.by_unit %}
+    <div class="table-container" style="margin-top: var(--spacing-lg);">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Unit</th>
+                    <th>Meter</th>
+                    <th>Consumption</th>
+                    <th>Readings</th>
+                    <th>Anomalies</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_data.by_unit %}
+                <tr>
+                    <td>{{ row.meter__unit__unit_number }}</td>
+                    <td>{{ row.meter_label }}</td>
+                    <td>{{ row.total|floatformat:2 }}</td>
+                    <td>{{ row.readings }}</td>
+                    <td>{{ row.anomalies }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% elif filters.report_type == 'anomalies' %}
+    <p style="margin-top: var(--spacing-md); color: var(--text-secondary);">{{ report_data.total }} flagged reading(s) in period</p>
+    {% if report_data.rows %}
+    <div class="table-container" style="margin-top: var(--spacing-md);">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Unit</th>
+                    <th>Meter</th>
+                    <th>Consumption</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_data.rows %}
+                <tr>
+                    <td>{{ row.date }}</td>
+                    <td>{{ row.unit }}</td>
+                    <td>{{ row.meter_type }}</td>
+                    <td>{{ row.consumption|floatformat:2 }}</td>
+                    <td>{{ row.verification_status }}</td>
+                    <td>{{ row.anomaly_type }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="padding: var(--spacing-xl); color: var(--text-secondary); text-align: center;">No anomalies in this period.</p>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
