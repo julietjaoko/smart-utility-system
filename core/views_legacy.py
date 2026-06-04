@@ -31,6 +31,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def refresh_invoice_statuses(invoices):
+    """Refresh only open invoices because paid invoices no longer change with time."""
     for invoice in invoices.filter(status__in=['UNPAID', 'PARTIALLY_PAID', 'OVERDUE']):
         invoice.update_status()
 
@@ -108,6 +109,7 @@ def recalculate_tenant_ledger(tenant):
 
 
 def tenant_can_log_tokens(tenant):
+    """Allow manual token logging only where no active electricity meter exists."""
     if not tenant.unit:
         return False
     return not Meter.objects.filter(
@@ -118,6 +120,7 @@ def tenant_can_log_tokens(tenant):
 
 
 def recalculate_meter_readings(meter):
+    """Replay readings in date order so edited historical readings update later consumption."""
     for reading in MeterReading.objects.filter(meter=meter).order_by('reading_date', 'id'):
         reading.save()
 
@@ -190,23 +193,20 @@ def manager_dashboard(request):
     Property Manager dashboard with statistics and quick actions.
     Shows key metrics like total units, readings, and active tenants.
     """
-    # Ensure user is a property manager
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied: You do not have Property Manager privileges.')
         return redirect('login')
     
     try:
-        # Get property manager object
         manager = PropertyManager.objects.get(user=request.user)
         
-        # Calculate statistics
+        # Dashboard cards show current estate activity, not lifetime totals.
         total_units = Unit.objects.filter(manager=manager).count()
         active_tenants = Tenant.objects.filter(
             unit__manager=manager,
             is_active=True
         ).count()
         
-        # Get meter readings from current month
         from django.utils import timezone
         current_month = timezone.now().month
         current_year = timezone.now().year
@@ -235,7 +235,6 @@ def tenant_dashboard(request):
     """
     Tenant dashboard to view personal utility usage and invoices.
     """
-    # Security: Ensure user is a tenant
     if request.user.role != 'TENANT':
         messages.error(request, 'Access denied: You do not have Tenant privileges.')
         return redirect('login')
@@ -291,25 +290,19 @@ def add_unit(request):
     manager = PropertyManager.objects.get(user=request.user)
     
     if request.method == 'POST':
-        # Pass the submitted data to the form
         form = UnitForm(request.POST)
         
-        # Django automatically validates all fields!
         if form.is_valid():
-            # commit=False creates the object but pauses before saving to the DB
+            # The manager is assigned server-side so ownership cannot be changed from the form.
             unit = form.save(commit=False)
-            
-            # Attach the manager automatically (so the user can't spoof it)
             unit.manager = manager
             unit.save()
             
             messages.success(request, f'✓ Unit {unit.unit_number} added successfully')
             return redirect('manage_units')
         else:
-            # If validation fails, Django automatically generates error messages
             messages.error(request, 'Please correct the errors below.')
     else:
-        # If it's a GET request, just show an empty form
         form = UnitForm()
     
     return render(request, 'core/add_unit.html', {'form': form})
@@ -323,7 +316,7 @@ def manage_tenants(request):
     
     manager = PropertyManager.objects.get(user=request.user)
     
-    # NEW QUERY: Get tenants currently in a unit OR tenants with past invoices in your units
+    # Past invoices keep former tenants visible for billing history and payment follow-up.
     tenants = Tenant.objects.filter(
         Q(unit__manager=manager) | Q(invoice__unit__manager=manager)
     ).distinct()
@@ -338,18 +331,14 @@ def enter_meter_reading(request):
     manager = PropertyManager.objects.get(user=request.user)
     
     if request.method == 'POST':
-        # Pass data, files, and the manager to the form
         form = MeterReadingForm(request.POST, request.FILES, manager=manager)
         
         if form.is_valid():
-            # Create reading but pause before saving to DB
+            # The model save handles consumption and anomaly checks once the recorder is attached.
             reading = form.save(commit=False)
             reading.recorded_by = request.user
-            
-            # The model's save() method automatically calculates consumption & anomalies!
             reading.save()
             
-            # Show success/warning toast based on anomaly detection
             if reading.is_anomaly:
                 messages.warning(
                     request,
@@ -366,7 +355,6 @@ def enter_meter_reading(request):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        # GET request - load empty form with today's date
         form = MeterReadingForm(manager=manager)
         form.initial['reading_date'] = timezone.now().date()
     
@@ -515,7 +503,6 @@ def meter_reading_detail(request, reading_id):
     Display detailed view of a single meter reading.
     Shows full information including photo, consumption, and history.
     """
-    # Security check
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
@@ -523,20 +510,18 @@ def meter_reading_detail(request, reading_id):
     try:
         manager = PropertyManager.objects.get(user=request.user)
         
-        # Get the reading
         reading = get_object_or_404(
             MeterReading,
             id=reading_id,
             meter__unit__manager=manager
         )
         
-        # Get previous 5 readings for this meter
+        # A short history gives context without making the detail page noisy.
         previous_readings = MeterReading.objects.filter(
             meter=reading.meter,
             reading_date__lt=reading.reading_date
         ).order_by('-reading_date')[:5]
         
-        # Calculate average consumption
         if previous_readings.count() > 0:
             avg_consumption = sum(r.consumption for r in previous_readings) / previous_readings.count()
         else:
@@ -561,7 +546,6 @@ def consumption_analytics(request):
     Display consumption analytics with charts and statistics.
     Shows trends, comparisons, and insights for property managers.
     """
-    # Security check
     if request.user.role != 'PROPERTY_MANAGER':
         messages.error(request, 'Access denied')
         return redirect('tenant_dashboard')
@@ -569,27 +553,25 @@ def consumption_analytics(request):
     try:
         manager = PropertyManager.objects.get(user=request.user)
         
-        # Get selected unit or show all units
         selected_unit = request.GET.get('unit')
         if selected_unit:
             units = Unit.objects.filter(id=selected_unit, manager=manager)
         else:
             units = Unit.objects.filter(manager=manager)
         
-        # Get meter type filter
         meter_type = request.GET.get('meter_type', 'WATER')
         
-        # Get last 6 months of readings
+        # Six months keeps the chart focused on recent usage patterns.
         six_months_ago = timezone.now() - timedelta(days=180)
         readings = MeterReading.objects.filter(
             meter__unit__in=units,
             meter__meter_type=meter_type,
             reading_date__gte=six_months_ago
         ).exclude(
-            verification_status='REJECTED'  # Add this line!
+            verification_status='REJECTED'
         ).order_by('reading_date')
         
-        # Prepare data for line chart (monthly consumption)
+        # Readings are grouped by month because the chart compares billing-period trends.
         monthly_data = {}
         for reading in readings:
             month_key = reading.reading_date.strftime('%Y-%m')
@@ -597,16 +579,13 @@ def consumption_analytics(request):
                 monthly_data[month_key] = 0
             monthly_data[month_key] += float(reading.consumption)
         
-        # Sort by date
         sorted_months = sorted(monthly_data.keys())
         chart_labels = [timezone.datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months]
         chart_data = [monthly_data[m] for m in sorted_months]
         
-        # Calculate statistics
         total_consumption = sum(chart_data)
         avg_monthly = total_consumption / len(chart_data) if chart_data else 0
         
-        # Highest and lowest consumption months
         if chart_data:
             max_consumption = max(chart_data)
             min_consumption = min(chart_data)
@@ -618,10 +597,7 @@ def consumption_analytics(request):
             max_month = 'N/A'
             min_month = 'N/A'
         
-        # Count anomalies
         anomaly_count = readings.filter(is_anomaly=True).count()
-        
-        # Get all units for dropdown
         all_units = Unit.objects.filter(manager=manager)
         
         context = {
@@ -964,11 +940,10 @@ def billing_wizard_preview(request):
         })
         
     if request.method == 'POST':
-        # Final Commit: Execute database saves
         invoices_created = 0
         errors = []
         
-        # Sequence Number Generator
+        # The sequence continues from the last invoice in the same billing month.
         last_invoice = Invoice.objects.filter(
             invoice_number__startswith=f"INV-{billing_date.strftime('%Y-%m')}"
         ).order_by('-invoice_number').first()
@@ -976,10 +951,10 @@ def billing_wizard_preview(request):
         
         for data in preview_data:
             tenant = data['tenant']
-            invoice = None # Keep track of the invoice for notifications
+            invoice = None
 
             try:
-                # 1. ATOMIC BLOCK: Strictly for Database Operations
+                # Each invoice is saved in its own transaction so one failed unit does not block the rest.
                 with transaction.atomic():
                     invoice_number = f"INV-{billing_date.strftime('%Y-%m')}-{new_seq:03d}"
                     
@@ -1002,7 +977,6 @@ def billing_wizard_preview(request):
                     invoice.calculate_totals()
                     invoice.save()
                     
-                    # Update Account Balance
                     acc, _ = AccountBalance.objects.get_or_create(tenant=tenant)
                     acc.current_balance = invoice.total_due
                     acc.save()
@@ -1012,10 +986,7 @@ def billing_wizard_preview(request):
                     new_seq += 1
                     invoices_created += 1
 
-                # 2. NOTIFICATIONS: Placed outside the atomic block!
-                # We do this here so slow network calls don't lock up the database.
-                
-                # Send email notification
+                # Notifications run after saving so slow external services do not hold database locks.
                 if tenant.user.email:
                     try:
                         preferences = TenantPreferences.objects.filter(tenant=tenant).first()
@@ -1023,10 +994,9 @@ def billing_wizard_preview(request):
                             email_notifier = InvoiceNotification()
                             email_notifier.send_invoice_notification(invoice)
                     except Exception as email_error:
-                        # Log it, but don't fail the whole invoice creation
+                        # Notification failures should not undo a valid invoice.
                         logger.error(f"Email error for {tenant}: {str(email_error)}")
 
-                # Send SMS notification
                 if tenant.phone_number:
                     try:
                         preferences = TenantPreferences.objects.filter(tenant=tenant).first()
@@ -1039,10 +1009,9 @@ def billing_wizard_preview(request):
                         logger.error(f"SMS error for {tenant}: {str(sms_error)}")
 
             except Exception as e:
-                # If the DB fails, it safely rolls back here without affecting other tenants in the loop
                 errors.append(f"Error generating for {data['unit'].unit_number}: {str(e)}")
                 
-        del request.session['billing_month'] # Clear session
+        del request.session['billing_month']
         
         if errors:
             messages.warning(request, f'Generated {invoices_created} invoices, but encountered errors: {"; ".join(errors)}')
@@ -1197,7 +1166,6 @@ def record_payment(request, invoice_id):
     recalculate_tenant_ledger(invoice.tenant)
     invoice.refresh_from_db()
     
-    # Calculate total already paid
     total_paid = Payment.objects.filter(invoice=invoice).aggregate(
         total=Sum('amount_paid')
     )['total'] or Decimal('0.00')
@@ -1209,21 +1177,19 @@ def record_payment(request, invoice_id):
         
         if form.is_valid():
             try:
-                # 1. ATOMIC BLOCK: Save Payment and Update Account Balance safely
+                # Payment and balance changes must commit together to keep the tenant ledger consistent.
                 with transaction.atomic():
-                    # Create payment record
                     payment = form.save(commit=False)
                     payment.invoice = invoice
                     payment.recorded_by = request.user
                     
-                    # If method is not MPESA, clear out the mpesa fields just in case
+                    # Non-M-Pesa payments should not retain stale mobile-money details from the form.
                     if payment.payment_method != 'MPESA':
                         payment.mpesa_reference = None
                         payment.mpesa_phone = None
                         
-                    payment.save() # This triggers invoice.update_status() automatically
+                    payment.save()
                     
-                    # Update tenant account balance
                     tenant = invoice.tenant
                     account_balance, created = AccountBalance.objects.select_for_update().get_or_create(
                         tenant=tenant,
@@ -1233,7 +1199,7 @@ def record_payment(request, invoice_id):
                     account_balance.save()
                     recalculate_tenant_ledger(tenant)
 
-                # 2. NOTIFICATIONS (Outside the atomic block)
+                # Receipts are sent after the database work so delivery problems do not cancel payment.
                 try:
                     email_notifier = PaymentNotification()
                     email_notifier.send_payment_confirmation(payment)
@@ -2913,8 +2879,7 @@ def add_tenant(request):
                     email = form.cleaned_data['email']
                     password = form.cleaned_data['password']
                     
-                    # 1. Create the base User account
-                    # We use the email as their username for easy login
+                    # The email doubles as username so tenants have one login identifier to remember.
                     user = User.objects.create_user(
                         username=email,
                         email=email,
@@ -2924,7 +2889,7 @@ def add_tenant(request):
                         role='TENANT'
                     )
                     
-                    # 2. Create the linked Tenant profile
+                    # The profile stores rental details separately from authentication details.
                     tenant = Tenant.objects.create(
                         user=user,
                         unit=form.cleaned_data['unit'],
@@ -2944,12 +2909,11 @@ def add_tenant(request):
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
-        # GET request: Check if we clicked from a specific unit page
         initial_data = {}
         if 'unit_id' in request.GET:
             initial_data['unit'] = request.GET.get('unit_id')
             
-        # Pass the initial data to pre-fill the dropdown!
+        # Opening the form from a unit page preselects that unit for faster onboarding.
         form = TenantCreationForm(manager=manager, initial=initial_data)
         
     return render(request, 'core/add_tenant.html', {'form': form})
@@ -2964,12 +2928,11 @@ def change_password(request):
         form = PasswordChangeForm(request.user, request.POST)
         if form.is_valid():
             user = form.save()
-            # Important: Keep the user logged in after password change
+            # Django rotates the auth hash on password change, so the session must be refreshed.
             update_session_auth_hash(request, user)
             
             messages.success(request, '✓ Your password was successfully updated!')
             
-            # Redirect back to their respective dashboard
             if request.user.role == 'PROPERTY_MANAGER':
                 return redirect('manager_dashboard')
             else:
@@ -2991,7 +2954,7 @@ def edit_tenant(request, tenant_id):
         
     manager = PropertyManager.objects.get(user=request.user)
     
-    # Safely fetch the tenant using the Q object to ensure they belong to this manager's property
+    # Former tenants remain editable if they still have invoices under this manager's units.
     tenant = get_object_or_404(
         Tenant.objects.distinct(),
         Q(id=tenant_id) & (Q(unit__manager=manager) | Q(invoice__unit__manager=manager))
@@ -3003,17 +2966,15 @@ def edit_tenant(request, tenant_id):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # 1. Update the base User model
                     user = tenant.user
                     user.first_name = form.cleaned_data['first_name']
                     user.last_name = form.cleaned_data['last_name']
                     user.save()
                     
-                    # 2. Update the Tenant profile
                     tenant.phone_number = form.cleaned_data['phone_number']
                     tenant.unit = form.cleaned_data['unit']
                     
-                    # If they are assigned a unit, ensure they are marked as active
+                    # Reassigning a unit reactivates the tenant account for normal portal access.
                     if tenant.unit:
                         tenant.is_active = True
                         user.is_active = True
@@ -3056,17 +3017,16 @@ def generate_final_invoice(request, tenant_id):
         today = timezone.now().date()
         billing_period = f"Final - {today.strftime('%B %Y')}"
         
-        # Prevent double generation
+        # A tenant should receive only one final invoice for the same move-out period.
         if Invoice.objects.filter(tenant=tenant, billing_period=billing_period).exists():
             messages.error(request, 'A final invoice has already been generated for this tenant this month.')
             return redirect('unit_detail', unit_id=unit.id)
 
-        # 1. Get active rates and charges
         water_rate_config = RateConfig.objects.filter(manager=manager, utility_type='WATER', is_active=True).first()
         elec_rate_config = RateConfig.objects.filter(manager=manager, utility_type='ELECTRICITY', is_active=True).first()
         fixed_charges = FixedCharge.objects.filter(manager=manager, is_active=True)
 
-        # 2. Prorate fixed charges based on the day of the month
+        # Fixed monthly charges are prorated so moving out mid-month is billed fairly.
         _, days_in_month = monthrange(today.year, today.month)
         proration_factor = Decimal(today.day) / Decimal(days_in_month)
         
@@ -3077,7 +3037,7 @@ def generate_final_invoice(request, tenant_id):
             total_fixed_charges += prorated_amount
             fixed_charges_breakdown[f"{charge.charge_name} (Prorated)"] = str(prorated_amount)
 
-        # 3. Get Final Consumption
+        # The latest verified reading represents the final consumption to include.
         water_units = Decimal('0.00')
         electricity_units = Decimal('0.00')
 
@@ -3099,12 +3059,12 @@ def generate_final_invoice(request, tenant_id):
                 if latest_reading:
                     electricity_units = latest_reading.consumption
 
-        # 4. Get Previous Balance
+        # The carried balance is recalculated first so the final invoice closes the ledger correctly.
         prev_balance = recalculate_tenant_ledger(tenant)
 
         try:
             with transaction.atomic():
-                # Generate unique Final Invoice Number
+                # The sequence keeps final invoice numbers readable while avoiding duplicates.
                 last_invoice = Invoice.objects.filter(
                     invoice_number__startswith=f"INV-FIN-{today.strftime('%Y-%m')}"
                 ).order_by('-invoice_number').first()
@@ -3116,7 +3076,7 @@ def generate_final_invoice(request, tenant_id):
                     tenant=tenant,
                     invoice_number=invoice_number,
                     invoice_date=today,
-                    due_date=today + timedelta(days=3), # Short due date for move-outs
+                    due_date=today + timedelta(days=3),  # Move-out invoices need faster settlement.
                     billing_period=billing_period,
                     water_units=water_units,
                     water_rate=water_rate_config.rate_per_unit if water_rate_config else Decimal('0.00'),
@@ -3130,7 +3090,6 @@ def generate_final_invoice(request, tenant_id):
                 invoice.calculate_totals()
                 invoice.save()
 
-                # Update Account Balance
                 acc, _ = AccountBalance.objects.get_or_create(tenant=tenant)
                 acc.current_balance = invoice.total_due
                 acc.save()
@@ -3144,8 +3103,6 @@ def generate_final_invoice(request, tenant_id):
             messages.error(request, f'Error generating final invoice: {str(e)}')
             return redirect('unit_detail', unit_id=unit.id)
 
-    # Note: For a quick implementation, you don't even need a separate HTML page.
-    # We can just redirect back to the unit detail if it's not a POST request.
     return redirect('unit_detail', unit_id=unit.id)
 
 @manager_required
@@ -3155,7 +3112,6 @@ def delete_payment(request, payment_id):
     tenant's account balance.
     """
     manager = PropertyManager.objects.get(user=request.user)
-    # Ensure this payment belongs to a unit managed by this manager
     payment = get_object_or_404(Payment, id=payment_id, invoice__unit__manager=manager)
     invoice = payment.invoice
     tenant = invoice.tenant
@@ -3163,7 +3119,7 @@ def delete_payment(request, payment_id):
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                # 1. Reverse the account balance (add the money back to their debt)
+                # Deleting a payment restores the amount to the tenant's outstanding balance.
                 account_balance, _ = AccountBalance.objects.select_for_update().get_or_create(
                     tenant=tenant,
                     defaults={'current_balance': Decimal('0.00')}
@@ -3171,11 +3127,10 @@ def delete_payment(request, payment_id):
                 account_balance.current_balance += payment.amount_paid
                 account_balance.save()
                 
-                # 2. Delete the payment
                 amount_deleted = payment.amount_paid
                 payment.delete()
                 
-                # 3. Re-calculate the invoice status (e.g., changing it from PAID back to UNPAID)
+                # The ledger replay keeps later invoices and balances consistent after the reversal.
                 recalculate_tenant_ledger(tenant)
                 
             messages.success(request, f'✓ Payment of KES {amount_deleted} safely reversed. Account balance updated.')
