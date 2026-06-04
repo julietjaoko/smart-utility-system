@@ -9,6 +9,7 @@ from openpyxl import load_workbook
 
 from .models import (
     AccountBalance,
+    AuditLog,
     Invoice,
     Meter,
     MeterReading,
@@ -278,3 +279,61 @@ class LoginMessageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Invalid username or password.')
         self.assertNotContains(response, 'Property Manager profile not found')
+
+
+class ActivityLogExportTests(TestCase):
+    def setUp(self):
+        self.manager_user = User.objects.create_user(
+            username='manager-log-export@example.com',
+            password='password',
+            role='PROPERTY_MANAGER',
+        )
+        self.manager = PropertyManager.objects.create(
+            user=self.manager_user,
+            estate_name='Log Estate',
+        )
+        self.admin_user = User.objects.create_user(
+            username='admin-log-export@example.com',
+            password='password',
+            role='SYSTEM_ADMIN',
+        )
+        AuditLog.objects.create(
+            actor=self.manager_user,
+            property_manager=self.manager,
+            category='AUTH',
+            action='LOGIN',
+            message='Manager signed in',
+        )
+
+    def test_manager_activity_log_export_downloads_workbook(self):
+        self.client.force_login(self.manager_user)
+
+        response = self.client.get(reverse('export_activity_logs_excel'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        workbook = load_workbook(BytesIO(response.content))
+        worksheet = workbook['Activity Log']
+        self.assertEqual(worksheet['A1'].value, 'SYSTEM ACTIVITY LOG')
+        self.assertEqual(worksheet['C5'].value, 'Authentication')
+        self.assertEqual(worksheet['D5'].value, 'LOGIN')
+
+    def test_system_admin_activity_log_export_downloads_workbook(self):
+        self.client.force_login(self.admin_user)
+
+        response = self.client.get(reverse('system_admin_export_activity_logs'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        workbook = load_workbook(BytesIO(response.content))
+        worksheet = workbook['Activity Log']
+        self.assertEqual(worksheet['A1'].value, 'SYSTEM ACTIVITY LOG')
+        self.assertEqual(worksheet['C4'].value, 'Property Manager')
+        self.assertEqual(worksheet['D5'].value, 'Authentication')
+        self.assertEqual(worksheet['E5'].value, 'LOGIN')

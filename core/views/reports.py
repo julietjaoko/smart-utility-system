@@ -1,13 +1,12 @@
 import logging
-import os
 from datetime import datetime
 
-from django.conf import settings
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ..decorators import manager_required, system_admin_required
+from ..export_helpers import excel_http_response
 from ..excel_exporter import (
     AnomalyReportExporter,
     ArrearsExporter,
@@ -151,21 +150,10 @@ def export_activity_logs_excel(request):
     manager = _get_manager(request)
     logs = list(_activity_log_queryset(request, manager=manager)[:5000])
 
-    temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
-    os.makedirs(temp_dir, exist_ok=True)
     filename = f'activity_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-    filepath = os.path.join(temp_dir, filename)
-
     exporter = AuditLogExporter()
-    exporter.generate(logs, filepath)
-
-    with open(filepath, 'rb') as f:
-        response = HttpResponse(
-            f.read(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+    exporter.generate(logs, None)
+    return excel_http_response(exporter.wb, filename)
 
 
 @system_admin_required
@@ -192,18 +180,7 @@ def system_admin_activity_logs(request):
 def system_admin_export_activity_logs(request):
     logs = list(_activity_log_queryset(request, manager=None)[:10000])
 
-    temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
-    os.makedirs(temp_dir, exist_ok=True)
     filename = f'platform_activity_log_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-    filepath = os.path.join(temp_dir, filename)
-
     exporter = AuditLogExporter()
-    exporter.generate(logs, filepath, include_manager=True)
-
-    with open(filepath, 'rb') as f:
-        response = HttpResponse(
-            f.read(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+    exporter.generate(logs, None, include_manager=True)
+    return excel_http_response(exporter.wb, filename)
