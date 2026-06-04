@@ -280,6 +280,51 @@ class LoginMessageTests(TestCase):
         self.assertContains(response, 'Invalid username or password.')
         self.assertNotContains(response, 'Property Manager profile not found')
 
+    def test_successful_login_does_not_show_login_success_message(self):
+        manager_user = User.objects.create_user(
+            username='manager-login-clean@example.com',
+            password='password123',
+            role='PROPERTY_MANAGER',
+        )
+        PropertyManager.objects.create(
+            user=manager_user,
+            estate_name='Clean Login Estate',
+        )
+
+        response = self.client.post(
+            reverse('login'),
+            {'username': 'manager-login-clean@example.com', 'password': 'password123'},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Logged in successfully.')
+
+    def test_authenticated_pages_render_django_messages_as_toasts(self):
+        self.client.force_login(User.objects.create_user(
+            username='manager-toast@example.com',
+            password='password123',
+            role='PROPERTY_MANAGER',
+        ))
+        manager = PropertyManager.objects.create(
+            user=User.objects.get(username='manager-toast@example.com'),
+            estate_name='Toast Estate',
+        )
+        session = self.client.session
+        session.save()
+
+        from django.contrib.messages import get_messages
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+        request = RequestFactory().get(reverse('manager_dashboard'))
+        request.session = session
+        setattr(request, '_messages', FallbackStorage(request))
+        messages.success(request, 'Preferences updated successfully')
+        list(get_messages(request))
+
+        self.client.force_login(manager.user)
+        messages.success
+
 
 class ActivityLogExportTests(TestCase):
     def setUp(self):

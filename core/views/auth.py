@@ -54,7 +54,6 @@ def login_view(request):
             )
 
             if user.is_superuser or user.role == "SYSTEM_ADMIN":
-                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("system_admin_dashboard")
 
             if user.role == "PROPERTY_MANAGER" and not PropertyManager.objects.filter(user=user).exists():
@@ -68,13 +67,10 @@ def login_view(request):
                 return redirect("login")
 
             if user.role == "PROPERTY_MANAGER":
-                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("manager_dashboard")
             elif user.role == "TENANT":
-                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("tenant_dashboard")
             else:
-                messages.success(request, "Logged in successfully.", extra_tags="login-success")
                 return redirect("/admin/")
 
         messages.error(request, "Invalid username or password.", extra_tags="invalid-login")

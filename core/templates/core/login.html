@@ -60,12 +60,6 @@
     gap: 8px;
 }
 
-.login-alert-success {
-    background-color: #ECFDF5;
-    color: #065F46;
-    border-color: #A7F3D0;
-}
-
 @media (max-width: 768px) {
     .auth-shell {
         padding: var(--spacing-sm);
@@ -100,9 +94,9 @@
 
         {% if messages %}
             {% for message in messages %}
-                {% if 'invalid-login' in message.tags or 'login-success' in message.tags %}
-                <div class="login-alert {% if 'login-success' in message.tags %}login-alert-success{% endif %}">
-                    <i data-lucide="{% if 'login-success' in message.tags %}check-circle{% else %}alert-circle{% endif %}" width="18" height="18"></i>
+                {% if 'invalid-login' in message.tags %}
+                <div class="login-alert">
+                    <i data-lucide="alert-circle" width="18" height="18"></i>
                     <span>{{ message }}</span>
                 </div>
                 {% endif %}

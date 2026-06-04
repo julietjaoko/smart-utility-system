@@ -562,6 +562,19 @@
         </div>
     </div>
 
+    {% if request.user.is_authenticated and messages %}
+    <div class="toast-container" aria-live="polite" aria-atomic="true">
+        {% for message in messages %}
+            {% if 'invalid-login' not in message.tags and 'login-success' not in message.tags %}
+            <div class="toast {% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'success' in message.tags %}success{% else %}info{% endif %}">
+                <i data-lucide="{% if 'error' in message.tags %}alert-circle{% elif 'warning' in message.tags %}alert-triangle{% elif 'success' in message.tags %}check-circle{% else %}info{% endif %}" width="18" height="18"></i>
+                <span>{{ message }}</span>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if request.user.is_authenticated %}
     <div class="app-layout">
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
