@@ -395,6 +395,79 @@ class AfricasTalkingSMSTests(TestCase):
         self.assertEqual(result['error'], 'InvalidPhoneNumber')
 
 
+class ReportsCenterExportTests(TestCase):
+    def setUp(self):
+        self.manager_user = User.objects.create_user(
+            username='manager-report-export@example.com',
+            password='password',
+            role='PROPERTY_MANAGER',
+        )
+        self.manager = PropertyManager.objects.create(
+            user=self.manager_user,
+            estate_name='Report Estate',
+        )
+        self.unit = Unit.objects.create(
+            unit_number='R1',
+            estate_name='Report Estate',
+            manager=self.manager,
+        )
+        self.tenant_user = User.objects.create_user(
+            username='tenant-report-export@example.com',
+            password='password',
+            role='TENANT',
+        )
+        self.tenant = Tenant.objects.create(user=self.tenant_user, unit=self.unit)
+        self.meter = Meter.objects.get(unit=self.unit, meter_type='WATER')
+
+        self.invoice = Invoice.objects.create(
+            unit=self.unit,
+            tenant=self.tenant,
+            invoice_number='INV-REPORT-001',
+            invoice_date=timezone.now().date(),
+            due_date=timezone.now().date() - timedelta(days=5),
+            billing_period='June 2026',
+            subtotal=Decimal('1000.00'),
+            total_due=Decimal('1000.00'),
+            status='OVERDUE',
+            generated_by=self.manager_user,
+        )
+        Payment.objects.create(
+            invoice=self.invoice,
+            payment_date=timezone.now().date(),
+            amount_paid=Decimal('250.00'),
+            payment_method='CASH',
+            recorded_by=self.manager_user,
+        )
+        MeterReading.objects.create(
+            meter=self.meter,
+            reading_value=Decimal('200.00'),
+            reading_date=timezone.now(),
+            consumption=Decimal('80.00'),
+            is_anomaly=True,
+            anomaly_type='HIGH_USAGE',
+            verification_status='PENDING',
+            recorded_by=self.manager_user,
+        )
+
+    def test_all_report_center_excel_exports_download_workbooks(self):
+        self.client.force_login(self.manager_user)
+
+        for report_type in ('financial', 'arrears', 'consumption', 'anomalies'):
+            with self.subTest(report_type=report_type):
+                response = self.client.get(
+                    reverse('export_report_excel'),
+                    {'report': report_type},
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response['Content-Type'],
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                )
+                workbook = load_workbook(BytesIO(response.content))
+                self.assertGreaterEqual(len(workbook.sheetnames), 1)
+
+
 class ActivityLogExportTests(TestCase):
     def setUp(self):
         self.manager_user = User.objects.create_user(

@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 
 from django.core.paginator import Paginator
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ..decorators import manager_required, system_admin_required
@@ -74,8 +73,6 @@ def export_report_excel(request):
     filters = parse_report_filters(request, manager)
     report_data = _build_report_payload(manager, filters)
 
-    temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
-    os.makedirs(temp_dir, exist_ok=True)
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     report_type = filters['report_type']
 
@@ -92,16 +89,8 @@ def export_report_excel(request):
         exporter = FinancialSummaryExporter()
         filename = f'financial_report_{stamp}.xlsx'
 
-    filepath = os.path.join(temp_dir, filename)
-    exporter.generate(report_data, filters, filepath)
-
-    with open(filepath, 'rb') as f:
-        response = HttpResponse(
-            f.read(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+    exporter.generate(report_data, filters, None)
+    return excel_http_response(exporter.wb, filename)
 
 
 def _activity_log_queryset(request, manager=None):
