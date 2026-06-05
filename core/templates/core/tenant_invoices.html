@@ -161,7 +161,7 @@
             </div>
         </div>
 
-        <form id="mpesa-payment-form">
+        <form id="mpesa-payment-form" data-no-loader>
             {% csrf_token %}
             <div class="form-group" style="max-width: 400px;">
                 <label for="mpesa-phone-input">M-Pesa Phone Number</label>
@@ -283,6 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (form) {
         form.addEventListener('submit', function(event) {
             event.preventDefault();
+            if (window.SUMSLoader) window.SUMSLoader.hide();
             const phone = document.getElementById('mpesa-phone-input').value.trim();
             if (!phone) { showMpesaFeedback('Please enter a phone number.', 'error'); return; }
 

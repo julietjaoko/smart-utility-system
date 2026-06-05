@@ -219,6 +219,15 @@ class MpesaStkStatusTests(TestCase):
         self.assertEqual(payload['result_code'], 1032)
         self.assertEqual(payload['message'], 'Request cancelled by user')
 
+    def test_tenant_mpesa_ajax_form_does_not_trigger_global_page_loader(self):
+        self.client.force_login(self.tenant_user)
+
+        response = self.client.get(reverse('tenant_invoices'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<form id="mpesa-payment-form" data-no-loader>')
+        self.assertContains(response, 'window.SUMSLoader')
+
 
 class ConsumptionExportTests(TestCase):
     def setUp(self):
@@ -340,6 +349,27 @@ class ConsumptionAnalyticsFinalReadingTests(TestCase):
         self.assertEqual(report['total_consumption'], Decimal('20.00'))
         self.assertEqual(report['reading_count'], 1)
         self.assertEqual(report['anomaly_count'], 1)
+
+    def test_advanced_analytics_excludes_negative_consumption_from_final_metrics(self):
+        negative = MeterReading.objects.create(
+            meter=self.meter,
+            reading_value=Decimal('10.00'),
+            reading_date=timezone.now() - timedelta(days=2),
+            recorded_by=self.manager_user,
+        )
+        MeterReading.objects.filter(pk=negative.pk).update(
+            consumption=Decimal('-10.00'),
+            is_anomaly=True,
+            anomaly_type='negative_consumption',
+            verification_status='VERIFIED',
+        )
+
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse('advanced_analytics'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['water_consumption'], Decimal('20.00'))
+        self.assertNotIn('-10.0', response.context['water_monthly'])
 
 
 class TenantConsumptionAlertTests(TestCase):

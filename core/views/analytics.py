@@ -172,7 +172,10 @@ def advanced_analytics(request):
             meter__unit__manager=manager,
             reading_date__year=year
         ).exclude(verification_status='REJECTED')
-        consumption_this_year = all_consumption_this_year.filter(verification_status='VERIFIED')
+        consumption_this_year = all_consumption_this_year.filter(
+            verification_status='VERIFIED',
+            consumption__gte=0,
+        )
         
         # Water vs Electricity breakdown
         water_consumption = consumption_this_year.filter(
