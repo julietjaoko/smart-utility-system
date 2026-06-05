@@ -57,7 +57,7 @@ def reports_center(request):
         'filters': filters,
         'report_data': report_data,
         'report_types': [
-            ('financial', 'Financial Summary', 'Billed vs collected, collection rate, payment methods'),
+            ('financial', 'Financial Summary', 'Billed vs collected, collection rate, payments'),
             ('arrears', 'Arrears & Outstanding', 'Unpaid balances by unit with days overdue'),
             ('consumption', 'Consumption Summary', 'Usage totals and per-unit breakdown'),
             ('anomalies', 'Anomaly Report', 'Flagged meter readings requiring review'),
