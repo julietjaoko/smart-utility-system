@@ -425,7 +425,17 @@ class ConsumptionAnalyticsFinalReadingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['water_consumption'], Decimal('20.00'))
+        self.assertEqual(response.context['anomaly_readings'], 2)
         self.assertNotIn('-10.0', response.context['water_monthly'])
+
+    def test_advanced_analytics_anomaly_card_shows_count_not_zero_rate(self):
+        self.client.force_login(self.manager_user)
+
+        response = self.client.get(reverse('advanced_analytics'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<div class="stat-label">Anomalies</div>')
+        self.assertContains(response, '<div class="stat-value" style="color: var(--warning);">1</div>')
 
 
 class TenantConsumptionAlertTests(TestCase):

@@ -168,11 +168,11 @@ def advanced_analytics(request):
             collected_data.append(float(item['paid'] or 0))
         
         # Consumption Analytics
-        all_consumption_this_year = MeterReading.objects.filter(
+        readings_this_year = MeterReading.objects.filter(
             meter__unit__manager=manager,
             reading_date__year=year
-        ).exclude(verification_status='REJECTED')
-        consumption_this_year = all_consumption_this_year.filter(
+        )
+        consumption_this_year = readings_this_year.filter(
             verification_status='VERIFIED',
             consumption__gte=0,
         )
@@ -237,12 +237,12 @@ def advanced_analytics(request):
         ).order_by('-total_consumption')[:5]
         
         # Anomaly statistics
-        total_readings = all_consumption_this_year.count()
-        anomaly_readings = all_consumption_this_year.filter(is_anomaly=True).count()
+        total_readings = readings_this_year.count()
+        anomaly_readings = readings_this_year.filter(is_anomaly=True).count()
         anomaly_rate = (anomaly_readings / total_readings * 100) if total_readings > 0 else 0
         
         # Anomaly breakdown (Changed from 'anomaly_type' to 'verification_status')
-        anomaly_breakdown = all_consumption_this_year.filter(
+        anomaly_breakdown = readings_this_year.filter(
             is_anomaly=True
         ).values('verification_status').annotate(count=Count('id'))
         
