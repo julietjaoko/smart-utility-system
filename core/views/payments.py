@@ -395,8 +395,7 @@ def initiate_mpesa_payment(request, invoice_id):
 
         return JsonResponse({
             'success': False,
-            'error': response.get('error', 'M-Pesa API error'),
-            'response_code': response.get('response_code')
+            'error': response.get('error', 'M-Pesa request failed. Please try again.'),
         })
 
     except Exception as e:
@@ -461,8 +460,6 @@ def mpesa_payment_status(request, invoice_id):
             'success': status in ('PAID', 'PENDING'),
             'status': status,
             'message': message,
-            'result_code': result.get('result_code'),
-            'response_code': result.get('response_code'),
         })
 
     except Exception as e:

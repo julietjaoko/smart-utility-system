@@ -198,6 +198,27 @@ class MpesaStkStatusTests(TestCase):
             reverse('mpesa_payment_status', args=[self.invoice.id]),
         )
 
+    @patch('core.mpesa.MpesaDarajaSandbox.initiate_stk_push')
+    def test_stk_initiation_failure_returns_message_without_codes(self, mock_stk_push):
+        mock_stk_push.return_value = {
+            'success': False,
+            'error': 'Payment was cancelled on the phone.',
+            'response_code': '1032',
+        }
+        self.client.force_login(self.tenant_user)
+
+        response = self.client.post(
+            reverse('initiate_mpesa_payment', args=[self.invoice.id]),
+            {'phone_number': '0712345678'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload['success'])
+        self.assertEqual(payload['error'], 'Payment was cancelled on the phone.')
+        self.assertNotIn('response_code', payload)
+        self.assertNotIn('result_code', payload)
+
     @patch('core.mpesa.MpesaDarajaSandbox.query_stk_status')
     def test_stk_status_returns_failed_prompt_quickly(self, mock_status):
         mock_status.return_value = {
@@ -217,8 +238,9 @@ class MpesaStkStatusTests(TestCase):
         payload = response.json()
         self.assertFalse(payload['success'])
         self.assertEqual(payload['status'], 'FAILED')
-        self.assertEqual(payload['result_code'], 1032)
         self.assertEqual(payload['message'], 'Payment was cancelled on the phone.')
+        self.assertNotIn('result_code', payload)
+        self.assertNotIn('response_code', payload)
 
     def test_daraja_json_error_is_converted_to_readable_message(self):
         raw_error = '{"ResultCode":1032,"ResultDesc":"Request cancelled by user"}'
@@ -260,6 +282,7 @@ class MpesaStkStatusTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<form id="mpesa-payment-form" data-no-loader>')
         self.assertContains(response, 'window.SUMSLoader')
+        self.assertContains(response, 'function readableMpesaMessage')
 
 
 class ConsumptionExportTests(TestCase):

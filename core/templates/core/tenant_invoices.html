@@ -219,6 +219,7 @@ function closeMpesaPanel() {
 
 function showMpesaFeedback(message, type) {
     const feedback = document.getElementById('mpesa-feedback');
+    message = readableMpesaMessage(message);
     feedback.hidden = false;
     feedback.textContent = message;
     if (type === 'success') {
@@ -228,6 +229,37 @@ function showMpesaFeedback(message, type) {
         feedback.style.backgroundColor = '#FEE2E2';
         feedback.style.color = '#991B1B';
     }
+}
+
+function readableMpesaMessage(message) {
+    const fallback = 'M-Pesa request failed. Please try again.';
+    const codeMessages = {
+        '0': 'Payment completed successfully.',
+        '1': 'Payment could not be completed. Please try again.',
+        '1032': 'Payment was cancelled on the phone.',
+        '1037': 'M-Pesa prompt timed out. Please try again.',
+        '2001': 'Wrong M-Pesa PIN entered. Please try again.'
+    };
+
+    if (message === null || message === undefined) return fallback;
+    if (typeof message !== 'string') message = String(message);
+
+    const cleaned = message.trim();
+    if (!cleaned) return fallback;
+    if (codeMessages[cleaned]) return codeMessages[cleaned];
+
+    if (cleaned.startsWith('{') || cleaned.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(cleaned);
+            const code = parsed.ResultCode || parsed.result_code || parsed.ResponseCode || parsed.response_code;
+            if (codeMessages[String(code)]) return codeMessages[String(code)];
+            return parsed.ResultDesc || parsed.errorMessage || parsed.ResponseDescription || parsed.error || fallback;
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    return cleaned;
 }
 
 function stopMpesaStatusPolling() {
