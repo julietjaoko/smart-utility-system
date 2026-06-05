@@ -4,10 +4,55 @@ Handles STK Push and payment confirmation callbacks.
 """
 
 import base64
+import json
 from datetime import datetime
 
 import requests
 from django.conf import settings
+
+
+MPESA_RESULT_MESSAGES = {
+    0: 'Payment completed successfully.',
+    1: 'Payment could not be completed. Please try again.',
+    1032: 'Payment was cancelled on the phone.',
+    1037: 'M-Pesa prompt timed out. Please try again.',
+    2001: 'Wrong M-Pesa PIN entered. Please try again.',
+}
+
+
+def readable_mpesa_message(value, default='M-Pesa request failed. Please try again.'):
+    """Return a user-safe sentence from Daraja text, JSON, or result codes."""
+    if isinstance(value, dict):
+        for key in ('ResultCode', 'result_code'):
+            if key in value:
+                message = readable_mpesa_message(value[key], default='')
+                if message:
+                    return message
+        for key in ('errorMessage', 'ResultDesc', 'ResponseDescription', 'error_description', 'error'):
+            if value.get(key):
+                return readable_mpesa_message(value[key], default=default)
+        return default
+
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return default
+        if cleaned.startswith('{') or cleaned.startswith('['):
+            try:
+                return readable_mpesa_message(json.loads(cleaned), default=default)
+            except ValueError:
+                return default
+        return cleaned
+
+    if isinstance(value, int) and value in MPESA_RESULT_MESSAGES:
+        return MPESA_RESULT_MESSAGES[value]
+
+    if isinstance(value, str) and value.isdigit():
+        code = int(value)
+        if code in MPESA_RESULT_MESSAGES:
+            return MPESA_RESULT_MESSAGES[code]
+
+    return default
 
 
 class MpesaDarajaSandbox:
@@ -49,7 +94,8 @@ class MpesaDarajaSandbox:
 
             return {
                 'success': False,
-                'error': result.get('errorMessage') or result.get('error_description') or response.text,
+                'error': readable_mpesa_message(result or response.text, 'Could not authenticate with M-Pesa. Please try again.'),
+                'response': result,
             }
 
         except requests.RequestException as exc:
@@ -120,7 +166,8 @@ class MpesaDarajaSandbox:
             except ValueError:
                 return {
                     'success': False,
-                    'error': f'Invalid JSON response from M-Pesa: {response.text}',
+                    'error': 'M-Pesa returned an unreadable response. Please try again.',
+                    'raw_response': response.text,
                 }
 
             if response.status_code == 200 and result.get('ResponseCode') == '0':
@@ -135,8 +182,9 @@ class MpesaDarajaSandbox:
 
             return {
                 'success': False,
-                'error': result.get('errorMessage') or result.get('ResponseDescription') or response.text,
+                'error': readable_mpesa_message(result or response.text),
                 'response_code': result.get('ResponseCode'),
+                'response': result,
             }
 
         except requests.RequestException as exc:
@@ -191,7 +239,8 @@ class MpesaDarajaSandbox:
                 return {
                     'success': False,
                     'status': 'FAILED',
-                    'error': f'Invalid JSON response from M-Pesa: {response.text}',
+                    'error': 'M-Pesa returned an unreadable status response. Please try again.',
+                    'raw_response': response.text,
                 }
 
             result_code = result.get('ResultCode')
@@ -204,7 +253,7 @@ class MpesaDarajaSandbox:
                         'success': True,
                         'status': 'PAID',
                         'result_code': result_code,
-                        'result_desc': result_desc or 'Payment completed successfully.',
+                        'result_desc': readable_mpesa_message(result_code, result_desc or 'Payment completed successfully.'),
                         'response': result,
                     }
 
@@ -213,7 +262,7 @@ class MpesaDarajaSandbox:
                         'success': False,
                         'status': 'FAILED',
                         'result_code': result_code,
-                        'result_desc': result_desc or 'Payment was not completed.',
+                        'result_desc': readable_mpesa_message(result_code, result_desc or 'Payment was not completed.'),
                         'response': result,
                     }
 
@@ -228,7 +277,7 @@ class MpesaDarajaSandbox:
                 'success': False,
                 'status': 'FAILED',
                 'response_code': response_code,
-                'error': result.get('errorMessage') or result_desc or response.text,
+                'error': readable_mpesa_message(result or result_desc or response.text),
                 'response': result,
             }
 
@@ -276,7 +325,7 @@ def process_mpesa_callback(callback_data):
         return {
             'success': False,
             'result_code': result_code,
-            'result_desc': stk_callback.get('ResultDesc'),
+            'result_desc': readable_mpesa_message(result_code, stk_callback.get('ResultDesc') or 'Payment was not completed.'),
         }
 
     except Exception as exc:

@@ -25,7 +25,7 @@ from ..models import (
     PropertyManager,
     Tenant,
 )
-from ..mpesa import process_mpesa_callback
+from ..mpesa import process_mpesa_callback, readable_mpesa_message
 from ..sms_utils import PaymentSMS
 from .helpers import recalculate_tenant_ledger
 
@@ -452,10 +452,9 @@ def mpesa_payment_status(request, invoice_id):
         elif status == 'PENDING':
             message = result.get('result_desc', 'Payment is still pending.')
         else:
-            message = (
-                result.get('result_desc')
-                or result.get('error')
-                or 'Payment was not completed.'
+            message = readable_mpesa_message(
+                result.get('result_code'),
+                result.get('result_desc') or result.get('error') or 'Payment was not completed.',
             )
 
         return JsonResponse({
@@ -543,11 +542,14 @@ def mpesa_webhook(request, invoice_id):
         try:
             # Parse Safaricom's JSON payload
             callback_data = json.loads(request.body)
-            print("\n=== SAFARICOM WEBHOOK RECEIVED ===")
-            print(json.dumps(callback_data, indent=2))
-            print("==================================\n")
             
             result = process_mpesa_callback(callback_data)
+            logger.info(
+                "M-Pesa webhook for invoice %s: success=%s result_code=%s",
+                invoice_id,
+                result.get('success'),
+                result.get('result_code'),
+            )
             
             if result.get('success'):
                 amount_paid = Decimal(str(result['amount']))

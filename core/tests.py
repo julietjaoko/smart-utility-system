@@ -22,6 +22,7 @@ from .models import (
     User,
 )
 from .sms_utils import AfricasTalkingSMS
+from .mpesa import readable_mpesa_message
 from .views import recalculate_tenant_ledger
 
 
@@ -217,7 +218,39 @@ class MpesaStkStatusTests(TestCase):
         self.assertFalse(payload['success'])
         self.assertEqual(payload['status'], 'FAILED')
         self.assertEqual(payload['result_code'], 1032)
-        self.assertEqual(payload['message'], 'Request cancelled by user')
+        self.assertEqual(payload['message'], 'Payment was cancelled on the phone.')
+
+    def test_daraja_json_error_is_converted_to_readable_message(self):
+        raw_error = '{"ResultCode":1032,"ResultDesc":"Request cancelled by user"}'
+
+        message = readable_mpesa_message(raw_error)
+
+        self.assertEqual(message, 'Payment was cancelled on the phone.')
+
+    @patch('core.mpesa.MpesaDarajaSandbox.get_access_token')
+    @patch('core.mpesa.requests.post')
+    def test_stk_initiation_failure_does_not_return_raw_json(self, mock_post, mock_token):
+        from .mpesa import MpesaDarajaSandbox
+
+        mock_token.return_value = {'success': True, 'access_token': 'token'}
+        mock_post.return_value.status_code = 400
+        mock_post.return_value.json.return_value = {
+            'ResultCode': 1032,
+            'ResultDesc': 'Request cancelled by user',
+        }
+        mock_post.return_value.text = '{"ResultCode":1032,"ResultDesc":"Request cancelled by user"}'
+
+        result = MpesaDarajaSandbox().initiate_stk_push(
+            phone_number='0712345678',
+            amount=100,
+            account_reference='INV-MPESA-001',
+            transaction_desc='Payment for INV-MPESA-001',
+            callback_url='https://example.com/mpesa/callback/',
+        )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['error'], 'Payment was cancelled on the phone.')
+        self.assertNotIn('{', result['error'])
 
     def test_tenant_mpesa_ajax_form_does_not_trigger_global_page_loader(self):
         self.client.force_login(self.tenant_user)
