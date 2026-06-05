@@ -47,13 +47,14 @@ def consumption_analytics(request):
         
         # Six months keeps the chart focused on recent usage patterns.
         six_months_ago = timezone.now() - timedelta(days=180)
-        readings = MeterReading.objects.filter(
+        base_readings = MeterReading.objects.filter(
             meter__unit__in=units,
             meter__meter_type=meter_type,
             reading_date__gte=six_months_ago
         ).exclude(
             verification_status='REJECTED'
         ).order_by('reading_date')
+        readings = base_readings.filter(verification_status='VERIFIED')
         
         # Readings are grouped by month because the chart compares billing-period trends.
         monthly_data = {}
@@ -81,7 +82,7 @@ def consumption_analytics(request):
             max_month = 'N/A'
             min_month = 'N/A'
         
-        anomaly_count = readings.filter(is_anomaly=True).count()
+        anomaly_count = base_readings.filter(is_anomaly=True).count()
         all_units = Unit.objects.filter(manager=manager)
         
         context = {
@@ -167,10 +168,11 @@ def advanced_analytics(request):
             collected_data.append(float(item['paid'] or 0))
         
         # Consumption Analytics
-        consumption_this_year = MeterReading.objects.filter(
+        all_consumption_this_year = MeterReading.objects.filter(
             meter__unit__manager=manager,
             reading_date__year=year
-        )
+        ).exclude(verification_status='REJECTED')
+        consumption_this_year = all_consumption_this_year.filter(verification_status='VERIFIED')
         
         # Water vs Electricity breakdown
         water_consumption = consumption_this_year.filter(
@@ -232,12 +234,12 @@ def advanced_analytics(request):
         ).order_by('-total_consumption')[:5]
         
         # Anomaly statistics
-        total_readings = consumption_this_year.count()
-        anomaly_readings = consumption_this_year.filter(is_anomaly=True).count()
+        total_readings = all_consumption_this_year.count()
+        anomaly_readings = all_consumption_this_year.filter(is_anomaly=True).count()
         anomaly_rate = (anomaly_readings / total_readings * 100) if total_readings > 0 else 0
         
         # Anomaly breakdown (Changed from 'anomaly_type' to 'verification_status')
-        anomaly_breakdown = consumption_this_year.filter(
+        anomaly_breakdown = all_consumption_this_year.filter(
             is_anomaly=True
         ).values('verification_status').annotate(count=Count('id'))
         
@@ -325,10 +327,11 @@ def all_unit_performance(request):
     utility_type = request.GET.get('utility_type', '').strip().upper()
     search_query = request.GET.get('search', '').strip()
 
-    readings = MeterReading.objects.filter(
+    all_readings = MeterReading.objects.filter(
         meter__unit__manager=manager,
         reading_date__year=year
     ).exclude(verification_status='REJECTED')
+    readings = all_readings.filter(verification_status='VERIFIED')
 
     if utility_type in ['WATER', 'ELECTRICITY']:
         readings = readings.filter(meter__meter_type=utility_type)
@@ -384,7 +387,7 @@ def unit_performance(request, unit_id):
         readings = MeterReading.objects.filter(
             meter__unit=unit,
             reading_date__gte=start_date
-        ).select_related('meter').order_by('reading_date')
+        ).filter(verification_status='VERIFIED').select_related('meter').order_by('reading_date')
         
         # Organize by meter type
         water_readings = readings.filter(meter__meter_type='WATER')

@@ -179,23 +179,24 @@ def build_arrears_report(manager, unit=None):
 
 
 def build_consumption_report(manager, start_date, end_date, unit=None, meter_type=''):
-    readings = MeterReading.objects.filter(
+    base_readings = MeterReading.objects.filter(
         meter__unit__manager=manager,
         reading_date__date__gte=start_date,
         reading_date__date__lte=end_date,
     ).exclude(verification_status='REJECTED').select_related('meter__unit')
 
     if unit:
-        readings = readings.filter(meter__unit=unit)
+        base_readings = base_readings.filter(meter__unit=unit)
     if meter_type in ('WATER', 'ELECTRICITY'):
-        readings = readings.filter(meter__meter_type=meter_type)
+        base_readings = base_readings.filter(meter__meter_type=meter_type)
+
+    readings = base_readings.filter(verification_status='VERIFIED')
 
     totals = readings.aggregate(
         total=Coalesce(Sum('consumption'), Value(Decimal('0'))),
-        anomalies=Count('id', filter=Q(is_anomaly=True)),
     )
     total_consumption = totals['total'] or Decimal('0')
-    anomaly_count = totals['anomalies'] or 0
+    anomaly_count = base_readings.filter(is_anomaly=True).count()
     reading_count = readings.count()
 
     by_unit = list(

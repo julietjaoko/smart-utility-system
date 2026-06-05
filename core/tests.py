@@ -186,6 +186,77 @@ class ConsumptionExportTests(TestCase):
         self.assertEqual(worksheet['H5'].value, 45)
 
 
+class ConsumptionAnalyticsFinalReadingTests(TestCase):
+    def setUp(self):
+        self.manager_user = User.objects.create_user(
+            username='manager-analytics-final@example.com',
+            password='password',
+            role='PROPERTY_MANAGER',
+        )
+        self.manager = PropertyManager.objects.create(
+            user=self.manager_user,
+            estate_name='Analytics Estate',
+        )
+        self.unit = Unit.objects.create(
+            unit_number='A2',
+            estate_name='Analytics Estate',
+            manager=self.manager,
+        )
+        self.meter = Meter.objects.get(unit=self.unit, meter_type='WATER')
+        now = timezone.now()
+
+        verified = MeterReading.objects.create(
+            meter=self.meter,
+            reading_value=Decimal('20.00'),
+            reading_date=now - timedelta(days=10),
+            recorded_by=self.manager_user,
+        )
+        MeterReading.objects.filter(pk=verified.pk).update(
+            consumption=Decimal('20.00'),
+            is_anomaly=False,
+            anomaly_type='',
+            verification_status='VERIFIED',
+        )
+
+        pending = MeterReading.objects.create(
+            meter=self.meter,
+            reading_value=Decimal('1020.00'),
+            reading_date=now - timedelta(days=5),
+            recorded_by=self.manager_user,
+        )
+        MeterReading.objects.filter(pk=pending.pk).update(
+            consumption=Decimal('1000.00'),
+            is_anomaly=True,
+            anomaly_type='hard_limit_exceeded',
+            verification_status='PENDING',
+        )
+
+    def test_consumption_analytics_totals_use_only_verified_readings(self):
+        self.client.force_login(self.manager_user)
+
+        response = self.client.get(reverse('consumption_analytics'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_consumption'], 20.0)
+        self.assertEqual(response.context['chart_data'], '[20.0]')
+        self.assertEqual(response.context['anomaly_count'], 1)
+
+    def test_reports_center_consumption_totals_use_only_verified_readings(self):
+        from .reporting.services import build_consumption_report
+
+        today = timezone.now().date()
+
+        report = build_consumption_report(
+            self.manager,
+            today - timedelta(days=30),
+            today + timedelta(days=1),
+        )
+
+        self.assertEqual(report['total_consumption'], Decimal('20.00'))
+        self.assertEqual(report['reading_count'], 1)
+        self.assertEqual(report['anomaly_count'], 1)
+
+
 class TenantConsumptionAlertTests(TestCase):
     def setUp(self):
         self.manager_user = User.objects.create_user(
