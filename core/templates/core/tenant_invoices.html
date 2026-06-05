@@ -183,6 +183,7 @@
 <script>
 let currentMpesaUrl = '';
 let currentInvoiceNumber = '';
+let mpesaPollTimer = null;
 
 function openMpesaPanel(paymentUrl, invoiceNumber, originalTotal, amountPaid, balanceDue) {
     currentMpesaUrl = paymentUrl;
@@ -211,6 +212,7 @@ function openMpesaPanel(paymentUrl, invoiceNumber, originalTotal, amountPaid, ba
 }
 
 function closeMpesaPanel() {
+    stopMpesaStatusPolling();
     document.getElementById('mpesa-panel').hidden = true;
     document.getElementById('mpesa-feedback').hidden = true;
 }
@@ -226,6 +228,52 @@ function showMpesaFeedback(message, type) {
         feedback.style.backgroundColor = '#FEE2E2';
         feedback.style.color = '#991B1B';
     }
+}
+
+function stopMpesaStatusPolling() {
+    if (mpesaPollTimer) {
+        clearInterval(mpesaPollTimer);
+        mpesaPollTimer = null;
+    }
+}
+
+function startMpesaStatusPolling(statusUrl, checkoutRequestId) {
+    stopMpesaStatusPolling();
+    if (!statusUrl || !checkoutRequestId) return;
+
+    let attempts = 0;
+    const maxAttempts = 15;
+
+    mpesaPollTimer = setInterval(function() {
+        attempts += 1;
+        fetch(`${statusUrl}?checkout_request_id=${encodeURIComponent(checkoutRequestId)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'PAID') {
+                    stopMpesaStatusPolling();
+                    showMpesaFeedback('Payment received. Refreshing invoice status...', 'success');
+                    setTimeout(() => window.location.reload(), 1200);
+                    return;
+                }
+
+                if (data.status === 'FAILED') {
+                    stopMpesaStatusPolling();
+                    showMpesaFeedback(data.message || data.error || 'Payment was not completed.', 'error');
+                    return;
+                }
+
+                if (attempts >= maxAttempts) {
+                    stopMpesaStatusPolling();
+                    showMpesaFeedback('Payment was not confirmed in time. If you completed it, refresh in a moment; otherwise try again.', 'error');
+                }
+            })
+            .catch(() => {
+                if (attempts >= maxAttempts) {
+                    stopMpesaStatusPolling();
+                    showMpesaFeedback('Unable to confirm payment status right now. Please try again or refresh shortly.', 'error');
+                }
+            });
+    }, 6000);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -248,15 +296,19 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(res => res.json())
             .then(data => {
-                if (data.success) showMpesaFeedback(`STK push sent for ${currentInvoiceNumber}. Check the phone and complete the prompt.`, 'success');
-                else showMpesaFeedback(data.error || 'Payment request failed.', 'error');
+                if (data.success) {
+                    showMpesaFeedback(`STK push sent for ${currentInvoiceNumber}. Check the phone and complete the prompt.`, 'success');
+                    startMpesaStatusPolling(data.status_url, data.checkout_request_id);
+                } else {
+                    showMpesaFeedback(data.error || 'Payment request failed.', 'error');
+                }
             })
             .catch(() => showMpesaFeedback('Unable to send payment request right now.', 'error'))
             .finally(() => {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i data-lucide="send" width="16" height="16"></i> Send STK Push';
                 lucide.createIcons();
-            });
+            })
         });
     }
 });

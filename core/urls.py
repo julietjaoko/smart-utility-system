@@ -35,6 +35,7 @@ urlpatterns = [
     path('manager/payments/', views.payment_list, name='payment_list'),
     path('payments/<int:payment_id>/edit/', views.edit_payment, name='edit_payment'),
     path('invoices/<int:invoice_id>/mpesa/', views.initiate_mpesa_payment, name='initiate_mpesa_payment'),
+    path('invoices/<int:invoice_id>/mpesa/status/', views.mpesa_payment_status, name='mpesa_payment_status'),
     path('mpesa/callback/', views.mpesa_callback, name='mpesa_callback'),
     path('tenant/invoices/', views.tenant_invoices, name='tenant_invoices'),
     path('tenant/consumption/', views.tenant_consumption_history, name='tenant_consumption_history'),

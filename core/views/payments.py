@@ -390,6 +390,7 @@ def initiate_mpesa_payment(request, invoice_id):
                 ),
                 'checkout_request_id': response.get('checkout_request_id'),
                 'merchant_request_id': response.get('merchant_request_id'),
+                'status_url': reverse('mpesa_payment_status', args=[invoice.id]),
             })
 
         return JsonResponse({
@@ -404,6 +405,74 @@ def initiate_mpesa_payment(request, invoice_id):
             'success': False,
             'error': f'M-Pesa request failed: {str(e)}'
         })
+
+
+@login_required
+def mpesa_payment_status(request, invoice_id):
+    """
+    Query Daraja for the latest STK push state so failed prompts surface quickly.
+    """
+    checkout_request_id = request.GET.get('checkout_request_id', '').strip()
+    if not checkout_request_id:
+        return JsonResponse({
+            'success': False,
+            'status': 'FAILED',
+            'error': 'Checkout request ID is required.',
+        }, status=400)
+
+    if request.user.role == 'PROPERTY_MANAGER':
+        manager = PropertyManager.objects.get(user=request.user)
+        invoice = get_object_or_404(Invoice, id=invoice_id, unit__manager=manager)
+    elif request.user.role == 'TENANT':
+        tenant = Tenant.objects.get(user=request.user)
+        invoice = get_object_or_404(Invoice, id=invoice_id, tenant=tenant)
+    else:
+        return JsonResponse({
+            'success': False,
+            'status': 'FAILED',
+            'error': 'Unauthorized role.',
+        }, status=403)
+
+    recalculate_tenant_ledger(invoice.tenant)
+    invoice.refresh_from_db()
+    if invoice.status == 'PAID':
+        return JsonResponse({
+            'success': True,
+            'status': 'PAID',
+            'message': 'Payment received and invoice marked as paid.',
+        })
+
+    try:
+        from ..mpesa import MpesaDarajaSandbox
+
+        result = MpesaDarajaSandbox().query_stk_status(checkout_request_id)
+        status = result.get('status', 'FAILED')
+        if status == 'PAID':
+            message = 'Payment completed. Waiting for M-Pesa callback to post the receipt.'
+        elif status == 'PENDING':
+            message = result.get('result_desc', 'Payment is still pending.')
+        else:
+            message = (
+                result.get('result_desc')
+                or result.get('error')
+                or 'Payment was not completed.'
+            )
+
+        return JsonResponse({
+            'success': status in ('PAID', 'PENDING'),
+            'status': status,
+            'message': message,
+            'result_code': result.get('result_code'),
+            'response_code': result.get('response_code'),
+        })
+
+    except Exception as e:
+        logger.exception("M-Pesa status check failed for invoice %s", invoice.id)
+        return JsonResponse({
+            'success': False,
+            'status': 'FAILED',
+            'error': f'M-Pesa status check failed: {str(e)}',
+        }, status=500)
 
 @csrf_exempt
 def mpesa_callback(request):

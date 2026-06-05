@@ -20,6 +20,7 @@ class MpesaDarajaSandbox:
 
         self.auth_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
         self.stk_push_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        self.stk_query_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query'
 
     def get_access_token(self):
         if not self.consumer_key or not self.consumer_secret:
@@ -142,6 +143,100 @@ class MpesaDarajaSandbox:
             return {
                 'success': False,
                 'error': f'STK push request failed: {exc}',
+            }
+
+    def query_stk_status(self, checkout_request_id):
+        token_result = self.get_access_token()
+        if not token_result.get('success'):
+            return token_result
+
+        if not self.passkey:
+            return {
+                'success': False,
+                'error': 'M-Pesa passkey is missing in settings.',
+            }
+
+        if not checkout_request_id:
+            return {
+                'success': False,
+                'error': 'Checkout request ID is required.',
+            }
+
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        password_str = f"{self.business_short_code}{self.passkey}{timestamp}"
+        password = base64.b64encode(password_str.encode()).decode()
+
+        payload = {
+            'BusinessShortCode': self.business_short_code,
+            'Password': password,
+            'Timestamp': timestamp,
+            'CheckoutRequestID': checkout_request_id,
+        }
+        headers = {
+            'Authorization': f"Bearer {token_result['access_token']}",
+            'Content-Type': 'application/json',
+        }
+
+        try:
+            response = requests.post(
+                self.stk_query_url,
+                json=payload,
+                headers=headers,
+                timeout=15,
+            )
+
+            try:
+                result = response.json()
+            except ValueError:
+                return {
+                    'success': False,
+                    'status': 'FAILED',
+                    'error': f'Invalid JSON response from M-Pesa: {response.text}',
+                }
+
+            result_code = result.get('ResultCode')
+            response_code = result.get('ResponseCode')
+            result_desc = result.get('ResultDesc') or result.get('ResponseDescription') or ''
+
+            if response.status_code == 200 and response_code == '0':
+                if result_code in (0, '0'):
+                    return {
+                        'success': True,
+                        'status': 'PAID',
+                        'result_code': result_code,
+                        'result_desc': result_desc or 'Payment completed successfully.',
+                        'response': result,
+                    }
+
+                if result_code is not None:
+                    return {
+                        'success': False,
+                        'status': 'FAILED',
+                        'result_code': result_code,
+                        'result_desc': result_desc or 'Payment was not completed.',
+                        'response': result,
+                    }
+
+                return {
+                    'success': True,
+                    'status': 'PENDING',
+                    'result_desc': result_desc or 'Payment is still pending.',
+                    'response': result,
+                }
+
+            return {
+                'success': False,
+                'status': 'FAILED',
+                'response_code': response_code,
+                'error': result.get('errorMessage') or result_desc or response.text,
+                'response': result,
+            }
+
+        except requests.RequestException as exc:
+            return {
+                'success': False,
+                'status': 'FAILED',
+                'error': f'STK status query failed: {exc}',
             }
 
     def format_phone_number(self, phone_number):

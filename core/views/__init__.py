@@ -8,7 +8,7 @@ from .tenants import manage_tenants, add_tenant, edit_tenant, deactivate_tenant,
 from .meter_readings import enter_meter_reading, edit_meter_reading, meter_reading_list, meter_reading_detail, resolve_anomaly
 from .rates import manage_rates, add_rate, add_fixed_charge, delete_fixed_charge
 from .billing import billing_wizard_start, billing_wizard_rates, billing_wizard_preview, invoice_list, invoice_detail, bulk_delete_invoices, bulk_send_invoices, send_invoice_reminder
-from .payments import record_payment, edit_payment, delete_payment, payment_list, initiate_mpesa_payment, mpesa_callback, mpesa_webhook
+from .payments import record_payment, edit_payment, delete_payment, payment_list, initiate_mpesa_payment, mpesa_payment_status, mpesa_callback, mpesa_webhook
 from .tenant_portal import tenant_invoices, tenant_consumption_history, tenant_preferences, electricity_tokens, add_electricity_token, delete_electricity_token
 from .analytics import consumption_analytics, advanced_analytics, all_unit_performance, unit_performance
 from .exports import download_invoice_pdf, download_payment_receipt, export_invoices_excel, export_payments_excel, export_consumption_excel
@@ -65,6 +65,7 @@ __all__ = [
     "delete_payment",
     "payment_list",
     "initiate_mpesa_payment",
+    "mpesa_payment_status",
     "mpesa_callback",
     "mpesa_webhook",
     "tenant_invoices",

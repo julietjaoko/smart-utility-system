@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import timedelta
 from io import BytesIO
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from django.urls import reverse
 from django.test import TestCase
@@ -133,6 +133,91 @@ class BillingLedgerTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Insights')
+
+
+class MpesaStkStatusTests(TestCase):
+    def setUp(self):
+        self.manager_user = User.objects.create_user(
+            username='manager-mpesa@example.com',
+            password='password',
+            role='PROPERTY_MANAGER',
+        )
+        self.manager = PropertyManager.objects.create(
+            user=self.manager_user,
+            estate_name='Mpesa Estate',
+        )
+        self.unit = Unit.objects.create(
+            unit_number='M1',
+            estate_name='Mpesa Estate',
+            manager=self.manager,
+        )
+        self.tenant_user = User.objects.create_user(
+            username='tenant-mpesa@example.com',
+            password='password',
+            role='TENANT',
+        )
+        self.tenant = Tenant.objects.create(
+            user=self.tenant_user,
+            unit=self.unit,
+            phone_number='0712345678',
+        )
+        self.invoice = Invoice.objects.create(
+            unit=self.unit,
+            tenant=self.tenant,
+            invoice_number='INV-MPESA-001',
+            invoice_date=timezone.now().date(),
+            due_date=timezone.now().date() + timedelta(days=7),
+            billing_period='June 2026',
+            subtotal=Decimal('1000.00'),
+            total_due=Decimal('1000.00'),
+            generated_by=self.manager_user,
+        )
+
+    @patch('core.mpesa.MpesaDarajaSandbox.initiate_stk_push')
+    def test_stk_initiation_returns_status_url(self, mock_stk_push):
+        mock_stk_push.return_value = {
+            'success': True,
+            'checkout_request_id': 'ws_CO_test',
+            'merchant_request_id': 'mr_test',
+            'response_description': 'Success. Request accepted for processing',
+        }
+        self.client.force_login(self.tenant_user)
+
+        response = self.client.post(
+            reverse('initiate_mpesa_payment', args=[self.invoice.id]),
+            {'phone_number': '0712345678'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['checkout_request_id'], 'ws_CO_test')
+        self.assertEqual(
+            payload['status_url'],
+            reverse('mpesa_payment_status', args=[self.invoice.id]),
+        )
+
+    @patch('core.mpesa.MpesaDarajaSandbox.query_stk_status')
+    def test_stk_status_returns_failed_prompt_quickly(self, mock_status):
+        mock_status.return_value = {
+            'success': False,
+            'status': 'FAILED',
+            'result_code': 1032,
+            'result_desc': 'Request cancelled by user',
+        }
+        self.client.force_login(self.tenant_user)
+
+        response = self.client.get(
+            reverse('mpesa_payment_status', args=[self.invoice.id]),
+            {'checkout_request_id': 'ws_CO_test'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload['success'])
+        self.assertEqual(payload['status'], 'FAILED')
+        self.assertEqual(payload['result_code'], 1032)
+        self.assertEqual(payload['message'], 'Request cancelled by user')
 
 
 class ConsumptionExportTests(TestCase):
